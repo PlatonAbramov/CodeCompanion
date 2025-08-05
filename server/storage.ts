@@ -1,8 +1,9 @@
 import { 
-  users, projects, expenses, documents, advances, userProjects,
+  users, projects, expenses, documents, advances, customerAdvances, userProjects,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
-  type Advance, type InsertAdvance, type UserProject, type InsertUserProject
+  type Advance, type InsertAdvance, type CustomerAdvance, type InsertCustomerAdvance,
+  type UserProject, type InsertUserProject
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -36,6 +37,10 @@ export interface IStorage {
   getProjectAdvances(projectId: string): Promise<Advance[]>;
   createAdvance(advance: InsertAdvance): Promise<Advance>;
   
+  // Customer Advances
+  getProjectCustomerAdvances(projectId: string): Promise<CustomerAdvance[]>;
+  createCustomerAdvance(customerAdvance: InsertCustomerAdvance): Promise<CustomerAdvance>;
+  
   // User Projects
   assignUserToProject(userId: string, projectId: string): Promise<UserProject>;
   
@@ -43,6 +48,7 @@ export interface IStorage {
   getProjectFinancialSummary(projectId: string): Promise<{
     totalCost: string;
     totalAdvances: string;
+    totalCustomerAdvances: string;
     totalExpenses: string;
     profit: string;
   }>;
@@ -183,6 +189,21 @@ export class DatabaseStorage implements IStorage {
     return newAdvance;
   }
 
+  async getProjectCustomerAdvances(projectId: string): Promise<CustomerAdvance[]> {
+    return db.select()
+      .from(customerAdvances)
+      .where(eq(customerAdvances.projectId, projectId))
+      .orderBy(desc(customerAdvances.createdAt));
+  }
+
+  async createCustomerAdvance(customerAdvance: InsertCustomerAdvance): Promise<CustomerAdvance> {
+    const [newCustomerAdvance] = await db
+      .insert(customerAdvances)
+      .values(customerAdvance)
+      .returning();
+    return newCustomerAdvance;
+  }
+
   async assignUserToProject(userId: string, projectId: string): Promise<UserProject> {
     const [userProject] = await db
       .insert(userProjects)
@@ -194,6 +215,7 @@ export class DatabaseStorage implements IStorage {
   async getProjectFinancialSummary(projectId: string): Promise<{
     totalCost: string;
     totalAdvances: string;
+    totalCustomerAdvances: string;
     totalExpenses: string;
     profit: string;
   }> {
@@ -209,6 +231,13 @@ export class DatabaseStorage implements IStorage {
       .from(advances)
       .where(eq(advances.projectId, projectId));
 
+    const [customerAdvancesSum] = await db
+      .select({ 
+        total: sql<string>`COALESCE(SUM(${customerAdvances.amount}), 0)` 
+      })
+      .from(customerAdvances)
+      .where(eq(customerAdvances.projectId, projectId));
+
     const [expensesSum] = await db
       .select({ 
         total: sql<string>`COALESCE(SUM(${expenses.amount}), 0)` 
@@ -218,12 +247,14 @@ export class DatabaseStorage implements IStorage {
 
     const totalCost = project.totalCost;
     const totalAdvances = advancesSum?.total || "0";
+    const totalCustomerAdvances = customerAdvancesSum?.total || "0";
     const totalExpenses = expensesSum?.total || "0";
     const profit = (parseFloat(totalCost) - parseFloat(totalExpenses)).toString();
 
     return {
       totalCost,
       totalAdvances,
+      totalCustomerAdvances,
       totalExpenses,
       profit
     };

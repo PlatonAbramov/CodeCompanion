@@ -32,7 +32,17 @@ export const advances = pgTable("advances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  recipient: text("recipient").notNull(),
+  recipient: text("recipient"),
+  description: text("description"),
+  date: timestamp("date").notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const customerAdvances = pgTable("customer_advances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   description: text("description"),
   date: timestamp("date").notNull(),
   createdBy: varchar("created_by").references(() => users.id),
@@ -75,6 +85,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   userProjects: many(userProjects),
   documents: many(documents),
   advances: many(advances),
+  customerAdvances: many(customerAdvances),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -85,6 +96,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   expenses: many(expenses),
   documents: many(documents),
   advances: many(advances),
+  customerAdvances: many(customerAdvances),
   userProjects: many(userProjects),
 }));
 
@@ -117,6 +129,17 @@ export const advancesRelations = relations(advances, ({ one }) => ({
   }),
   createdBy: one(users, {
     fields: [advances.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const customerAdvancesRelations = relations(customerAdvances, ({ one }) => ({
+  project: one(projects, {
+    fields: [customerAdvances.projectId],
+    references: [projects.id],
+  }),
+  createdBy: one(users, {
+    fields: [customerAdvances.createdBy],
     references: [users.id],
   }),
 }));
@@ -174,6 +197,16 @@ export const insertAdvanceSchema = createInsertSchema(advances).omit({
   ]),
 });
 
+export const insertCustomerAdvanceSchema = createInsertSchema(customerAdvances).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  date: z.union([
+    z.date(), 
+    z.string().transform((str) => new Date(str))
+  ]),
+});
+
 export const insertUserProjectSchema = createInsertSchema(userProjects).omit({
   id: true,
   createdAt: true,
@@ -190,5 +223,7 @@ export type Document = typeof documents.$inferSelect;
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 export type Advance = typeof advances.$inferSelect;
 export type InsertAdvance = z.infer<typeof insertAdvanceSchema>;
+export type CustomerAdvance = typeof customerAdvances.$inferSelect;
+export type InsertCustomerAdvance = z.infer<typeof insertCustomerAdvanceSchema>;
 export type UserProject = typeof userProjects.$inferSelect;
 export type InsertUserProject = z.infer<typeof insertUserProjectSchema>;

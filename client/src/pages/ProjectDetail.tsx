@@ -23,6 +23,7 @@ interface Project {
 interface FinancialSummary {
   totalCost: string;
   totalAdvances: string;
+  totalCustomerAdvances: string;
   totalExpenses: string;
   profit: string;
 }
@@ -148,7 +149,7 @@ export default function ProjectDetail() {
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center">
-                    <span className="text-slate-600">{t('advance')}</span>
+                    <span className="text-slate-600">Аванс выданный</span>
                     {user?.role === 'director' && (
                       <Button 
                         variant="ghost" 
@@ -165,6 +166,27 @@ export default function ProjectDetail() {
                   </div>
                   <span className="font-semibold text-slate-900">
                     {formatCurrency(financialSummary.totalAdvances)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <span className="text-slate-600">Аванс от заказчика</span>
+                    {user?.role === 'director' && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="ml-2 text-primary hover:bg-primary/10 p-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocation(`/add-customer-advance/${projectId}`);
+                        }}
+                      >
+                        <Plus size={14} />
+                      </Button>
+                    )}
+                  </div>
+                  <span className="font-semibold text-green-600">
+                    {formatCurrency(financialSummary.totalCustomerAdvances)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
