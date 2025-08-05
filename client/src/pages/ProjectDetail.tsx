@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -47,6 +48,7 @@ export default function ProjectDetail() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { toast } = useToast();
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];
@@ -169,8 +171,10 @@ export default function ProjectDetail() {
                 <Button 
                   className="w-full mt-4 bg-slate-100 text-slate-700 hover:bg-slate-200"
                   onClick={() => {
-                    // TODO: Implement PDF export functionality
-                    alert('Функция экспорта в PDF будет реализована');
+                    toast({
+                      title: "Экспорт в PDF",
+                      description: "Функция экспорта в PDF будет реализована в следующем обновлении",
+                    });
                   }}
                 >
                   <Download size={16} className="mr-1" />
@@ -191,8 +195,10 @@ export default function ProjectDetail() {
                   variant="link" 
                   className="text-primary text-sm font-medium p-0"
                   onClick={() => {
-                    // TODO: Implement document upload functionality
-                    alert('Функция добавления документов будет реализована');
+                    toast({
+                      title: "Добавление документов",
+                      description: "Функция загрузки документов будет реализована в следующем обновлении",
+                    });
                   }}
                 >
                   <Plus size={16} className="mr-1" />
