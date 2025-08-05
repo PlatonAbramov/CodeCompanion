@@ -69,9 +69,9 @@ export default function ProjectDetail() {
   });
 
   const formatCurrency = (amount: string) => {
-    return new Intl.NumberFormat('ru-RU', {
+    return new Intl.NumberFormat('ar-AE', {
       style: 'currency',
-      currency: 'RUB',
+      currency: 'AED',
       minimumFractionDigits: 0,
     }).format(parseFloat(amount));
   };
@@ -166,7 +166,13 @@ export default function ProjectDetail() {
               </div>
               
               {user?.role === 'director' && (
-                <Button className="w-full mt-4 bg-slate-100 text-slate-700 hover:bg-slate-200">
+                <Button 
+                  className="w-full mt-4 bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  onClick={() => {
+                    // TODO: Implement PDF export functionality
+                    alert('Функция экспорта в PDF будет реализована');
+                  }}
+                >
                   <Download size={16} className="mr-1" />
                   {t('exportPDF')}
                 </Button>
@@ -181,7 +187,14 @@ export default function ProjectDetail() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-900">{t('documents')}</h3>
               {user?.role === 'director' && (
-                <Button variant="link" className="text-primary text-sm font-medium p-0">
+                <Button 
+                  variant="link" 
+                  className="text-primary text-sm font-medium p-0"
+                  onClick={() => {
+                    // TODO: Implement document upload functionality
+                    alert('Функция добавления документов будет реализована');
+                  }}
+                >
                   <Plus size={16} className="mr-1" />
                   {t('addDocument')}
                 </Button>
@@ -218,9 +231,19 @@ export default function ProjectDetail() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-900">{t('recentExpenses')}</h3>
-              <Button variant="link" className="text-primary text-sm font-medium p-0">
-                Все расходы
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="link" 
+                  className="text-primary text-sm font-medium p-0"
+                  onClick={() => setLocation('/add-expense')}
+                >
+                  <Plus size={16} className="mr-1" />
+                  {t('addExpense')}
+                </Button>
+                <Button variant="link" className="text-primary text-sm font-medium p-0">
+                  Все расходы
+                </Button>
+              </div>
             </div>
             
             {expenses.length === 0 ? (
