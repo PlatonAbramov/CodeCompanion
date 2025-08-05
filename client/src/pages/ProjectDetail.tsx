@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
-  ArrowLeft, MoreVertical, Download, Eye, Plus,
+  ArrowLeft, MoreVertical, Download, Eye, Plus, Edit,
   FileText, Paperclip
 } from "lucide-react";
 
@@ -141,62 +141,201 @@ export default function ProjectDetail() {
               <h3 className="font-semibold text-slate-900 mb-4">{t('financialSummary')}</h3>
               
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-600">{t('revenue')}</span>
+                {/* Revenue Row */}
+                <div 
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  onClick={() => {
+                    toast({
+                      title: "Доходы",
+                      description: "Функция просмотра доходов будет реализована в следующем обновлении",
+                    });
+                  }}
+                >
+                  <div className="flex items-center flex-1">
+                    <span className="text-slate-600">{t('revenue')}</span>
+                    {user?.role === 'director' && (
+                      <div className="flex items-center ml-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-primary hover:bg-primary/10 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toast({
+                              title: "Добавить доход",
+                              description: "Функция добавления дохода будет реализована в следующем обновлении",
+                            });
+                          }}
+                        >
+                          <Plus size={14} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toast({
+                              title: "Редактировать доходы",
+                              description: "Функция редактирования доходов будет реализована в следующем обновлении",
+                            });
+                          }}
+                        >
+                          <Edit size={14} />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   <span className="font-semibold text-slate-900">
                     {formatCurrency(financialSummary.totalCost)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center">
+
+                {/* Employee Advances Row */}
+                <div 
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  onClick={() => {
+                    toast({
+                      title: "Выданные авансы",
+                      description: "Функция просмотра выданных авансов будет реализована в следующем обновлении",
+                    });
+                  }}
+                >
+                  <div className="flex items-center flex-1">
                     <span className="text-slate-600">Аванс выданный</span>
                     {user?.role === 'director' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="ml-2 text-primary hover:bg-primary/10 p-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLocation(`/add-advance/${projectId}`);
-                        }}
-                      >
-                        <Plus size={14} />
-                      </Button>
+                      <div className="flex items-center ml-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-primary hover:bg-primary/10 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/add-advance/${projectId}`);
+                          }}
+                        >
+                          <Plus size={14} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toast({
+                              title: "Редактировать авансы",
+                              description: "Функция редактирования авансов будет реализована в следующем обновлении",
+                            });
+                          }}
+                        >
+                          <Edit size={14} />
+                        </Button>
+                      </div>
                     )}
                   </div>
                   <span className="font-semibold text-slate-900">
                     {formatCurrency(financialSummary.totalAdvances)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center">
+
+                {/* Customer Advances Row */}
+                <div 
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  onClick={() => {
+                    toast({
+                      title: "Авансы от заказчика",
+                      description: "Функция просмотра авансов от заказчика будет реализована в следующем обновлении",
+                    });
+                  }}
+                >
+                  <div className="flex items-center flex-1">
                     <span className="text-slate-600">Аванс от заказчика</span>
                     {user?.role === 'director' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="ml-2 text-primary hover:bg-primary/10 p-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLocation(`/add-customer-advance/${projectId}`);
-                        }}
-                      >
-                        <Plus size={14} />
-                      </Button>
+                      <div className="flex items-center ml-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-primary hover:bg-primary/10 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/add-customer-advance/${projectId}`);
+                          }}
+                        >
+                          <Plus size={14} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toast({
+                              title: "Редактировать авансы от заказчика",
+                              description: "Функция редактирования авансов от заказчика будет реализована в следующем обновлении",
+                            });
+                          }}
+                        >
+                          <Edit size={14} />
+                        </Button>
+                      </div>
                     )}
                   </div>
                   <span className="font-semibold text-green-600">
                     {formatCurrency(financialSummary.totalCustomerAdvances)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-600">{t('expenses')}</span>
+
+                {/* Expenses Row */}
+                <div 
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  onClick={() => setLocation(`/expenses/${projectId}`)}
+                >
+                  <div className="flex items-center flex-1">
+                    <span className="text-slate-600">{t('expenses')}</span>
+                    {user?.role === 'director' && (
+                      <div className="flex items-center ml-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-primary hover:bg-primary/10 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation('/add-expense');
+                          }}
+                        >
+                          <Plus size={14} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/expenses/${projectId}`);
+                          }}
+                        >
+                          <Edit size={14} />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   <span className="font-semibold text-red-600">
                     {formatCurrency(financialSummary.totalExpenses)}
                   </span>
                 </div>
+
                 <hr className="border-slate-200" />
-                <div className="flex justify-between items-center">
+                
+                {/* Profit Row */}
+                <div 
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  onClick={() => {
+                    toast({
+                      title: "Прибыль",
+                      description: "Функция анализа прибыли будет реализована в следующем обновлении",
+                    });
+                  }}
+                >
                   <span className="font-semibold text-slate-900">{t('profit')}</span>
                   <span className="font-bold text-secondary">
                     {formatCurrency(financialSummary.profit)}
