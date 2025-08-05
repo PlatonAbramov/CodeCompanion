@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Bus, Bell, LogOut, Plus, Home, Folder, Users, BarChart3,
-  ProjectorIcon, TrendingUp, Calendar
+  ProjectorIcon, TrendingUp, TrendingDown, Calendar
 } from "lucide-react";
 
 interface Project {
@@ -44,6 +44,11 @@ export default function DirectorDashboard() {
   // Get projects
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
+  });
+
+  // Get overall financial data
+  const { data: financialData } = useQuery({
+    queryKey: ['/api/financial-overview'],
   });
 
   // Create project mutation
@@ -82,9 +87,9 @@ export default function DirectorDashboard() {
   };
 
   const formatCurrency = (amount: string) => {
-    return new Intl.NumberFormat('ru-RU', {
+    return new Intl.NumberFormat('ar-AE', {
       style: 'currency',
-      currency: 'RUB',
+      currency: 'AED',
       minimumFractionDigits: 0,
     }).format(parseFloat(amount));
   };
@@ -94,9 +99,10 @@ export default function DirectorDashboard() {
   };
 
   const activeProjectsCount = projects.filter(p => p.status === 'active').length;
-  const totalProfit = projects.reduce((sum, project) => {
-    return sum + parseFloat(project.totalCost) * 0.15; // Assuming 15% profit margin
-  }, 0);
+  const totalRevenue = financialData?.totalRevenue || 0;
+  const totalExpenses = financialData?.totalExpenses || 0;
+  const totalAdvances = financialData?.totalAdvances || 0;
+  const totalProfit = totalRevenue - totalAdvances - totalExpenses;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -146,9 +152,28 @@ export default function DirectorDashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
+                  <p className="text-sm text-slate-500">{t('totalExpenses')}</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {formatCurrency(totalExpenses.toString())}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                  <TrendingDown className="text-red-600" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="col-span-2">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
                   <p className="text-sm text-slate-500">{t('totalProfit')}</p>
                   <p className="text-2xl font-bold text-secondary">
                     {formatCurrency(totalProfit.toString())}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {t('revenue')}: {formatCurrency(totalRevenue.toString())} - {t('advances')}: {formatCurrency(totalAdvances.toString())} - {t('expenses')}: {formatCurrency(totalExpenses.toString())}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center">
@@ -268,7 +293,7 @@ export default function DirectorDashboard() {
                     <div>
                       <p className="text-xs text-slate-500">{t('profit')}</p>
                       <p className="font-semibold text-secondary">
-                        {formatCurrency((parseFloat(project.totalCost) * 0.15).toString())}
+                        {formatCurrency("0")}
                       </p>
                     </div>
                   </div>

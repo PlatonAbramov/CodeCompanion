@@ -49,7 +49,9 @@ export const translations = {
     // Financial
     revenue: 'Доход',
     advance: 'Аванс',
+    advances: 'Авансы',
     profit: 'Прибыль',
+    totalExpenses: 'Общие расходы',
     financialSummary: 'Финансовая сводка',
     exportPDF: 'Экспорт в PDF',
     
@@ -135,7 +137,9 @@ export const translations = {
     // Financial
     revenue: 'Revenue',
     advance: 'Advance',
+    advances: 'Advances',
     profit: 'Profit',
+    totalExpenses: 'Total Expenses',
     financialSummary: 'Financial Summary',
     exportPDF: 'Export to PDF',
     
