@@ -269,7 +269,7 @@ export default function DirectorDashboard() {
         ) : (
           <div className="space-y-3">
             {projects.map((project) => (
-              <Card key={project.id} className="shadow-sm">
+              <Card key={project.id} className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => setLocation(`/project/${project.id}`)}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
@@ -298,18 +298,9 @@ export default function DirectorDashboard() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-sm text-slate-500">
-                      <Calendar size={16} className="mr-1" />
-                      <span>{formatDate(project.createdAt)}</span>
-                    </div>
-                    <Button 
-                      variant="link" 
-                      onClick={() => setLocation(`/project/${project.id}`)}
-                      className="text-primary text-sm font-medium p-0"
-                    >
-                      Подробнее
-                    </Button>
+                  <div className="flex items-center text-sm text-slate-500">
+                    <Calendar size={16} className="mr-1" />
+                    <span>{formatDate(project.createdAt)}</span>
                   </div>
                 </CardContent>
               </Card>
