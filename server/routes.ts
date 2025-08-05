@@ -10,6 +10,18 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 
+// Extend session data type
+declare module 'express-session' {
+  interface SessionData {
+    user?: {
+      id: string;
+      username: string;
+      name: string;
+      role: string;
+    };
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session middleware
   app.use(session({
