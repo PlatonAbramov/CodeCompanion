@@ -11,6 +11,7 @@ import MasterDashboard from "@/pages/MasterDashboard";
 import ProjectDetail from "@/pages/ProjectDetail";
 import AddExpense from "@/pages/AddExpense";
 import ExpensesList from "@/pages/ExpensesList";
+import CategoryExpenses from "@/pages/CategoryExpenses";
 import EmployeeManagement from "@/pages/EmployeeManagement";
 import NotFound from "@/pages/not-found";
 
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/project/:id" component={ProjectDetail} />
       <Route path="/add-expense" component={AddExpense} />
       <Route path="/expenses/:projectId" component={ExpensesList} />
+      <Route path="/expenses/:projectId/:category" component={CategoryExpenses} />
       <Route path="/employees" component={EmployeeManagement} />
       <Route component={NotFound} />
     </Switch>

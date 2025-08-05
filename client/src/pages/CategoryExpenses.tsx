@@ -5,7 +5,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
-  ArrowLeft, Plus, Eye, FileText
+  ArrowLeft, Plus, Eye
 } from "lucide-react";
 
 interface Expense {
@@ -25,16 +25,18 @@ interface Expense {
   };
 }
 
-export default function ExpensesList() {
+export default function CategoryExpenses() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const { t } = useLanguage();
   
-  // Extract projectId from URL path
-  const projectId = location.split('/')[2];
+  // Extract projectId and category from URL path
+  const pathParts = location.split('/');
+  const projectId = pathParts[2];
+  const category = pathParts[3];
 
   // Get project expenses
-  const { data: expenses = [], isLoading } = useQuery<Expense[]>({
+  const { data: allExpenses = [], isLoading } = useQuery<Expense[]>({
     queryKey: ['/api/projects', projectId, 'expenses'],
   });
 
@@ -43,8 +45,11 @@ export default function ExpensesList() {
     queryKey: ['/api/projects', projectId],
   });
 
+  // Filter expenses by category
+  const expenses = allExpenses.filter(expense => expense.category === category);
+
   const goBack = () => {
-    setLocation(`/project/${projectId}`);
+    setLocation(`/expenses/${projectId}`);
   };
 
   const formatCurrency = (amount: string) => {
@@ -69,16 +74,6 @@ export default function ExpensesList() {
     };
     return categoryMap[category] || category;
   };
-
-  // Group expenses by category
-  const expensesByCategory = expenses.reduce((acc, expense) => {
-    const category = expense.category;
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(expense);
-    return acc;
-  }, {} as { [key: string]: Expense[] });
 
   const openReceipt = (receiptUrl: string) => {
     // Open receipt in new tab
@@ -109,7 +104,7 @@ export default function ExpensesList() {
                 <ArrowLeft size={20} />
               </Button>
               <div>
-                <h2 className="font-semibold text-slate-900">Все расходы</h2>
+                <h2 className="font-semibold text-slate-900">{getCategoryLabel(category)}</h2>
                 {project?.name && (
                   <p className="text-sm text-slate-500">{project.name}</p>
                 )}
@@ -131,10 +126,10 @@ export default function ExpensesList() {
           <Card className="shadow-sm">
             <CardContent className="p-8 text-center">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="text-slate-400" size={32} />
+                <div className="w-6 h-6 bg-primary rounded-full"></div>
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">Нет расходов</h3>
-              <p className="text-slate-500 mb-4">Пока не добавлено ни одного расхода для этого проекта</p>
+              <p className="text-slate-500 mb-4">В категории "{getCategoryLabel(category)}" пока нет расходов</p>
               <Button 
                 className="bg-primary text-white"
                 onClick={() => setLocation('/add-expense')}
@@ -146,58 +141,73 @@ export default function ExpensesList() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {Object.entries(expensesByCategory).map(([category, categoryExpenses]) => (
-              <Card 
-                key={category} 
-                className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => setLocation(`/expenses/${projectId}/${category}`)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-primary rounded-full mr-3"></div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">
-                          {getCategoryLabel(category)}
-                        </h3>
-                        <p className="text-sm text-slate-500">
-                          {categoryExpenses.length} {categoryExpenses.length === 1 ? 'запись' : 'записей'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-slate-900">
-                        {formatCurrency(
-                          categoryExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0).toString()
-                        )}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        Всего потрачено
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            
-            {/* Total Summary */}
+            {/* Category Summary */}
             <Card className="shadow-sm bg-primary/5">
               <CardContent className="p-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold text-slate-900">
-                    Общая сумма расходов:
-                  </span>
-                  <span className="text-xl font-bold text-primary">
-                    {formatCurrency(
-                      expenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0).toString()
-                    )}
-                  </span>
+                  <div>
+                    <h3 className="font-semibold text-slate-900">{getCategoryLabel(category)}</h3>
+                    <p className="text-sm text-slate-500">
+                      {expenses.length} {expenses.length === 1 ? 'запись' : 'записей'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-primary">
+                      {formatCurrency(
+                        expenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0).toString()
+                      )}
+                    </p>
+                    <p className="text-sm text-slate-500">Всего потрачено</p>
+                  </div>
                 </div>
-                <p className="text-sm text-slate-500 mt-1">
-                  Всего записей: {expenses.length}
-                </p>
               </CardContent>
             </Card>
+
+            {/* Expenses List */}
+            <div className="space-y-3">
+              {expenses.map((expense) => (
+                <Card key={expense.id} className="shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="font-semibold text-lg text-slate-900">
+                            {formatCurrency(expense.amount)}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {formatDate(expense.createdAt)}
+                          </p>
+                        </div>
+                        
+                        {expense.description && (
+                          <p className="text-sm text-slate-600 mb-2">
+                            {expense.description}
+                          </p>
+                        )}
+                        
+                        <p className="text-xs text-slate-400">
+                          Добавил: {expense.user.name}
+                        </p>
+                      </div>
+                      
+                      <div className="ml-4 flex items-center">
+                        {expense.receiptUrl && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => openReceipt(expense.receiptUrl)}
+                            className="text-primary border-primary hover:bg-primary hover:text-white"
+                          >
+                            <Eye size={16} className="mr-2" />
+                            Посмотреть чек
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         )}
       </div>
