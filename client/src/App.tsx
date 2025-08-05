@@ -10,6 +10,7 @@ import DirectorDashboard from "@/pages/DirectorDashboard";
 import MasterDashboard from "@/pages/MasterDashboard";
 import ProjectDetail from "@/pages/ProjectDetail";
 import AddExpense from "@/pages/AddExpense";
+import AddAdvance from "@/pages/AddAdvance";
 import ExpensesList from "@/pages/ExpensesList";
 import CategoryExpenses from "@/pages/CategoryExpenses";
 import EmployeeManagement from "@/pages/EmployeeManagement";
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/master" component={MasterDashboard} />
       <Route path="/project/:id" component={ProjectDetail} />
       <Route path="/add-expense" component={AddExpense} />
+      <Route path="/add-advance/:projectId" component={AddAdvance} />
       <Route path="/expenses/:projectId" component={ExpensesList} />
       <Route path="/expenses/:projectId/:category" component={CategoryExpenses} />
       <Route path="/employees" component={EmployeeManagement} />

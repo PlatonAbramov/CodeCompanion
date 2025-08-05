@@ -147,7 +147,22 @@ export default function ProjectDetail() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-600">{t('advance')}</span>
+                  <div className="flex items-center">
+                    <span className="text-slate-600">{t('advance')}</span>
+                    {user?.role === 'director' && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="ml-2 text-primary hover:bg-primary/10 p-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocation(`/add-advance/${projectId}`);
+                        }}
+                      >
+                        <Plus size={14} />
+                      </Button>
+                    )}
+                  </div>
                   <span className="font-semibold text-slate-900">
                     {formatCurrency(financialSummary.totalAdvances)}
                   </span>

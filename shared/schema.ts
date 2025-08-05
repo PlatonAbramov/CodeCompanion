@@ -33,6 +33,7 @@ export const advances = pgTable("advances", {
   projectId: varchar("project_id").references(() => projects.id).notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   description: text("description"),
+  date: timestamp("date").notNull(),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -165,6 +166,11 @@ export const insertDocumentSchema = createInsertSchema(documents).omit({
 export const insertAdvanceSchema = createInsertSchema(advances).omit({
   id: true,
   createdAt: true,
+}).extend({
+  date: z.union([
+    z.date(), 
+    z.string().transform((str) => new Date(str))
+  ]),
 });
 
 export const insertUserProjectSchema = createInsertSchema(userProjects).omit({
