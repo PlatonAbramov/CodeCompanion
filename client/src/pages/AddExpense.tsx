@@ -48,7 +48,15 @@ export default function AddExpense() {
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      // Invalidate specific project queries if projectId is available
+      if (formData.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'expenses'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'financial-summary'] });
+      }
       toast({
         title: "Успешно",
         description: "Расход добавлен",
