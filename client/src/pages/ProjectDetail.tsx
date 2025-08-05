@@ -233,27 +233,24 @@ export default function ProjectDetail() {
         </Card>
 
         {/* Recent Expenses */}
-        <Card className="shadow-sm">
+        <Card 
+          className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setLocation(`/expenses/${projectId}`)}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-900">{t('recentExpenses')}</h3>
-              <div className="flex items-center space-x-2">
-                <Button 
-                  variant="link" 
-                  className="text-primary text-sm font-medium p-0"
-                  onClick={() => setLocation('/add-expense')}
-                >
-                  <Plus size={16} className="mr-1" />
-                  {t('addExpense')}
-                </Button>
-                <Button 
-                  variant="link" 
-                  className="text-primary text-sm font-medium p-0"
-                  onClick={() => setLocation(`/expenses/${projectId}`)}
-                >
-                  Все расходы
-                </Button>
-              </div>
+              <Button 
+                variant="link" 
+                className="text-primary text-sm font-medium p-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLocation('/add-expense');
+                }}
+              >
+                <Plus size={16} className="mr-1" />
+                {t('addExpense')}
+              </Button>
             </div>
             
             {expenses.length === 0 ? (
