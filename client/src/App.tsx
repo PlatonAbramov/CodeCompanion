@@ -12,6 +12,8 @@ import ProjectDetail from "@/pages/ProjectDetail";
 import AddExpense from "@/pages/AddExpense";
 import AddAdvance from "@/pages/AddAdvance";
 import AddCustomerAdvance from "@/pages/AddCustomerAdvance";
+import AdvancesList from "@/pages/AdvancesList";
+import CustomerAdvancesList from "@/pages/CustomerAdvancesList";
 import ExpensesList from "@/pages/ExpensesList";
 import CategoryExpenses from "@/pages/CategoryExpenses";
 import EmployeeManagement from "@/pages/EmployeeManagement";
@@ -28,6 +30,8 @@ function Router() {
       <Route path="/add-expense" component={AddExpense} />
       <Route path="/add-advance/:projectId" component={AddAdvance} />
       <Route path="/add-customer-advance/:projectId" component={AddCustomerAdvance} />
+      <Route path="/advances/:projectId" component={AdvancesList} />
+      <Route path="/customer-advances/:projectId" component={CustomerAdvancesList} />
       <Route path="/expenses/:projectId" component={ExpensesList} />
       <Route path="/expenses/:projectId/:category" component={CategoryExpenses} />
       <Route path="/employees" component={EmployeeManagement} />

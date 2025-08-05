@@ -6,55 +6,46 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
-  ArrowLeft, Plus, Eye, Edit
+  ArrowLeft, Plus, Edit, DollarSign
 } from "lucide-react";
 
-interface Expense {
+interface CustomerAdvance {
   id: string;
   amount: string;
-  category: string;
-  description: string;
-  receiptUrl: string;
+  description?: string;
+  date: string;
   createdAt: string;
-  user: {
-    id: string;
-    name: string;
-  };
-  project: {
-    id: string;
-    name: string;
-  };
+  user: { name: string };
 }
 
-export default function CategoryExpenses() {
-  const [location, setLocation] = useLocation();
+interface Project {
+  id: string;
+  name: string;
+}
+
+export default function CustomerAdvancesList() {
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { t } = useLanguage();
   const { toast } = useToast();
-  
-  // Extract projectId and category from URL path
-  const pathParts = location.split('/');
-  const projectId = pathParts[2];
-  const category = pathParts[3];
 
-  // Get project expenses
-  const { data: allExpenses = [], isLoading } = useQuery<Expense[]>({
-    queryKey: ['/api/projects', projectId, 'expenses'],
-  });
+  // Extract projectId from URL path
+  const projectId = window.location.pathname.split('/')[3];
 
-  // Get project details
-  const { data: project } = useQuery<{id: string, name: string}>({
+  const { data: project } = useQuery<Project>({
     queryKey: ['/api/projects', projectId],
   });
 
-  // Filter expenses by category
-  const expenses = allExpenses.filter(expense => expense.category === category);
+  const { data: customerAdvances = [], isLoading } = useQuery<CustomerAdvance[]>({
+    queryKey: ['/api/projects', projectId, 'customer-advances'],
+  });
 
   const goBack = () => {
-    setLocation(`/expenses/${projectId}`);
+    setLocation(`/project/${projectId}`);
   };
 
   const formatCurrency = (amount: string) => {
+    if (!amount) return '';
     return new Intl.NumberFormat('ar-AE', {
       style: 'currency',
       currency: 'AED',
@@ -64,22 +55,6 @@ export default function CategoryExpenses() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
-  };
-
-  const getCategoryLabel = (category: string) => {
-    const categoryMap: { [key: string]: string } = {
-      'materials': 'Материалы',
-      'tools': 'Инструменты', 
-      'transport': 'Транспорт',
-      'services': 'Услуги',
-      'other': 'Прочее'
-    };
-    return categoryMap[category] || category;
-  };
-
-  const openReceipt = (receiptUrl: string) => {
-    // Open receipt in new tab
-    window.open(receiptUrl, '_blank');
   };
 
   if (isLoading) {
@@ -106,112 +81,105 @@ export default function CategoryExpenses() {
                 <ArrowLeft size={20} />
               </Button>
               <div>
-                <h2 className="font-semibold text-slate-900">{getCategoryLabel(category)}</h2>
+                <h2 className="font-semibold text-slate-900">Авансы от заказчика</h2>
                 {project?.name && (
                   <p className="text-sm text-slate-500">{project.name}</p>
                 )}
               </div>
             </div>
-            <Button 
-              className="bg-primary text-white"
-              onClick={() => setLocation('/add-expense')}
-            >
-              <Plus size={16} className="mr-1" />
-              {t('addExpense')}
-            </Button>
+            {user?.role === 'director' && (
+              <Button 
+                className="bg-primary text-white"
+                onClick={() => setLocation(`/add-customer-advance/${projectId}`)}
+              >
+                <Plus size={16} className="mr-1" />
+                Добавить аванс
+              </Button>
+            )}
           </div>
         </div>
       </header>
 
       <div className="p-4 pb-20">
-        {expenses.length === 0 ? (
+        {customerAdvances.length === 0 ? (
           <Card className="shadow-sm">
             <CardContent className="p-8 text-center">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <div className="w-6 h-6 bg-primary rounded-full"></div>
+                <DollarSign className="text-slate-400" size={32} />
               </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Нет расходов</h3>
-              <p className="text-slate-500 mb-4">В категории "{getCategoryLabel(category)}" пока нет расходов</p>
-              <Button 
-                className="bg-primary text-white"
-                onClick={() => setLocation('/add-expense')}
-              >
-                <Plus size={16} className="mr-1" />
-                {t('addExpense')}
-              </Button>
+              <h3 className="font-semibold text-slate-900 mb-2">Нет авансов от заказчика</h3>
+              <p className="text-slate-500 mb-4">Пока не получено ни одного аванса от заказчика для этого проекта</p>
+              {user?.role === 'director' && (
+                <Button 
+                  className="bg-primary text-white"
+                  onClick={() => setLocation(`/add-customer-advance/${projectId}`)}
+                >
+                  <Plus size={16} className="mr-1" />
+                  Добавить аванс
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4">
-            {/* Category Summary */}
-            <Card className="shadow-sm bg-primary/5">
+            {/* Summary */}
+            <Card className="shadow-sm bg-green-50">
               <CardContent className="p-4">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="font-semibold text-slate-900">{getCategoryLabel(category)}</h3>
+                    <h3 className="font-semibold text-slate-900">Авансы от заказчика</h3>
                     <p className="text-sm text-slate-500">
-                      {expenses.length} {expenses.length === 1 ? 'запись' : 'записей'}
+                      {customerAdvances.length} {customerAdvances.length === 1 ? 'аванс' : 'авансов'}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-primary">
+                    <p className="text-xl font-bold text-green-600">
                       {formatCurrency(
-                        expenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0).toString()
+                        customerAdvances.reduce((sum, advance) => sum + parseFloat(advance.amount), 0).toString()
                       )}
                     </p>
-                    <p className="text-sm text-slate-500">Всего потрачено</p>
+                    <p className="text-sm text-slate-500">Всего получено</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Expenses List */}
+            {/* Customer Advances List */}
             <div className="space-y-3">
-              {expenses.map((expense) => (
-                <Card key={expense.id} className="shadow-sm">
+              {customerAdvances.map((advance) => (
+                <Card key={advance.id} className="shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="font-semibold text-lg text-slate-900">
-                            {formatCurrency(expense.amount)}
+                          <p className="font-semibold text-lg text-green-600">
+                            {formatCurrency(advance.amount)}
                           </p>
                           <p className="text-xs text-slate-400">
-                            {formatDate(expense.createdAt)}
+                            {formatDate(advance.date)}
                           </p>
                         </div>
                         
-                        {expense.description && (
+                        {advance.description && (
                           <p className="text-sm text-slate-600 mb-2">
-                            {expense.description}
+                            {advance.description}
                           </p>
                         )}
                         
                         <p className="text-xs text-slate-400">
-                          Добавил: {expense.user.name}
+                          Добавил: {advance.user.name}
                         </p>
                       </div>
                       
-                      <div className="ml-4 flex items-center space-x-2">
-                        {expense.receiptUrl && (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => openReceipt(expense.receiptUrl)}
-                            className="text-primary border-primary hover:bg-primary hover:text-white"
-                          >
-                            <Eye size={16} className="mr-2" />
-                            Посмотреть чек
-                          </Button>
-                        )}
+                      <div className="ml-4 flex items-center">
                         {user?.role === 'director' && (
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => {
                               toast({
-                                title: "Редактирование расхода",
-                                description: "Функция редактирования расходов будет реализована в следующем обновлении",
+                                title: "Редактирование аванса от заказчика",
+                                description: "Функция редактирования авансов от заказчика будет реализована в следующем обновлении",
                               });
                             }}
                             className="text-slate-600 border-slate-300 hover:bg-slate-100"

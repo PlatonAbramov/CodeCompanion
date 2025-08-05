@@ -21,14 +21,18 @@ interface Project {
 }
 
 export default function AddExpense() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const { t } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Extract projectId from URL query params if coming from project detail
+  const urlParams = new URLSearchParams(window.location.search);
+  const projectIdFromUrl = urlParams.get('projectId');
+
   const [formData, setFormData] = useState({
-    projectId: '',
+    projectId: projectIdFromUrl || '',
     amount: '',
     category: '',
     description: '',
@@ -73,7 +77,12 @@ export default function AddExpense() {
   });
 
   const goBack = () => {
-    if (user?.role === 'director') {
+    // If we have a projectId, go back to that project's detail page
+    if (projectIdFromUrl) {
+      setLocation(`/project/${projectIdFromUrl}`);
+    } else if (formData.projectId) {
+      setLocation(`/project/${formData.projectId}`);
+    } else if (user?.role === 'director') {
       setLocation('/director');
     } else {
       setLocation('/master');

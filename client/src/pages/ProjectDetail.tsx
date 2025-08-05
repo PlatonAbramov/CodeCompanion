@@ -194,12 +194,7 @@ export default function ProjectDetail() {
                 {/* Employee Advances Row */}
                 <div 
                   className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                  onClick={() => {
-                    toast({
-                      title: "Выданные авансы",
-                      description: "Функция просмотра выданных авансов будет реализована в следующем обновлении",
-                    });
-                  }}
+                  onClick={() => setLocation(`/advances/${projectId}`)}
                 >
                   <div className="flex items-center flex-1">
                     <span className="text-slate-600">Аванс выданный</span>
@@ -222,10 +217,7 @@ export default function ProjectDetail() {
                           className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            toast({
-                              title: "Редактировать авансы",
-                              description: "Функция редактирования авансов будет реализована в следующем обновлении",
-                            });
+                            setLocation(`/advances/${projectId}`);
                           }}
                         >
                           <Edit size={14} />
@@ -241,12 +233,7 @@ export default function ProjectDetail() {
                 {/* Customer Advances Row */}
                 <div 
                   className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                  onClick={() => {
-                    toast({
-                      title: "Авансы от заказчика",
-                      description: "Функция просмотра авансов от заказчика будет реализована в следующем обновлении",
-                    });
-                  }}
+                  onClick={() => setLocation(`/customer-advances/${projectId}`)}
                 >
                   <div className="flex items-center flex-1">
                     <span className="text-slate-600">Аванс от заказчика</span>
@@ -269,10 +256,7 @@ export default function ProjectDetail() {
                           className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            toast({
-                              title: "Редактировать авансы от заказчика",
-                              description: "Функция редактирования авансов от заказчика будет реализована в следующем обновлении",
-                            });
+                            setLocation(`/customer-advances/${projectId}`);
                           }}
                         >
                           <Edit size={14} />
@@ -300,7 +284,7 @@ export default function ProjectDetail() {
                           className="text-primary hover:bg-primary/10 p-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setLocation('/add-expense');
+                            setLocation(`/add-expense?projectId=${projectId}`);
                           }}
                         >
                           <Plus size={14} />
@@ -421,7 +405,7 @@ export default function ProjectDetail() {
                 className="text-primary text-sm font-medium p-0"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setLocation('/add-expense');
+                  setLocation(`/add-expense?projectId=${projectId}`);
                 }}
               >
                 <Plus size={16} className="mr-1" />
