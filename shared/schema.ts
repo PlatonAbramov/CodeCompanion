@@ -32,6 +32,7 @@ export const advances = pgTable("advances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  recipient: text("recipient").notNull(),
   description: text("description"),
   date: timestamp("date").notNull(),
   createdBy: varchar("created_by").references(() => users.id),

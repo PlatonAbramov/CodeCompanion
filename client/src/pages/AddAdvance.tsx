@@ -37,6 +37,7 @@ export default function AddAdvance() {
   const [formData, setFormData] = useState({
     projectId: projectId || '',
     amount: '',
+    recipient: '',
     description: '',
     date: ''
   });
@@ -95,10 +96,10 @@ export default function AddAdvance() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.amount || !formData.date) {
+    if (!formData.amount || !formData.date || !formData.recipient) {
       toast({
         title: "Ошибка",
-        description: "Необходимо заполнить сумму и дату",
+        description: "Необходимо заполнить сумму, получателя и дату",
         variant: "destructive",
       });
       return;
@@ -192,6 +193,27 @@ export default function AddAdvance() {
                   {formatCurrency(formData.amount)}
                 </p>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Recipient */}
+          <Card className="shadow-sm">
+            <CardContent className="p-4">
+              <Label className="block text-sm font-medium text-slate-700 mb-2">
+                Получатель аванса *
+              </Label>
+              <Select 
+                value={formData.recipient} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, recipient: value }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Выберите получателя" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Платон">Платон</SelectItem>
+                  <SelectItem value="Влад">Влад</SelectItem>
+                </SelectContent>
+              </Select>
             </CardContent>
           </Card>
 
