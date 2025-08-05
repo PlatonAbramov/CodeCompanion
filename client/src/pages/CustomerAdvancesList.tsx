@@ -24,13 +24,13 @@ interface Project {
 }
 
 export default function CustomerAdvancesList() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const { t } = useLanguage();
   const { toast } = useToast();
 
   // Extract projectId from URL path
-  const projectId = window.location.pathname.split('/')[3];
+  const projectId = location.split('/')[2];
 
   const { data: project } = useQuery<Project>({
     queryKey: ['/api/projects', projectId],
