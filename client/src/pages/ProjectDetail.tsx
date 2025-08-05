@@ -246,7 +246,11 @@ export default function ProjectDetail() {
                   <Plus size={16} className="mr-1" />
                   {t('addExpense')}
                 </Button>
-                <Button variant="link" className="text-primary text-sm font-medium p-0">
+                <Button 
+                  variant="link" 
+                  className="text-primary text-sm font-medium p-0"
+                  onClick={() => setLocation(`/expenses/${projectId}`)}
+                >
                   Все расходы
                 </Button>
               </div>
