@@ -178,7 +178,7 @@ export default function RevenuesList() {
                         )}
                         
                         <p className="text-xs text-slate-400">
-                          Добавил: {revenue.user.name}
+                          Добавил: {revenue.user?.name || 'Неизвестно'}
                         </p>
                       </div>
                       

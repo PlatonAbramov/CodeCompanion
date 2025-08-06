@@ -176,7 +176,7 @@ export default function AdvancesList() {
                         )}
                         
                         <p className="text-xs text-slate-400">
-                          Добавил: {advance.user.name}
+                          Добавил: {advance.user?.name || 'Неизвестно'}
                         </p>
                       </div>
                       

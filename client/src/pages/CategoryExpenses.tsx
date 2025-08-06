@@ -188,7 +188,7 @@ export default function CategoryExpenses() {
                         )}
                         
                         <p className="text-xs text-slate-400">
-                          Добавил: {expense.user.name}
+                          Добавил: {expense.user?.name || 'Неизвестно'}
                         </p>
                       </div>
                       

@@ -414,7 +414,7 @@ export default function ProjectDetail() {
                         <p className="text-sm text-slate-500">{expense.description}</p>
                       )}
                       <p className="text-xs text-slate-400 mt-1">
-                        <span>{expense.user.name}</span> • <span>{formatDate(expense.createdAt)}</span>
+                        <span>{expense.user?.name || 'Неизвестно'}</span> • <span>{formatDate(expense.createdAt)}</span>
                       </p>
                     </div>
                     <div className="text-right">
