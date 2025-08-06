@@ -28,6 +28,7 @@ export interface IStorage {
   getProjectExpenses(projectId: string): Promise<(Expense & { user: { name: string } })[]>;
   getUserExpenses(userId: string): Promise<(Expense & { project: { name: string } })[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
+  updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense>;
   
   // Documents
   getProjectDocuments(projectId: string): Promise<Document[]>;
@@ -36,10 +37,12 @@ export interface IStorage {
   // Advances
   getProjectAdvances(projectId: string): Promise<Advance[]>;
   createAdvance(advance: InsertAdvance): Promise<Advance>;
+  updateAdvance(id: string, advance: Partial<InsertAdvance>): Promise<Advance>;
   
   // Customer Advances
   getProjectCustomerAdvances(projectId: string): Promise<CustomerAdvance[]>;
   createCustomerAdvance(customerAdvance: InsertCustomerAdvance): Promise<CustomerAdvance>;
+  updateCustomerAdvance(id: string, customerAdvance: Partial<InsertCustomerAdvance>): Promise<CustomerAdvance>;
   
   // Revenues
   getProjectRevenues(projectId: string): Promise<any[]>;
@@ -303,6 +306,33 @@ export class DatabaseStorage implements IStorage {
       totalExpenses,
       profit
     };
+  }
+
+  async updateAdvance(id: string, advance: Partial<InsertAdvance>): Promise<Advance> {
+    const [updatedAdvance] = await db
+      .update(advances)
+      .set(advance)
+      .where(eq(advances.id, id))
+      .returning();
+    return updatedAdvance;
+  }
+
+  async updateCustomerAdvance(id: string, customerAdvance: Partial<InsertCustomerAdvance>): Promise<CustomerAdvance> {
+    const [updatedCustomerAdvance] = await db
+      .update(customerAdvances)
+      .set(customerAdvance)
+      .where(eq(customerAdvances.id, id))
+      .returning();
+    return updatedCustomerAdvance;
+  }
+
+  async updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense> {
+    const [updatedExpense] = await db
+      .update(expenses)
+      .set(expense)
+      .where(eq(expenses.id, id))
+      .returning();
+    return updatedExpense;
   }
 }
 

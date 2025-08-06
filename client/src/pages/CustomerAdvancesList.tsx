@@ -177,12 +177,7 @@ export default function CustomerAdvancesList() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => {
-                              toast({
-                                title: "Редактирование аванса от заказчика",
-                                description: "Функция редактирования авансов от заказчика будет реализована в следующем обновлении",
-                              });
-                            }}
+                            onClick={() => setLocation(`/edit-customer-advance/${projectId}/${advance.id}`)}
                             className="text-slate-600 border-slate-300 hover:bg-slate-100"
                           >
                             <Edit size={16} className="mr-2" />

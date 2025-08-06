@@ -341,6 +341,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/advances/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const advanceData = {
+        ...req.body,
+        amount: req.body.amount.toString(),
+        date: new Date(req.body.date)
+      };
+      const advance = await storage.updateAdvance(req.params.id, advanceData);
+      res.json(advance);
+    } catch (error) {
+      console.error("Update advance error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/customer-advances/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const customerAdvanceData = {
+        ...req.body,
+        amount: req.body.amount.toString(),
+        date: new Date(req.body.date)
+      };
+      const customerAdvance = await storage.updateCustomerAdvance(req.params.id, customerAdvanceData);
+      res.json(customerAdvance);
+    } catch (error) {
+      console.error("Update customer advance error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/expenses/:id", requireAuth, async (req, res) => {
+    try {
+      const expenseData = {
+        ...req.body,
+        amount: req.body.amount.toString()
+      };
+      const expense = await storage.updateExpense(req.params.id, expenseData);
+      res.json(expense);
+    } catch (error) {
+      console.error("Update expense error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Object storage routes for file uploads
   app.get("/objects/:objectPath(*)", requireAuth, async (req, res) => {
     const userId = req.session.user.id;
