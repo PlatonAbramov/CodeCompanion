@@ -49,6 +49,17 @@ export const customerAdvances = pgTable("customer_advances", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const revenues = pgTable("revenues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  source: text("source"),
+  description: text("description"),
+  date: timestamp("date").notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const expenses = pgTable("expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
@@ -144,6 +155,17 @@ export const customerAdvancesRelations = relations(customerAdvances, ({ one }) =
   }),
 }));
 
+export const revenuesRelations = relations(revenues, ({ one }) => ({
+  project: one(projects, {
+    fields: [revenues.projectId],
+    references: [projects.id],
+  }),
+  createdBy: one(users, {
+    fields: [revenues.createdBy],
+    references: [users.id],
+  }),
+}));
+
 export const userProjectsRelations = relations(userProjects, ({ one }) => ({
   user: one(users, {
     fields: [userProjects.userId],
@@ -207,6 +229,16 @@ export const insertCustomerAdvanceSchema = createInsertSchema(customerAdvances).
   ]),
 });
 
+export const insertRevenueSchema = createInsertSchema(revenues).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  date: z.union([
+    z.date(), 
+    z.string().transform((str) => new Date(str))
+  ]),
+});
+
 export const insertUserProjectSchema = createInsertSchema(userProjects).omit({
   id: true,
   createdAt: true,
@@ -225,5 +257,7 @@ export type Advance = typeof advances.$inferSelect;
 export type InsertAdvance = z.infer<typeof insertAdvanceSchema>;
 export type CustomerAdvance = typeof customerAdvances.$inferSelect;
 export type InsertCustomerAdvance = z.infer<typeof insertCustomerAdvanceSchema>;
+export type Revenue = typeof revenues.$inferSelect;
+export type InsertRevenue = z.infer<typeof insertRevenueSchema>;
 export type UserProject = typeof userProjects.$inferSelect;
 export type InsertUserProject = z.infer<typeof insertUserProjectSchema>;

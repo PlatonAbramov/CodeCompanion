@@ -6,14 +6,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
-  ArrowLeft, Plus, Edit, User
+  ArrowLeft, Plus, Edit, DollarSign
 } from "lucide-react";
 
-interface Advance {
+interface Revenue {
   id: string;
   amount: string;
-  recipient: string;
   description?: string;
+  source?: string;
   date: string;
   createdAt: string;
   user: { name: string };
@@ -24,7 +24,7 @@ interface Project {
   name: string;
 }
 
-export default function AdvancesList() {
+export default function RevenuesList() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -38,8 +38,8 @@ export default function AdvancesList() {
     queryKey: ['/api/projects', projectId],
   });
 
-  const { data: advances = [], isLoading } = useQuery<Advance[]>({
-    queryKey: ['/api/projects', projectId, 'advances'],
+  const { data: revenues = [], isLoading } = useQuery<Revenue[]>({
+    queryKey: ['/api/projects', projectId, 'revenues'],
   });
 
   const goBack = () => {
@@ -83,7 +83,7 @@ export default function AdvancesList() {
                 <ArrowLeft size={20} />
               </Button>
               <div>
-                <h2 className="font-semibold text-slate-900">Выданные авансы</h2>
+                <h2 className="font-semibold text-slate-900">Доходы</h2>
                 {project?.name && (
                   <p className="text-sm text-slate-500">{project.name}</p>
                 )}
@@ -92,10 +92,10 @@ export default function AdvancesList() {
             {user?.role === 'director' && (
               <Button 
                 className="bg-primary text-white"
-                onClick={() => setLocation(`/add-advance/${projectId}`)}
+                onClick={() => setLocation(`/add-revenue?projectId=${projectId}`)}
               >
                 <Plus size={16} className="mr-1" />
-                Добавить аванс
+                Добавить доход
               </Button>
             )}
           </div>
@@ -103,21 +103,21 @@ export default function AdvancesList() {
       </header>
 
       <div className="p-4 pb-20">
-        {advances.length === 0 ? (
+        {revenues.length === 0 ? (
           <Card className="shadow-sm">
             <CardContent className="p-8 text-center">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <User className="text-slate-400" size={32} />
+                <DollarSign className="text-slate-400" size={32} />
               </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Нет авансов</h3>
-              <p className="text-slate-500 mb-4">Пока не выдано ни одного аванса для этого проекта</p>
+              <h3 className="font-semibold text-slate-900 mb-2">Нет доходов</h3>
+              <p className="text-slate-500 mb-4">Пока не добавлено ни одного дохода для этого проекта</p>
               {user?.role === 'director' && (
                 <Button 
                   className="bg-primary text-white"
-                  onClick={() => setLocation(`/add-advance/${projectId}`)}
+                  onClick={() => setLocation(`/add-revenue?projectId=${projectId}`)}
                 >
                   <Plus size={16} className="mr-1" />
-                  Добавить аванс
+                  Добавить доход
                 </Button>
               )}
             </CardContent>
@@ -125,58 +125,60 @@ export default function AdvancesList() {
         ) : (
           <div className="space-y-4">
             {/* Summary */}
-            <Card className="shadow-sm bg-primary/5">
+            <Card className="shadow-sm bg-green-50">
               <CardContent className="p-4">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="font-semibold text-slate-900">Выданные авансы</h3>
+                    <h3 className="font-semibold text-slate-900">Общие доходы</h3>
                     <p className="text-sm text-slate-500">
-                      {advances.length} {advances.length === 1 ? 'аванс' : 'авансов'}
+                      {revenues.length} {revenues.length === 1 ? 'запись' : 'записей'}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-primary">
+                    <p className="text-xl font-bold text-green-600">
                       {formatCurrency(
-                        advances.reduce((sum, advance) => sum + parseFloat(advance.amount), 0).toString()
+                        revenues.reduce((sum, revenue) => sum + parseFloat(revenue.amount), 0).toString()
                       )}
                     </p>
-                    <p className="text-sm text-slate-500">Всего выдано</p>
+                    <p className="text-sm text-slate-500">Всего получено</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Advances List */}
+            {/* Revenues List */}
             <div className="space-y-3">
-              {advances.map((advance) => (
-                <Card key={advance.id} className="shadow-sm">
+              {revenues.map((revenue) => (
+                <Card key={revenue.id} className="shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="font-semibold text-lg text-slate-900">
-                            {formatCurrency(advance.amount)}
+                          <p className="font-semibold text-lg text-green-600">
+                            {formatCurrency(revenue.amount)}
                           </p>
                           <p className="text-xs text-slate-400">
-                            {formatDate(advance.date)}
+                            {formatDate(revenue.date)}
                           </p>
                         </div>
                         
-                        <div className="flex items-center mb-2">
-                          <User size={16} className="text-slate-400 mr-2" />
-                          <p className="text-sm font-medium text-slate-700">
-                            {advance.recipient}
-                          </p>
-                        </div>
+                        {revenue.source && (
+                          <div className="flex items-center mb-2">
+                            <DollarSign size={16} className="text-slate-400 mr-2" />
+                            <p className="text-sm font-medium text-slate-700">
+                              {revenue.source}
+                            </p>
+                          </div>
+                        )}
                         
-                        {advance.description && (
+                        {revenue.description && (
                           <p className="text-sm text-slate-600 mb-2">
-                            {advance.description}
+                            {revenue.description}
                           </p>
                         )}
                         
                         <p className="text-xs text-slate-400">
-                          Добавил: {advance.user.name}
+                          Добавил: {revenue.user.name}
                         </p>
                       </div>
                       
@@ -187,8 +189,8 @@ export default function AdvancesList() {
                             size="sm"
                             onClick={() => {
                               toast({
-                                title: "Редактирование аванса",
-                                description: "Функция редактирования авансов будет реализована в следующем обновлении",
+                                title: "Редактирование дохода",
+                                description: "Функция редактирования доходов будет реализована в следующем обновлении",
                               });
                             }}
                             className="text-slate-600 border-slate-300 hover:bg-slate-100"

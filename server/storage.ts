@@ -1,9 +1,9 @@
 import { 
-  users, projects, expenses, documents, advances, customerAdvances, userProjects,
+  users, projects, expenses, documents, advances, customerAdvances, userProjects, revenues,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
   type Advance, type InsertAdvance, type CustomerAdvance, type InsertCustomerAdvance,
-  type UserProject, type InsertUserProject
+  type Revenue, type InsertRevenue, type UserProject, type InsertUserProject
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -40,6 +40,10 @@ export interface IStorage {
   // Customer Advances
   getProjectCustomerAdvances(projectId: string): Promise<CustomerAdvance[]>;
   createCustomerAdvance(customerAdvance: InsertCustomerAdvance): Promise<CustomerAdvance>;
+  
+  // Revenues
+  getProjectRevenues(projectId: string): Promise<any[]>;
+  createRevenue(revenue: InsertRevenue): Promise<Revenue>;
   
   // User Projects
   assignUserToProject(userId: string, projectId: string): Promise<UserProject>;
@@ -202,6 +206,30 @@ export class DatabaseStorage implements IStorage {
       .values(customerAdvance)
       .returning();
     return newCustomerAdvance;
+  }
+
+  async getProjectRevenues(projectId: string): Promise<any[]> {
+    return await db
+      .select({
+        id: revenues.id,
+        amount: revenues.amount,
+        source: revenues.source,
+        description: revenues.description,
+        date: revenues.date,
+        createdAt: revenues.createdAt,
+        user: {
+          name: users.name
+        }
+      })
+      .from(revenues)
+      .innerJoin(users, eq(revenues.createdBy, users.id))
+      .where(eq(revenues.projectId, projectId))
+      .orderBy(desc(revenues.date));
+  }
+
+  async createRevenue(revenue: InsertRevenue): Promise<Revenue> {
+    const [result] = await db.insert(revenues).values(revenue).returning();
+    return result;
   }
 
   async assignUserToProject(userId: string, projectId: string): Promise<UserProject> {

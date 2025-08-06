@@ -5,7 +5,8 @@ import bcrypt from "bcrypt";
 import session from "express-session";
 import { 
   insertUserSchema, insertProjectSchema, insertExpenseSchema, 
-  insertDocumentSchema, insertAdvanceSchema, insertCustomerAdvanceSchema 
+  insertDocumentSchema, insertAdvanceSchema, insertCustomerAdvanceSchema,
+  insertRevenueSchema 
 } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -294,6 +295,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(customerAdvance);
     } catch (error) {
       console.error("Create customer advance error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Revenue routes
+  app.get("/api/projects/:id/revenues", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const revenues = await storage.getProjectRevenues(req.params.id);
+      res.json(revenues);
+    } catch (error) {
+      console.error("Get revenues error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/revenues", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const revenueData = insertRevenueSchema.parse({
+        ...req.body,
+        createdBy: req.session.user!.id,
+        date: new Date(req.body.date || Date.now())
+      });
+      const revenue = await storage.createRevenue(revenueData);
+      res.status(201).json(revenue);
+    } catch (error) {
+      console.error("Create revenue error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

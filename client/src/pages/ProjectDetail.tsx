@@ -144,12 +144,7 @@ export default function ProjectDetail() {
                 {/* Revenue Row */}
                 <div 
                   className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                  onClick={() => {
-                    toast({
-                      title: "Доходы",
-                      description: "Функция просмотра доходов будет реализована в следующем обновлении",
-                    });
-                  }}
+                  onClick={() => setLocation(`/revenues/${projectId}`)}
                 >
                   <div className="flex items-center flex-1">
                     <span className="text-slate-600">{t('revenue')}</span>
@@ -161,10 +156,7 @@ export default function ProjectDetail() {
                           className="text-primary hover:bg-primary/10 p-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            toast({
-                              title: "Добавить доход",
-                              description: "Функция добавления дохода будет реализована в следующем обновлении",
-                            });
+                            setLocation(`/add-revenue?projectId=${projectId}`);
                           }}
                         >
                           <Plus size={14} />
@@ -175,10 +167,7 @@ export default function ProjectDetail() {
                           className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            toast({
-                              title: "Редактировать доходы",
-                              description: "Функция редактирования доходов будет реализована в следующем обновлении",
-                            });
+                            setLocation(`/revenues/${projectId}`);
                           }}
                         >
                           <Edit size={14} />

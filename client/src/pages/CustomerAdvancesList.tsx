@@ -29,8 +29,9 @@ export default function CustomerAdvancesList() {
   const { t } = useLanguage();
   const { toast } = useToast();
 
-  // Extract projectId from URL path
-  const projectId = location.split('/')[2];
+  // Extract projectId from URL path  
+  const pathParts = location.split('/');
+  const projectId = pathParts[2];
 
   const { data: project } = useQuery<Project>({
     queryKey: ['/api/projects', projectId],
