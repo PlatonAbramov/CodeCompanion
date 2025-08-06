@@ -27,7 +27,8 @@ export default function AddRevenue() {
     projectId: projectIdFromUrl || '',
     amount: '',
     description: '',
-    source: ''
+    source: '',
+    date: new Date().toISOString().split('T')[0] // Today's date in YYYY-MM-DD format
   });
 
   const { mutate: addRevenue, isPending } = useMutation({
@@ -92,6 +93,7 @@ export default function AddRevenue() {
       amount: parseFloat(formData.amount),
       description: formData.description,
       source: formData.source,
+      date: formData.date,
       userId: user?.id,
     });
   };
@@ -147,6 +149,17 @@ export default function AddRevenue() {
                     {formatCurrency(formData.amount)}
                   </p>
                 )}
+              </div>
+
+              <div>
+                <Label htmlFor="date">Дата *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                  required
+                />
               </div>
 
               <div>

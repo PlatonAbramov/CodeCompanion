@@ -314,6 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const revenueData = insertRevenueSchema.parse({
         ...req.body,
+        amount: req.body.amount.toString(),
         createdBy: req.session.user!.id,
         date: new Date(req.body.date || Date.now())
       });
