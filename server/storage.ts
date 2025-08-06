@@ -44,6 +44,7 @@ export interface IStorage {
   // Revenues
   getProjectRevenues(projectId: string): Promise<any[]>;
   createRevenue(revenue: InsertRevenue): Promise<Revenue>;
+  updateRevenue(id: string, revenue: Partial<InsertRevenue>): Promise<Revenue>;
   
   // User Projects
   assignUserToProject(userId: string, projectId: string): Promise<UserProject>;
@@ -53,6 +54,7 @@ export interface IStorage {
     totalCost: string;
     totalAdvances: string;
     totalCustomerAdvances: string;
+    totalRevenues: string;
     totalExpenses: string;
     profit: string;
   }>;
@@ -232,6 +234,11 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async updateRevenue(id: string, revenue: Partial<InsertRevenue>): Promise<Revenue> {
+    const [result] = await db.update(revenues).set(revenue).where(eq(revenues.id, id)).returning();
+    return result;
+  }
+
   async assignUserToProject(userId: string, projectId: string): Promise<UserProject> {
     const [userProject] = await db
       .insert(userProjects)
@@ -244,6 +251,7 @@ export class DatabaseStorage implements IStorage {
     totalCost: string;
     totalAdvances: string;
     totalCustomerAdvances: string;
+    totalRevenues: string;
     totalExpenses: string;
     profit: string;
   }> {
@@ -273,16 +281,25 @@ export class DatabaseStorage implements IStorage {
       .from(expenses)
       .where(eq(expenses.projectId, projectId));
 
+    const [revenuesSum] = await db
+      .select({ 
+        total: sql<string>`COALESCE(SUM(${revenues.amount}), 0)` 
+      })
+      .from(revenues)
+      .where(eq(revenues.projectId, projectId));
+
     const totalCost = project.totalCost;
     const totalAdvances = advancesSum?.total || "0";
     const totalCustomerAdvances = customerAdvancesSum?.total || "0";
+    const totalRevenues = revenuesSum?.total || "0";
     const totalExpenses = expensesSum?.total || "0";
-    const profit = (parseFloat(totalCost) - parseFloat(totalExpenses)).toString();
+    const profit = (parseFloat(totalRevenues) - parseFloat(totalExpenses)).toString();
 
     return {
       totalCost,
       totalAdvances,
       totalCustomerAdvances,
+      totalRevenues,
       totalExpenses,
       profit
     };

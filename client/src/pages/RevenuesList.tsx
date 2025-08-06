@@ -187,12 +187,7 @@ export default function RevenuesList() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => {
-                              toast({
-                                title: "Редактирование дохода",
-                                description: "Функция редактирования доходов будет реализована в следующем обновлении",
-                              });
-                            }}
+                            onClick={() => setLocation(`/edit-revenue/${projectId}/${revenue.id}`)}
                             className="text-slate-600 border-slate-300 hover:bg-slate-100"
                           >
                             <Edit size={16} className="mr-2" />

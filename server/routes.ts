@@ -326,6 +326,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/revenues/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const revenueData = {
+        ...req.body,
+        amount: req.body.amount.toString(),
+        date: new Date(req.body.date)
+      };
+      const revenue = await storage.updateRevenue(req.params.id, revenueData);
+      res.json(revenue);
+    } catch (error) {
+      console.error("Update revenue error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Object storage routes for file uploads
   app.get("/objects/:objectPath(*)", requireAuth, async (req, res) => {
     const userId = req.session.user.id;

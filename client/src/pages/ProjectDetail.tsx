@@ -176,7 +176,7 @@ export default function ProjectDetail() {
                     )}
                   </div>
                   <span className="font-semibold text-slate-900">
-                    {formatCurrency(financialSummary.totalCost)}
+                    {formatCurrency(financialSummary.totalRevenues || '0')}
                   </span>
                 </div>
 
