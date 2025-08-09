@@ -103,6 +103,9 @@ export default function CategoryExpenses() {
       'tools': 'Инструменты', 
       'transport': 'Транспорт',
       'services': 'Услуги',
+      'salary_employees': 'Зарплата действующим сотрудникам',
+      'salary_daily': 'Зарплата поднёвщикам',
+      'contractor_payments': 'Оплата подрядчикам',
       'other': 'Прочее'
     };
     return categoryMap[category] || category;
