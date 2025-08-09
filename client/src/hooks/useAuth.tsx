@@ -99,11 +99,19 @@ export function useAuth() {
     },
   });
 
+  const login = (data: LoginData) => {
+    loginMutation.mutate(data);
+  };
+
+  const logout = () => {
+    logoutMutation.mutate();
+  };
+
   return {
     user,
     isLoading,
-    login: loginMutation.mutate,
-    logout: logoutMutation.mutate,
+    login,
+    logout,
     isLoggingIn: loginMutation.isPending,
     isLoggingOut: logoutMutation.isPending,
   };
