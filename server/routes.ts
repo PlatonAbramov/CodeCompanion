@@ -385,6 +385,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete endpoints
+  app.delete("/api/advances/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      await storage.deleteAdvance(req.params.id);
+      res.json({ message: "Advance deleted successfully" });
+    } catch (error) {
+      console.error("Delete advance error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/customer-advances/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      await storage.deleteCustomerAdvance(req.params.id);
+      res.json({ message: "Customer advance deleted successfully" });
+    } catch (error) {
+      console.error("Delete customer advance error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/expenses/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      await storage.deleteExpense(req.params.id);
+      res.json({ message: "Expense deleted successfully" });
+    } catch (error) {
+      console.error("Delete expense error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/revenues/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      await storage.deleteRevenue(req.params.id);
+      res.json({ message: "Revenue deleted successfully" });
+    } catch (error) {
+      console.error("Delete revenue error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Object storage routes for file uploads
   app.get("/objects/:objectPath(*)", requireAuth, async (req, res) => {
     const userId = req.session.user.id;

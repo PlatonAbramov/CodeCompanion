@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { 
-  ArrowLeft, Plus, Eye, Edit
+  ArrowLeft, Plus, Eye, Edit, MoreVertical, Trash2
 } from "lucide-react";
 
 interface Expense {
@@ -31,6 +33,7 @@ export default function CategoryExpenses() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Extract projectId and category from URL path
   const pathParts = location.split('/');
@@ -40,6 +43,34 @@ export default function CategoryExpenses() {
   // Get project expenses
   const { data: allExpenses = [], isLoading } = useQuery<Expense[]>({
     queryKey: ['/api/projects', projectId, 'expenses'],
+  });
+
+  const { mutate: deleteExpense } = useMutation({
+    mutationFn: async (expenseId: string) => {
+      const response = await fetch(`/api/expenses/${expenseId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete expense');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Расход удален",
+        description: "Расход успешно удален",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось удалить расход",
+        variant: "destructive",
+      });
+    },
   });
 
   // Get project details
@@ -192,28 +223,64 @@ export default function CategoryExpenses() {
                         </p>
                       </div>
                       
-                      <div className="ml-4 flex items-center space-x-2">
-                        {expense.receiptUrl && (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => openReceipt(expense.receiptUrl)}
-                            className="text-primary border-primary hover:bg-primary hover:text-white"
-                          >
-                            <Eye size={16} className="mr-2" />
-                            Посмотреть чек
-                          </Button>
-                        )}
-                        {user?.role === 'director' && (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setLocation(`/edit-expense/${projectId}/${expense.id}`)}
-                            className="text-slate-600 border-slate-300 hover:bg-slate-100"
-                          >
-                            <Edit size={16} className="mr-2" />
-                            Редактировать
-                          </Button>
+                      <div className="ml-4 flex items-center">
+                        {(user?.role === 'director' || expense.user.id === user?.id) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVertical size={16} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => setLocation(`/edit-expense/${projectId}/${expense.id}`)}
+                              >
+                                <Edit size={16} className="mr-2" />
+                                Редактировать
+                              </DropdownMenuItem>
+                              {expense.receiptUrl && (
+                                <DropdownMenuItem
+                                  onClick={() => openReceipt(expense.receiptUrl)}
+                                >
+                                  <Eye size={16} className="mr-2" />
+                                  Просмотреть чек
+                                </DropdownMenuItem>
+                              )}
+                              {user?.role === 'director' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem
+                                        onSelect={(e) => e.preventDefault()}
+                                        className="text-red-600 focus:text-red-600"
+                                      >
+                                        <Trash2 size={16} className="mr-2" />
+                                        Удалить
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Удалить расход?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Это действие нельзя отменить. Расход будет удален безвозвратно.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => deleteExpense(expense.id)}
+                                          className="bg-red-600 hover:bg-red-700"
+                                        >
+                                          Удалить
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                     </div>

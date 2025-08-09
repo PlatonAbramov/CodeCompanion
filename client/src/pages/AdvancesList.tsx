@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { 
-  ArrowLeft, Plus, Edit, User
+  ArrowLeft, Plus, Edit, User, MoreVertical, Trash2
 } from "lucide-react";
 
 interface Advance {
@@ -29,6 +31,7 @@ export default function AdvancesList() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Extract projectId from URL path  
   const pathParts = location.split('/');
@@ -40,6 +43,34 @@ export default function AdvancesList() {
 
   const { data: advances = [], isLoading } = useQuery<Advance[]>({
     queryKey: ['/api/projects', projectId, 'advances'],
+  });
+
+  const { mutate: deleteAdvance } = useMutation({
+    mutationFn: async (advanceId: string) => {
+      const response = await fetch(`/api/advances/${advanceId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete advance');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Аванс удален",
+        description: "Аванс успешно удален",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'advances'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось удалить аванс",
+        variant: "destructive",
+      });
+    },
   });
 
   const goBack = () => {
@@ -182,15 +213,50 @@ export default function AdvancesList() {
                       
                       <div className="ml-4 flex items-center">
                         {user?.role === 'director' && (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setLocation(`/edit-advance/${projectId}/${advance.id}`)}
-                            className="text-slate-600 border-slate-300 hover:bg-slate-100"
-                          >
-                            <Edit size={16} className="mr-2" />
-                            Редактировать
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVertical size={16} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => setLocation(`/edit-advance/${projectId}/${advance.id}`)}
+                              >
+                                <Edit size={16} className="mr-2" />
+                                Редактировать
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem
+                                    onSelect={(e) => e.preventDefault()}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <Trash2 size={16} className="mr-2" />
+                                    Удалить
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Удалить аванс?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Это действие нельзя отменить. Аванс будет удален безвозвратно.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteAdvance(advance.id)}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      Удалить
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                     </div>

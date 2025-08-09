@@ -29,6 +29,7 @@ export interface IStorage {
   getUserExpenses(userId: string): Promise<(Expense & { project: { name: string } })[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
   updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense>;
+  deleteExpense(id: string): Promise<void>;
   
   // Documents
   getProjectDocuments(projectId: string): Promise<Document[]>;
@@ -38,16 +39,19 @@ export interface IStorage {
   getProjectAdvances(projectId: string): Promise<Advance[]>;
   createAdvance(advance: InsertAdvance): Promise<Advance>;
   updateAdvance(id: string, advance: Partial<InsertAdvance>): Promise<Advance>;
+  deleteAdvance(id: string): Promise<void>;
   
   // Customer Advances
   getProjectCustomerAdvances(projectId: string): Promise<CustomerAdvance[]>;
   createCustomerAdvance(customerAdvance: InsertCustomerAdvance): Promise<CustomerAdvance>;
   updateCustomerAdvance(id: string, customerAdvance: Partial<InsertCustomerAdvance>): Promise<CustomerAdvance>;
+  deleteCustomerAdvance(id: string): Promise<void>;
   
   // Revenues
   getProjectRevenues(projectId: string): Promise<any[]>;
   createRevenue(revenue: InsertRevenue): Promise<Revenue>;
   updateRevenue(id: string, revenue: Partial<InsertRevenue>): Promise<Revenue>;
+  deleteRevenue(id: string): Promise<void>;
   
   // User Projects
   assignUserToProject(userId: string, projectId: string): Promise<UserProject>;
@@ -333,6 +337,22 @@ export class DatabaseStorage implements IStorage {
       .where(eq(expenses.id, id))
       .returning();
     return updatedExpense;
+  }
+
+  async deleteAdvance(id: string): Promise<void> {
+    await db.delete(advances).where(eq(advances.id, id));
+  }
+
+  async deleteCustomerAdvance(id: string): Promise<void> {
+    await db.delete(customerAdvances).where(eq(customerAdvances.id, id));
+  }
+
+  async deleteExpense(id: string): Promise<void> {
+    await db.delete(expenses).where(eq(expenses.id, id));
+  }
+
+  async deleteRevenue(id: string): Promise<void> {
+    await db.delete(revenues).where(eq(revenues.id, id));
   }
 }
 
