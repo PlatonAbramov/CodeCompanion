@@ -90,10 +90,10 @@ export default function ProjectDetail() {
       mimeType: string;
     }) => {
       // First set ACL policy for the uploaded file
-      await apiRequest('/api/files', 'PUT', { fileURL });
+      await apiRequest('PUT', '/api/files', { fileURL });
 
       // Then create document record in database
-      return apiRequest(`/api/projects/${projectId}/documents`, 'POST', {
+      return apiRequest('POST', `/api/projects/${projectId}/documents`, {
         name: fileName,
         fileName,
         fileUrl: fileURL,
@@ -120,7 +120,7 @@ export default function ProjectDetail() {
 
   // Document delete mutation
   const deleteMutation = useMutation({
-    mutationFn: (documentId: string) => apiRequest(`/api/documents/${documentId}`, 'DELETE'),
+    mutationFn: (documentId: string) => apiRequest('DELETE', `/api/documents/${documentId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'documents'] });
       toast({
@@ -161,7 +161,7 @@ export default function ProjectDetail() {
   // Handle file upload
   const handleGetUploadParameters = async () => {
     try {
-      const response = await apiRequest('/api/objects/upload', 'POST');
+      const response = await apiRequest('POST', '/api/objects/upload');
       const data = await response.json();
       return {
         method: 'PUT' as const,

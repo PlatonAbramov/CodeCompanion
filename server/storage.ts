@@ -181,35 +181,7 @@ export class DatabaseStorage implements IStorage {
     return newExpense;
   }
 
-  async getProjectDocuments(projectId: string): Promise<Document[]> {
-    return await db
-      .select()
-      .from(documents)
-      .where(eq(documents.projectId, projectId))
-      .orderBy(desc(documents.createdAt));
-  }
 
-  async createDocument(document: InsertDocument): Promise<Document> {
-    const [newDocument] = await db
-      .insert(documents)
-      .values(document)
-      .returning();
-    return newDocument;
-  }
-
-  async getDocument(id: string): Promise<Document | undefined> {
-    const [document] = await db
-      .select()
-      .from(documents)
-      .where(eq(documents.id, id));
-    return document;
-  }
-
-  async deleteDocument(id: string): Promise<void> {
-    await db
-      .delete(documents)
-      .where(eq(documents.id, id));
-  }
 
   async getProjectAdvances(projectId: string): Promise<Advance[]> {
     return await db
@@ -444,6 +416,36 @@ export class DatabaseStorage implements IStorage {
 
   async deleteOwnerInvestment(id: string): Promise<void> {
     await db.delete(ownerInvestments).where(eq(ownerInvestments.id, id));
+  }
+
+  // Documents
+  async getProjectDocuments(projectId: string): Promise<Document[]> {
+    const result = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.projectId, projectId))
+      .orderBy(desc(documents.createdAt));
+    return result;
+  }
+
+  async createDocument(document: InsertDocument): Promise<Document> {
+    const [result] = await db
+      .insert(documents)
+      .values(document)
+      .returning();
+    return result;
+  }
+
+  async getDocument(id: string): Promise<Document | undefined> {
+    const [result] = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.id, id));
+    return result || undefined;
+  }
+
+  async deleteDocument(id: string): Promise<void> {
+    await db.delete(documents).where(eq(documents.id, id));
   }
 }
 

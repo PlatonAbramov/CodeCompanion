@@ -214,7 +214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const expenseData = insertExpenseSchema.parse({
         ...req.body,
-        userId: req.session.user.id
+        userId: req.session.user!.id
       });
       const expense = await storage.createExpense(expenseData);
       res.status(201).json(expense);
@@ -239,7 +239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const documentData = insertDocumentSchema.parse({
         ...req.body,
-        uploadedBy: req.session.user.id
+        uploadedBy: req.session.user!.id
       });
       const document = await storage.createDocument(documentData);
       res.status(201).json(document);
@@ -588,6 +588,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Document deleted successfully" });
     } catch (error) {
       console.error("Delete document error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Object Storage routes for file upload
+  app.post("/api/objects/upload", requireAuth, async (req, res) => {
+    try {
+      // For now, return a mock upload URL since object storage isn't fully set up
+      // In a real implementation, this would get a presigned URL from Google Cloud Storage
+      const uploadURL = `https://mock-storage.example.com/upload/${Date.now()}-${Math.random().toString(36)}`;
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // File ACL policy route
+  app.put("/api/files", requireAuth, async (req, res) => {
+    try {
+      // For now, just return success since object storage isn't fully set up
+      // In a real implementation, this would set ACL policies on the uploaded file
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error setting file ACL:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
