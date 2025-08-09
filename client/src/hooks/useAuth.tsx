@@ -22,6 +22,7 @@ export function useAuth() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [forceUpdate, setForceUpdate] = useState(0);
 
   // Check authentication on mount
   useEffect(() => {
@@ -60,17 +61,21 @@ export function useAuth() {
     },
     onSuccess: (data) => {
       setUser(data.user);
+      setIsLoading(false);
+      setForceUpdate(prev => prev + 1);
       toast({
         title: "Успешно",
         description: "Вход выполнен успешно",
       });
       
-      // Immediate redirect based on user role
-      if (data.user.role === 'director') {
-        setLocation('/director');
-      } else if (data.user.role === 'master') {
-        setLocation('/master');
-      }
+      // Force page reload to ensure clean state
+      setTimeout(() => {
+        if (data.user.role === 'director') {
+          window.location.href = '/director';
+        } else if (data.user.role === 'master') {
+          window.location.href = '/master';
+        }
+      }, 500);
     },
     onError: (error: any) => {
       toast({
@@ -89,13 +94,17 @@ export function useAuth() {
     },
     onSuccess: () => {
       setUser(null);
+      setIsLoading(false);
+      setForceUpdate(prev => prev + 1);
       queryClient.clear();
       toast({
         title: "Успешно",
         description: "Выход выполнен успешно",
       });
-      // Immediate redirect to login
-      setLocation('/login');
+      // Force page reload to ensure clean state
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 500);
     },
   });
 
@@ -114,5 +123,6 @@ export function useAuth() {
     logout,
     isLoggingIn: loginMutation.isPending,
     isLoggingOut: logoutMutation.isPending,
+    forceUpdate // Include force update in return to trigger re-render
   };
 }
