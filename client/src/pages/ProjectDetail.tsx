@@ -9,9 +9,8 @@ import {
   ArrowLeft, MoreVertical, Download, Eye, Plus, Edit,
   FileText, Paperclip, Trash2
 } from "lucide-react";
-import { ObjectUploader } from "@/components/ObjectUploader";
+import { FileUploader } from "@/components/FileUploader";
 import { apiRequest } from "@/lib/queryClient";
-import type { UploadResult } from "@uppy/core";
 
 interface Project {
   id: string;
@@ -81,38 +80,37 @@ export default function ProjectDetail() {
     queryKey: ['/api/projects', projectId, 'documents'],
   });
 
-  // Document upload mutation
-  const uploadMutation = useMutation({
-    mutationFn: async ({ fileURL, fileName, fileSize, mimeType }: {
-      fileURL: string;
+  // Document create mutation
+  const createDocumentMutation = useMutation({
+    mutationFn: async (files: Array<{
       fileName: string;
+      fileUrl: string;
       fileSize: number;
       mimeType: string;
-    }) => {
-      // First set ACL policy for the uploaded file
-      await apiRequest('PUT', '/api/files', { fileURL });
-
-      // Then create document record in database
-      return apiRequest('POST', `/api/projects/${projectId}/documents`, {
-        name: fileName,
-        fileName,
-        fileUrl: fileURL,
-        fileSize,
-        mimeType
-      });
+    }>) => {
+      const promises = files.map(file => 
+        apiRequest('POST', `/api/projects/${projectId}/documents`, {
+          name: file.fileName,
+          fileName: file.fileName,
+          fileUrl: file.fileUrl,
+          fileSize: file.fileSize,
+          mimeType: file.mimeType
+        })
+      );
+      return Promise.all(promises);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'documents'] });
       toast({
         title: t('success') || 'Success',
-        description: t('documentUploaded') || 'Document uploaded successfully',
+        description: t('documentsUploaded') || 'Documents uploaded successfully',
       });
     },
     onError: (error) => {
-      console.error('Upload error:', error);
+      console.error('Document creation error:', error);
       toast({
         title: t('error') || 'Error',
-        description: t('uploadFailed') || 'Failed to upload document',
+        description: t('uploadFailed') || 'Failed to create documents',
         variant: 'destructive',
       });
     }
@@ -159,30 +157,13 @@ export default function ProjectDetail() {
   };
 
   // Handle file upload
-  const handleGetUploadParameters = async () => {
-    try {
-      const response = await apiRequest('POST', '/api/objects/upload');
-      const data = await response.json();
-      return {
-        method: 'PUT' as const,
-        url: data.uploadURL,
-      };
-    } catch (error) {
-      console.error('Error getting upload parameters:', error);
-      throw error;
-    }
-  };
-
-  const handleUploadComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    const file = result.successful?.[0];
-    if (file && file.uploadURL) {
-      uploadMutation.mutate({
-        fileURL: file.uploadURL as string,
-        fileName: file.name || 'Unknown file',
-        fileSize: file.size || 0,
-        mimeType: file.type || 'application/octet-stream'
-      });
-    }
+  const handleFilesUpload = (files: Array<{
+    fileName: string;
+    fileUrl: string;
+    fileSize: number;
+    mimeType: string;
+  }>) => {
+    createDocumentMutation.mutate(files);
   };
 
   const handleDeleteDocument = (documentId: string) => {
@@ -453,16 +434,15 @@ export default function ProjectDetail() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-900">{t('documents')}</h3>
               {user?.role === 'director' && (
-                <ObjectUploader
-                  maxNumberOfFiles={5}
-                  maxFileSize={50 * 1024 * 1024} // 50MB
-                  onGetUploadParameters={handleGetUploadParameters}
-                  onComplete={handleUploadComplete}
-                  buttonClassName="text-primary text-sm font-medium p-0 h-auto"
+                <FileUploader
+                  onUpload={handleFilesUpload}
+                  maxFiles={5}
+                  maxFileSize={50 * 1024 * 1024}
+                  accept="*/*"
                 >
                   <Plus size={16} className="mr-1" />
                   {t('addDocument') || 'Add Document'}
-                </ObjectUploader>
+                </FileUploader>
               )}
             </div>
             

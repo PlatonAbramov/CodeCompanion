@@ -3,13 +3,18 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import session from "express-session";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { 
   insertUserSchema, insertProjectSchema, insertExpenseSchema, 
   insertDocumentSchema, insertAdvanceSchema, insertCustomerAdvanceSchema,
   insertRevenueSchema, insertOwnerInvestmentSchema 
 } from "@shared/schema";
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { ObjectPermission } from "./objectAcl";
 
 // Extend session data type
 declare module 'express-session' {
@@ -24,6 +29,28 @@ declare module 'express-session' {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Create uploads directory if it doesn't exist
+  const uploadsDir = path.join(__dirname, 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  // Configure multer for file uploads
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, uploadsDir);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+      }
+    }),
+    limits: {
+      fileSize: 10 * 1024 * 1024 // 10MB limit
+    }
+  });
+
   // Session middleware
   app.use(session({
     secret: process.env.SESSION_SECRET || 'construction-app-secret',
@@ -426,66 +453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Object storage routes for file uploads
-  app.get("/objects/:objectPath(*)", requireAuth, async (req, res) => {
-    const userId = req.session.user!.id;
-    const objectStorageService = new ObjectStorageService();
-    try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      const canAccess = await objectStorageService.canAccessObjectEntity({
-        objectFile,
-        userId: userId,
-        requestedPermission: ObjectPermission.READ,
-      });
-      if (!canAccess) {
-        return res.sendStatus(403);
-      }
-      objectStorageService.downloadObject(objectFile, res);
-    } catch (error) {
-      console.error("Error accessing object:", error);
-      if (error instanceof ObjectNotFoundError) {
-        return res.sendStatus(404);
-      }
-      return res.sendStatus(500);
-    }
-  });
 
-  app.post("/api/objects/upload", requireAuth, async (req, res) => {
-    try {
-      const objectStorageService = new ObjectStorageService();
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
-    } catch (error) {
-      console.error("Error getting upload URL:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  app.put("/api/files", requireAuth, async (req, res) => {
-    if (!req.body.fileURL) {
-      return res.status(400).json({ error: "fileURL is required" });
-    }
-
-    const userId = req.session.user!.id;
-
-    try {
-      const objectStorageService = new ObjectStorageService();
-      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
-        req.body.fileURL,
-        {
-          owner: userId,
-          visibility: "private", // Files are private by default
-        },
-      );
-
-      res.status(200).json({
-        objectPath: objectPath,
-      });
-    } catch (error) {
-      console.error("Error setting file ACL:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
 
   // Documents routes
   app.get("/api/projects/:projectId/documents", requireAuth, async (req, res) => {
@@ -592,29 +560,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Object Storage routes for file upload
-  app.post("/api/objects/upload", requireAuth, async (req, res) => {
+  // File upload route
+  app.post("/api/upload", requireAuth, upload.single('file'), async (req, res) => {
     try {
-      // For now, return a mock upload URL since object storage isn't fully set up
-      // In a real implementation, this would get a presigned URL from Google Cloud Storage
-      const uploadURL = `https://mock-storage.example.com/upload/${Date.now()}-${Math.random().toString(36)}`;
-      res.json({ uploadURL });
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const fileUrl = `/api/files/${req.file.filename}`;
+      
+      res.json({
+        fileName: req.file.originalname,
+        fileUrl,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype
+      });
     } catch (error) {
-      console.error("Error getting upload URL:", error);
+      console.error("File upload error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
 
-  // File ACL policy route
-  app.put("/api/files", requireAuth, async (req, res) => {
-    try {
-      // For now, just return success since object storage isn't fully set up
-      // In a real implementation, this would set ACL policies on the uploaded file
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error setting file ACL:", error);
-      res.status(500).json({ error: "Internal server error" });
+  // Serve uploaded files
+  app.get("/api/files/:filename", (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(uploadsDir, filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "File not found" });
     }
+
+    res.sendFile(filePath);
   });
 
   const httpServer = createServer(app);
