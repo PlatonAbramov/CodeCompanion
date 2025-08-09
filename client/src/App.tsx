@@ -33,14 +33,11 @@ function AuthenticatedApp() {
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    console.log('AuthenticatedApp useEffect:', { user, isLoading, location });
-    
     if (isLoading) return;
 
     if (!user) {
       // User not authenticated, redirect to login
       if (location !== '/login' && location !== '/') {
-        console.log('Redirecting to login');
         setLocation('/login');
       }
       return;
@@ -48,14 +45,11 @@ function AuthenticatedApp() {
 
     // User is authenticated, handle redirects
     if (location === '/login' || location === '/') {
-      console.log('User authenticated, redirecting to dashboard', user.role);
       // Small delay to ensure user state is properly set
       setTimeout(() => {
         if (user.role === 'director') {
-          console.log('Redirecting to /director');
           setLocation('/director');
         } else if (user.role === 'master') {
-          console.log('Redirecting to /master');
           setLocation('/master');
         }
       }, 100);

@@ -89,7 +89,10 @@ export function useAuth() {
         title: "Успешно",
         description: "Выход выполнен успешно",
       });
-      setLocation('/login');
+      // Force redirect to login by setting location to root first, then login
+      setTimeout(() => {
+        setLocation('/login');
+      }, 50);
     },
   });
 
