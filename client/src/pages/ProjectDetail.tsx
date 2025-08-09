@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
@@ -5,9 +6,10 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   ArrowLeft, MoreVertical, Download, Eye, Plus, Edit,
-  FileText, Paperclip, Trash2
+  FileText, Paperclip, Trash2, ChevronDown, ChevronUp
 } from "lucide-react";
 import { FileUploader } from "@/components/FileUploader";
 import { apiRequest } from "@/lib/queryClient";
@@ -59,6 +61,7 @@ export default function ProjectDetail() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isFinancialSummaryOpen, setIsFinancialSummaryOpen] = useState(true);
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];
@@ -235,9 +238,22 @@ export default function ProjectDetail() {
         {financialSummary && (
           <Card className="mb-6 shadow-sm">
             <CardContent className="p-4">
-              <h3 className="font-semibold text-slate-900 mb-4">{t('financialSummary')}</h3>
-              
-              <div className="space-y-4">
+              <Collapsible open={isFinancialSummaryOpen} onOpenChange={setIsFinancialSummaryOpen}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-900">{t('financialSummary')}</h3>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-9 h-9 p-0">
+                      {isFinancialSummaryOpen ? (
+                        <ChevronUp size={16} className="text-slate-500" />
+                      ) : (
+                        <ChevronDown size={16} className="text-slate-500" />
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+                
+                <CollapsibleContent>
+                  <div className="space-y-4 mt-4">
                 {/* Contract Value Row */}
                 <div className="flex justify-between items-center p-3 rounded-lg bg-slate-50">
                   <span className="text-slate-600">Стоимость проекта по договору</span>
@@ -435,6 +451,8 @@ export default function ProjectDetail() {
                   {t('exportPDF')}
                 </Button>
               )}
+                </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
         )}
