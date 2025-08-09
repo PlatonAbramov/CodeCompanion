@@ -24,6 +24,7 @@ interface FinancialSummary {
   totalCost: string;
   totalAdvances: string;
   totalCustomerAdvances: string;
+  totalRevenues: string;
   totalExpenses: string;
   profit: string;
 }
