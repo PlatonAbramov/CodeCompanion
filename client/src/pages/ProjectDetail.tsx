@@ -240,18 +240,18 @@ export default function ProjectDetail() {
           <Card className="mb-6 shadow-sm">
             <CardContent className="p-4">
               <Collapsible open={isFinancialSummaryOpen} onOpenChange={setIsFinancialSummaryOpen}>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-900">{t('financialSummary')}</h3>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="w-9 h-9 p-0">
+                <CollapsibleTrigger asChild>
+                  <div className="flex items-center justify-between cursor-pointer hover:bg-slate-50 -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-lg">
+                    <h3 className="font-semibold text-slate-900">{t('financialSummary')}</h3>
+                    <div className="w-9 h-9 flex items-center justify-center">
                       {isFinancialSummaryOpen ? (
                         <ChevronUp size={16} className="text-slate-500" />
                       ) : (
                         <ChevronDown size={16} className="text-slate-500" />
                       )}
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
+                    </div>
+                  </div>
+                </CollapsibleTrigger>
                 
                 <CollapsibleContent>
                   <div className="space-y-4 mt-4">
@@ -462,34 +462,34 @@ export default function ProjectDetail() {
         <Card className="mb-6 shadow-sm">
           <CardContent className="p-4">
             <Collapsible open={isDocumentsOpen} onOpenChange={setIsDocumentsOpen}>
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-slate-900">{t('documents')}</h3>
-                <div className="flex items-center gap-2">
-                  {user?.role === 'director' && (
-                    <FileUploader
-                      onUpload={handleFilesUpload}
-                      maxFiles={5}
-                      maxFileSize={50 * 1024 * 1024}
-                      accept="*/*"
-                    >
-                      <Plus size={16} className="mr-1" />
-                      {t('addDocument') || 'Add Document'}
-                    </FileUploader>
-                  )}
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="w-9 h-9 p-0">
-                      {isDocumentsOpen ? (
-                        <ChevronUp size={16} className="text-slate-500" />
-                      ) : (
-                        <ChevronDown size={16} className="text-slate-500" />
-                      )}
-                    </Button>
-                  </CollapsibleTrigger>
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between cursor-pointer hover:bg-slate-50 -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-lg">
+                  <h3 className="font-semibold text-slate-900">{t('documents')}</h3>
+                  <div className="w-9 h-9 flex items-center justify-center">
+                    {isDocumentsOpen ? (
+                      <ChevronUp size={16} className="text-slate-500" />
+                    ) : (
+                      <ChevronDown size={16} className="text-slate-500" />
+                    )}
+                  </div>
                 </div>
-              </div>
+              </CollapsibleTrigger>
               
               <CollapsibleContent>
                 <div className="mt-4">
+                  {user?.role === 'director' && (
+                    <div className="mb-4 flex justify-end">
+                      <FileUploader
+                        onUpload={handleFilesUpload}
+                        maxFiles={5}
+                        maxFileSize={50 * 1024 * 1024}
+                        accept="*/*"
+                      >
+                        <Plus size={16} className="mr-1" />
+                        {t('addDocument') || 'Add Document'}
+                      </FileUploader>
+                    </div>
+                  )}
                   {documents.length === 0 ? (
                     <p className="text-slate-500 text-center py-4">Нет документов</p>
                   ) : (
