@@ -241,7 +241,7 @@ export default function ProjectDetail() {
             <CardContent className="p-4">
               <Collapsible open={isFinancialSummaryOpen} onOpenChange={setIsFinancialSummaryOpen}>
                 <CollapsibleTrigger asChild>
-                  <div className="flex items-center justify-between cursor-pointer hover:bg-slate-50 -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-lg">
+                  <div className="flex items-center justify-between cursor-pointer -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-lg">
                     <h3 className="font-semibold text-slate-900">{t('financialSummary')}</h3>
                     <div className="w-9 h-9 flex items-center justify-center">
                       {isFinancialSummaryOpen ? (
@@ -463,7 +463,7 @@ export default function ProjectDetail() {
           <CardContent className="p-4">
             <Collapsible open={isDocumentsOpen} onOpenChange={setIsDocumentsOpen}>
               <CollapsibleTrigger asChild>
-                <div className="flex items-center justify-between cursor-pointer hover:bg-slate-50 -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-lg">
+                <div className="flex items-center justify-between cursor-pointer -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-lg">
                   <h3 className="font-semibold text-slate-900">{t('documents')}</h3>
                   <div className="w-9 h-9 flex items-center justify-center">
                     {isDocumentsOpen ? (
