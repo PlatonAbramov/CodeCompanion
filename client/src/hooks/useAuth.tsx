@@ -65,12 +65,7 @@ export function useAuth() {
         description: "Вход выполнен успешно",
       });
       
-      // Redirect based on role
-      if (data.user.role === 'director') {
-        setLocation('/director');
-      } else if (data.user.role === 'master') {
-        setLocation('/master');
-      }
+      // Redirect will be handled by App.tsx AuthenticatedApp component
     },
     onError: (error: any) => {
       toast({

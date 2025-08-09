@@ -45,11 +45,14 @@ function AuthenticatedApp() {
 
     // User is authenticated, handle redirects
     if (location === '/login' || location === '/') {
-      if (user.role === 'director') {
-        setLocation('/director');
-      } else if (user.role === 'master') {
-        setLocation('/master');
-      }
+      // Small delay to ensure user state is properly set
+      setTimeout(() => {
+        if (user.role === 'director') {
+          setLocation('/director');
+        } else if (user.role === 'master') {
+          setLocation('/master');
+        }
+      }, 100);
     }
   }, [user, isLoading, location, setLocation]);
 
