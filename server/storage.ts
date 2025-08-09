@@ -1,9 +1,10 @@
 import { 
-  users, projects, expenses, documents, advances, customerAdvances, userProjects, revenues,
+  users, projects, expenses, documents, advances, customerAdvances, userProjects, revenues, ownerInvestments,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
   type Advance, type InsertAdvance, type CustomerAdvance, type InsertCustomerAdvance,
-  type Revenue, type InsertRevenue, type UserProject, type InsertUserProject
+  type Revenue, type InsertRevenue, type UserProject, type InsertUserProject,
+  type OwnerInvestment, type InsertOwnerInvestment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -55,6 +56,13 @@ export interface IStorage {
   
   // User Projects
   assignUserToProject(userId: string, projectId: string): Promise<UserProject>;
+  
+  // Owner Investments
+  getProjectOwnerInvestments(projectId: string): Promise<OwnerInvestment[]>;
+  getOwnerInvestment(id: string): Promise<OwnerInvestment | undefined>;
+  createOwnerInvestment(ownerInvestment: InsertOwnerInvestment): Promise<OwnerInvestment>;
+  updateOwnerInvestment(id: string, ownerInvestment: Partial<InsertOwnerInvestment>): Promise<OwnerInvestment>;
+  deleteOwnerInvestment(id: string): Promise<void>;
   
   // Analytics
   getProjectFinancialSummary(projectId: string): Promise<{
@@ -261,6 +269,7 @@ export class DatabaseStorage implements IStorage {
     totalCustomerAdvances: string;
     totalRevenues: string;
     totalExpenses: string;
+    totalOwnerInvestments: string;
     currentProfit: string;
     projectedProfit: string;
   }> {
@@ -297,24 +306,34 @@ export class DatabaseStorage implements IStorage {
       .from(revenues)
       .where(eq(revenues.projectId, projectId));
 
+    const [ownerInvestmentsSum] = await db
+      .select({ 
+        total: sql<string>`COALESCE(SUM(${ownerInvestments.amount}), 0)` 
+      })
+      .from(ownerInvestments)
+      .where(eq(ownerInvestments.projectId, projectId));
+
     const totalCost = project.totalCost;
     const totalAdvances = advancesSum?.total || "0";
     const totalCustomerAdvances = customerAdvancesSum?.total || "0";
     const totalRevenues = revenuesSum?.total || "0";
     const totalExpenses = expensesSum?.total || "0";
+    const totalOwnerInvestments = ownerInvestmentsSum?.total || "0";
     
-    // Прибыль на данный момент = аванс от заказчика - взятые авансы собственников - расходы
+    // Прибыль на данный момент = аванс от заказчика - взятые авансы собственников - расходы - собственные вложения
     const currentProfit = (
       parseFloat(totalCustomerAdvances) - 
       parseFloat(totalAdvances) - 
-      parseFloat(totalExpenses)
+      parseFloat(totalExpenses) - 
+      parseFloat(totalOwnerInvestments)
     ).toString();
     
-    // Прогнозируемая прибыль = общая стоимость проекта - взятые авансы собственников - расходы
+    // Прогнозируемая прибыль = общая стоимость проекта - взятые авансы собственников - расходы - собственные вложения
     const projectedProfit = (
       parseFloat(totalCost) - 
       parseFloat(totalAdvances) - 
-      parseFloat(totalExpenses)
+      parseFloat(totalExpenses) - 
+      parseFloat(totalOwnerInvestments)
     ).toString();
 
     return {
@@ -323,6 +342,7 @@ export class DatabaseStorage implements IStorage {
       totalCustomerAdvances,
       totalRevenues,
       totalExpenses,
+      totalOwnerInvestments,
       currentProfit,
       projectedProfit
     };
@@ -369,6 +389,45 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRevenue(id: string): Promise<void> {
     await db.delete(revenues).where(eq(revenues.id, id));
+  }
+
+  // Owner Investments
+  async getProjectOwnerInvestments(projectId: string): Promise<OwnerInvestment[]> {
+    const result = await db
+      .select()
+      .from(ownerInvestments)
+      .where(eq(ownerInvestments.projectId, projectId))
+      .orderBy(desc(ownerInvestments.date));
+    return result;
+  }
+
+  async getOwnerInvestment(id: string): Promise<OwnerInvestment | undefined> {
+    const [result] = await db
+      .select()
+      .from(ownerInvestments)
+      .where(eq(ownerInvestments.id, id));
+    return result || undefined;
+  }
+
+  async createOwnerInvestment(ownerInvestment: InsertOwnerInvestment): Promise<OwnerInvestment> {
+    const [result] = await db
+      .insert(ownerInvestments)
+      .values(ownerInvestment)
+      .returning();
+    return result;
+  }
+
+  async updateOwnerInvestment(id: string, ownerInvestment: Partial<InsertOwnerInvestment>): Promise<OwnerInvestment> {
+    const [updatedOwnerInvestment] = await db
+      .update(ownerInvestments)
+      .set(ownerInvestment)
+      .where(eq(ownerInvestments.id, id))
+      .returning();
+    return updatedOwnerInvestment;
+  }
+
+  async deleteOwnerInvestment(id: string): Promise<void> {
+    await db.delete(ownerInvestments).where(eq(ownerInvestments.id, id));
   }
 }
 

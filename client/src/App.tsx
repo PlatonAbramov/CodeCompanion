@@ -26,6 +26,9 @@ import EditExpense from "@/pages/EditExpense";
 import ExpensesList from "@/pages/ExpensesList";
 import CategoryExpenses from "@/pages/CategoryExpenses";
 import EmployeeManagement from "@/pages/EmployeeManagement";
+import OwnerInvestmentsList from "@/pages/OwnerInvestmentsList";
+import AddOwnerInvestment from "@/pages/AddOwnerInvestment";
+import EditOwnerInvestment from "@/pages/EditOwnerInvestment";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedApp() {
@@ -87,6 +90,9 @@ function AuthenticatedApp() {
       <Route path="/edit-expense/:projectId/:expenseId" component={EditExpense} />
       <Route path="/expenses/:projectId" component={ExpensesList} />
       <Route path="/expenses/:projectId/:category" component={CategoryExpenses} />
+      <Route path="/owner-investments/:projectId" component={OwnerInvestmentsList} />
+      <Route path="/add-owner-investment/:projectId" component={user.role === 'director' ? AddOwnerInvestment : () => { setLocation('/director'); return null; }} />
+      <Route path="/edit-owner-investment/:id" component={user.role === 'director' ? EditOwnerInvestment : () => { setLocation('/director'); return null; }} />
       <Route path="/employees" component={user.role === 'director' ? EmployeeManagement : () => { setLocation('/director'); return null; }} />
       <Route component={NotFound} />
     </Switch>

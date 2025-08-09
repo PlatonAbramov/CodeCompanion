@@ -26,6 +26,7 @@ interface FinancialSummary {
   totalCustomerAdvances: string;
   totalRevenues: string;
   totalExpenses: string;
+  totalOwnerInvestments: string;
   currentProfit: string;
   projectedProfit: string;
 }
@@ -226,6 +227,45 @@ export default function ProjectDetail() {
                   </div>
                   <span className="font-semibold text-red-600">
                     {formatCurrency(financialSummary.totalAdvances)}
+                  </span>
+                </div>
+
+                {/* Owner Investments Row */}
+                <div 
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  onClick={() => setLocation(`/owner-investments/${projectId}`)}
+                >
+                  <div className="flex items-center flex-1">
+                    <span className="text-slate-600">Вложили из своих (Влад + Платон)</span>
+                    {user?.role === 'director' && (
+                      <div className="flex items-center ml-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-primary hover:bg-primary/10 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/add-owner-investment/${projectId}`);
+                          }}
+                        >
+                          <Plus size={14} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/owner-investments/${projectId}`);
+                          }}
+                        >
+                          <Edit size={14} />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <span className="font-semibold text-red-600">
+                    {formatCurrency(financialSummary.totalOwnerInvestments)}
                   </span>
                 </div>
 

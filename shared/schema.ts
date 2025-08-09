@@ -82,6 +82,17 @@ export const documents = pgTable("documents", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const ownerInvestments = pgTable("owner_investments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  investor: text("investor").notNull(), // 'vlad' | 'platon'
+  description: text("description"),
+  date: timestamp("date").notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const userProjects = pgTable("user_projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
@@ -97,6 +108,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   documents: many(documents),
   advances: many(advances),
   customerAdvances: many(customerAdvances),
+  ownerInvestments: many(ownerInvestments),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -109,6 +121,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   advances: many(advances),
   customerAdvances: many(customerAdvances),
   userProjects: many(userProjects),
+  ownerInvestments: many(ownerInvestments),
 }));
 
 export const expensesRelations = relations(expenses, ({ one }) => ({
@@ -174,6 +187,17 @@ export const userProjectsRelations = relations(userProjects, ({ one }) => ({
   project: one(projects, {
     fields: [userProjects.projectId],
     references: [projects.id],
+  }),
+}));
+
+export const ownerInvestmentsRelations = relations(ownerInvestments, ({ one }) => ({
+  project: one(projects, {
+    fields: [ownerInvestments.projectId],
+    references: [projects.id],
+  }),
+  createdBy: one(users, {
+    fields: [ownerInvestments.createdBy],
+    references: [users.id],
   }),
 }));
 
@@ -244,6 +268,16 @@ export const insertUserProjectSchema = createInsertSchema(userProjects).omit({
   createdAt: true,
 });
 
+export const insertOwnerInvestmentSchema = createInsertSchema(ownerInvestments).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  date: z.union([
+    z.date(), 
+    z.string().transform((str) => new Date(str))
+  ]),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -261,3 +295,5 @@ export type Revenue = typeof revenues.$inferSelect;
 export type InsertRevenue = z.infer<typeof insertRevenueSchema>;
 export type UserProject = typeof userProjects.$inferSelect;
 export type InsertUserProject = z.infer<typeof insertUserProjectSchema>;
+export type OwnerInvestment = typeof ownerInvestments.$inferSelect;
+export type InsertOwnerInvestment = z.infer<typeof insertOwnerInvestmentSchema>;

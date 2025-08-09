@@ -6,7 +6,7 @@ import session from "express-session";
 import { 
   insertUserSchema, insertProjectSchema, insertExpenseSchema, 
   insertDocumentSchema, insertAdvanceSchema, insertCustomerAdvanceSchema,
-  insertRevenueSchema 
+  insertRevenueSchema, insertOwnerInvestmentSchema 
 } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -483,6 +483,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error setting file ACL:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Owner Investments routes
+  app.get("/api/projects/:projectId/owner-investments", requireAuth, async (req, res) => {
+    try {
+      const ownerInvestments = await storage.getProjectOwnerInvestments(req.params.projectId);
+      res.json(ownerInvestments);
+    } catch (error) {
+      console.error("Error fetching owner investments:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/owner-investments/:id", requireAuth, async (req, res) => {
+    try {
+      const ownerInvestment = await storage.getOwnerInvestment(req.params.id);
+      if (!ownerInvestment) {
+        return res.status(404).json({ error: "Owner investment not found" });
+      }
+      res.json(ownerInvestment);
+    } catch (error) {
+      console.error("Error fetching owner investment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/projects/:projectId/owner-investments", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertOwnerInvestmentSchema.parse({
+        ...req.body,
+        projectId: req.params.projectId,
+        createdBy: req.session.user.id
+      });
+
+      const ownerInvestment = await storage.createOwnerInvestment(validatedData);
+      res.status(201).json(ownerInvestment);
+    } catch (error) {
+      console.error("Error creating owner investment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/owner-investments/:id", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertOwnerInvestmentSchema.partial().parse(req.body);
+      const ownerInvestment = await storage.updateOwnerInvestment(req.params.id, validatedData);
+      res.json(ownerInvestment);
+    } catch (error) {
+      console.error("Error updating owner investment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/owner-investments/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteOwnerInvestment(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting owner investment:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
