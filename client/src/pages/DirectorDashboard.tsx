@@ -26,6 +26,100 @@ interface Project {
   createdAt: string;
 }
 
+interface FinancialSummary {
+  totalCost: string;
+  totalAdvances: string;
+  totalCustomerAdvances: string;
+  totalRevenues: string;
+  totalExpenses: string;
+  currentProfit: string;
+  projectedProfit: string;
+}
+
+// Component for individual project card with financial summary
+function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
+  const { t } = useLanguage();
+  
+  const { data: financialSummary } = useQuery<FinancialSummary>({
+    queryKey: ['/api/projects', project.id, 'financial-summary'],
+  });
+
+  const formatCurrency = (amount: string) => {
+    const num = parseFloat(amount || '0');
+    return `${num.toLocaleString('ru-RU')} د.إ.`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ru-RU');
+  };
+
+  return (
+    <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <h4 className="font-semibold text-slate-900 mb-1">{project.name}</h4>
+            {project.location && (
+              <p className="text-sm text-slate-500">{project.location}</p>
+            )}
+          </div>
+          <span className="bg-secondary/10 text-secondary px-2 py-1 rounded-full text-xs font-medium">
+            {t(project.status)}
+          </span>
+        </div>
+        
+        {financialSummary && (
+          <div className="space-y-2 mb-4 text-xs">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-slate-500">Стоимость проекта</p>
+                <p className="font-semibold text-slate-900">{formatCurrency(financialSummary.totalCost)}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Аванс заказчика</p>
+                <p className="font-semibold text-green-600">{formatCurrency(financialSummary.totalCustomerAdvances)}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-slate-500">Взятые авансы</p>
+                <p className="font-semibold text-red-600">{formatCurrency(financialSummary.totalAdvances)}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Расходы</p>
+                <p className="font-semibold text-red-600">{formatCurrency(financialSummary.totalExpenses)}</p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-200">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-blue-700 font-medium">Текущая прибыль</p>
+                  <p className={`font-bold ${parseFloat(financialSummary.currentProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(financialSummary.currentProfit)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-green-700 font-medium">Прогноз прибыли</p>
+                  <p className={`font-bold ${parseFloat(financialSummary.projectedProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(financialSummary.projectedProfit)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="flex items-center text-sm text-slate-500">
+          <Calendar size={16} className="mr-1" />
+          <span>{formatDate(project.createdAt)}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function DirectorDashboard() {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
@@ -87,18 +181,15 @@ export default function DirectorDashboard() {
   };
 
   const formatCurrency = (amount: string) => {
-    return new Intl.NumberFormat('ar-AE', {
-      style: 'currency',
-      currency: 'AED',
-      minimumFractionDigits: 0,
-    }).format(parseFloat(amount));
+    const num = parseFloat(amount || '0');
+    return `${num.toLocaleString('ru-RU')} د.إ.`;
   };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU');
   };
 
-  const activeProjectsCount = projects.filter(p => p.status === 'active').length;
+  const activeProjectsCount = projects.filter((p: Project) => p.status === 'active').length;
   const totalRevenue = financialData?.totalRevenue || 0;
   const totalExpenses = financialData?.totalExpenses || 0;
   const totalAdvances = financialData?.totalAdvances || 0;
@@ -152,97 +243,78 @@ export default function DirectorDashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-500">{t('totalExpenses')}</p>
-                  <p className="text-2xl font-bold text-red-600">
-                    {formatCurrency(totalExpenses.toString())}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                  <TrendingDown className="text-red-600" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="col-span-2">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
                   <p className="text-sm text-slate-500">{t('totalProfit')}</p>
-                  <p className="text-2xl font-bold text-secondary">
+                  <p className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatCurrency(totalProfit.toString())}
                   </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {t('revenue')}: {formatCurrency(totalRevenue.toString())} - {t('advances')}: {formatCurrency(totalAdvances.toString())} - {t('expenses')}: {formatCurrency(totalExpenses.toString())}
-                  </p>
                 </div>
-                <div className="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="text-secondary" size={24} />
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  {totalProfit >= 0 ? 
+                    <TrendingUp className="text-green-600" size={24} /> : 
+                    <TrendingDown className="text-red-600" size={24} />
+                  }
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
-      </div>
 
-      {/* Projects List */}
-      <div className="px-4 pb-20">
+        {/* Projects Section */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-slate-900">{t('projects')}</h3>
           <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary text-white">
                 <Plus size={16} className="mr-1" />
-                {t('create')}
+                {t('createProject')}
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-full max-w-lg">
+            <DialogContent>
               <DialogHeader>
                 <DialogTitle>{t('createProject')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreateProject} className="space-y-4">
                 <div>
-                  <Label>{t('projectName')} *</Label>
+                  <Label htmlFor="name">{t('projectName')}</Label>
                   <Input
+                    id="name"
                     value={projectForm.name}
                     onChange={(e) => setProjectForm({...projectForm, name: e.target.value})}
-                    placeholder={t('projectName')}
                     required
                   />
                 </div>
-                
                 <div>
-                  <Label>{t('projectLocation')}</Label>
+                  <Label htmlFor="location">{t('location')}</Label>
                   <Input
+                    id="location"
                     value={projectForm.location}
                     onChange={(e) => setProjectForm({...projectForm, location: e.target.value})}
-                    placeholder={t('projectLocation')}
                   />
                 </div>
-                
                 <div>
-                  <Label>{t('totalCost')} *</Label>
+                  <Label htmlFor="totalCost">{t('totalCost')}</Label>
                   <Input
+                    id="totalCost"
                     type="number"
                     value={projectForm.totalCost}
                     onChange={(e) => setProjectForm({...projectForm, totalCost: e.target.value})}
-                    placeholder="0"
                     required
                   />
                 </div>
-                
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>{t('startDate')}</Label>
+                    <Label htmlFor="startDate">{t('startDate')}</Label>
                     <Input
+                      id="startDate"
                       type="date"
                       value={projectForm.startDate}
                       onChange={(e) => setProjectForm({...projectForm, startDate: e.target.value})}
                     />
                   </div>
                   <div>
-                    <Label>{t('endDate')}</Label>
+                    <Label htmlFor="endDate">{t('endDate')}</Label>
                     <Input
+                      id="endDate"
                       type="date"
                       value={projectForm.endDate}
                       onChange={(e) => setProjectForm({...projectForm, endDate: e.target.value})}
@@ -269,41 +341,11 @@ export default function DirectorDashboard() {
         ) : (
           <div className="space-y-3">
             {projects.map((project) => (
-              <Card key={project.id} className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => setLocation(`/project/${project.id}`)}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-slate-900 mb-1">{project.name}</h4>
-                      {project.location && (
-                        <p className="text-sm text-slate-500">{project.location}</p>
-                      )}
-                    </div>
-                    <span className="bg-secondary/10 text-secondary px-2 py-1 rounded-full text-xs font-medium">
-                      {t(project.status)}
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 mb-3">
-                    <div>
-                      <p className="text-xs text-slate-500">{t('totalCost')}</p>
-                      <p className="font-semibold text-slate-900">
-                        {formatCurrency(project.totalCost)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">{t('profit')}</p>
-                      <p className="font-semibold text-secondary">
-                        {formatCurrency("0")}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center text-sm text-slate-500">
-                    <Calendar size={16} className="mr-1" />
-                    <span>{formatDate(project.createdAt)}</span>
-                  </div>
-                </CardContent>
-              </Card>
+              <ProjectCard 
+                key={project.id} 
+                project={project} 
+                onClick={() => setLocation(`/project/${project.id}`)} 
+              />
             ))}
           </div>
         )}
