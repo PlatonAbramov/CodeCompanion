@@ -61,7 +61,8 @@ export default function ProjectDetail() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isFinancialSummaryOpen, setIsFinancialSummaryOpen] = useState(true);
+  const [isFinancialSummaryOpen, setIsFinancialSummaryOpen] = useState(false);
+  const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];
@@ -460,25 +461,39 @@ export default function ProjectDetail() {
         {/* Project Documents */}
         <Card className="mb-6 shadow-sm">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-900">{t('documents')}</h3>
-              {user?.role === 'director' && (
-                <FileUploader
-                  onUpload={handleFilesUpload}
-                  maxFiles={5}
-                  maxFileSize={50 * 1024 * 1024}
-                  accept="*/*"
-                >
-                  <Plus size={16} className="mr-1" />
-                  {t('addDocument') || 'Add Document'}
-                </FileUploader>
-              )}
-            </div>
-            
-            {documents.length === 0 ? (
-              <p className="text-slate-500 text-center py-4">Нет документов</p>
-            ) : (
-              <div className="space-y-3">
+            <Collapsible open={isDocumentsOpen} onOpenChange={setIsDocumentsOpen}>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-slate-900">{t('documents')}</h3>
+                <div className="flex items-center gap-2">
+                  {user?.role === 'director' && (
+                    <FileUploader
+                      onUpload={handleFilesUpload}
+                      maxFiles={5}
+                      maxFileSize={50 * 1024 * 1024}
+                      accept="*/*"
+                    >
+                      <Plus size={16} className="mr-1" />
+                      {t('addDocument') || 'Add Document'}
+                    </FileUploader>
+                  )}
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-9 h-9 p-0">
+                      {isDocumentsOpen ? (
+                        <ChevronUp size={16} className="text-slate-500" />
+                      ) : (
+                        <ChevronDown size={16} className="text-slate-500" />
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+              </div>
+              
+              <CollapsibleContent>
+                <div className="mt-4">
+                  {documents.length === 0 ? (
+                    <p className="text-slate-500 text-center py-4">Нет документов</p>
+                  ) : (
+                    <div className="space-y-3">
                 {documents.map((doc) => (
                   <div key={doc.id} className="flex items-center p-3 bg-slate-50 rounded-lg">
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
@@ -522,63 +537,15 @@ export default function ProjectDetail() {
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                    ))}
+                    </div>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
 
-        {/* Recent Expenses */}
-        <Card 
-          className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => setLocation(`/expenses/${projectId}`)}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-900">{t('recentExpenses')}</h3>
-              <Button 
-                variant="link" 
-                className="text-primary text-sm font-medium p-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLocation(`/add-expense?projectId=${projectId}`);
-                }}
-              >
-                <Plus size={16} className="mr-1" />
-                {t('addExpense')}
-              </Button>
-            </div>
-            
-            {expenses.length === 0 ? (
-              <p className="text-slate-500 text-center py-4">Нет расходов</p>
-            ) : (
-              <div className="space-y-3">
-                {expenses.slice(0, 5).map((expense) => (
-                  <div key={expense.id} className="flex items-start justify-between py-3 border-b border-slate-100 last:border-b-0">
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-900">{expense.category}</p>
-                      {expense.description && (
-                        <p className="text-sm text-slate-500">{expense.description}</p>
-                      )}
-                      <p className="text-xs text-slate-400 mt-1">
-                        <span>{expense.user?.name || 'Неизвестно'}</span> • <span>{formatDate(expense.createdAt)}</span>
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-slate-900">
-                        {formatCurrency(expense.amount)}
-                      </p>
-                      <div className="flex items-center mt-1">
-                        <Paperclip className="text-slate-400" size={12} />
-                        <span className="text-xs text-slate-400 ml-1">Чек</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
