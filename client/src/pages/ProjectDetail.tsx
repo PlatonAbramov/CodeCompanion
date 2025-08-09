@@ -235,6 +235,19 @@ export default function ProjectDetail() {
       </header>
 
       <div className="p-4 pb-20">
+        {/* Add Expense Button */}
+        <div className="flex justify-center mb-6">
+          <Button 
+            className="bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md"
+            onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
+          >
+            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+              <Plus size={16} className="text-white" />
+            </div>
+            Добавить расход
+          </Button>
+        </div>
+
         {/* Financial Summary Card */}
         {financialSummary && (
           <Card className="mb-6 shadow-sm hover:shadow-md transition-shadow">
