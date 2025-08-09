@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Bus, Bell, LogOut, Plus, Home, Folder, Users, BarChart3,
-  ProjectorIcon, TrendingUp, TrendingDown, Calendar
+  ProjectorIcon, TrendingUp, TrendingDown, Calendar, Edit2
 } from "lucide-react";
 
 interface Project {
@@ -37,7 +37,7 @@ interface FinancialSummary {
 }
 
 // Component for individual project card with financial summary
-function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
+function ProjectCard({ project, onClick, onEdit }: { project: Project; onClick: () => void; onEdit: (project: Project) => void }) {
   const { t } = useLanguage();
   
   const { data: financialSummary } = useQuery<FinancialSummary>({
@@ -53,6 +53,11 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
     return new Date(dateString).toLocaleDateString('ru-RU');
   };
 
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    onEdit(project);
+  };
+
   return (
     <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
       <CardContent className="p-4">
@@ -63,9 +68,19 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
               <p className="text-sm text-slate-500">{project.location}</p>
             )}
           </div>
-          <span className="bg-secondary/10 text-secondary px-2 py-1 rounded-full text-xs font-medium">
-            {t(project.status)}
-          </span>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleEditClick}
+              className="h-8 w-8 p-0 hover:bg-slate-100"
+            >
+              <Edit2 size={14} className="text-slate-600" />
+            </Button>
+            <span className="bg-secondary/10 text-secondary px-2 py-1 rounded-full text-xs font-medium">
+              {t(project.status)}
+            </span>
+          </div>
         </div>
         
         {financialSummary && (
@@ -127,6 +142,8 @@ export default function DirectorDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [projectForm, setProjectForm] = useState({
     name: '',
     location: '',
@@ -175,9 +192,57 @@ export default function DirectorDashboard() {
     },
   });
 
+  // Edit project mutation
+  const editProjectMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest('PATCH', `/api/projects/${editingProject?.id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      setIsEditModalOpen(false);
+      setEditingProject(null);
+      setProjectForm({
+        name: '',
+        location: '',
+        totalCost: '',
+        startDate: '',
+        endDate: ''
+      });
+      toast({
+        title: "Успешно",
+        description: "Проект обновлен",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить проект",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
     createProjectMutation.mutate(projectForm);
+  };
+
+  const handleEditProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    editProjectMutation.mutate(projectForm);
+  };
+
+  const openEditModal = (project: Project) => {
+    setEditingProject(project);
+    setProjectForm({
+      name: project.name,
+      location: project.location || '',
+      totalCost: project.totalCost,
+      startDate: project.startDate ? project.startDate.split('T')[0] : '',
+      endDate: project.endDate ? project.endDate.split('T')[0] : ''
+    });
+    setIsEditModalOpen(true);
   };
 
   const formatCurrency = (amount: string) => {
@@ -190,9 +255,9 @@ export default function DirectorDashboard() {
   };
 
   const activeProjectsCount = projects.filter((p: Project) => p.status === 'active').length;
-  const totalRevenue = financialData?.totalRevenue || 0;
-  const totalExpenses = financialData?.totalExpenses || 0;
-  const totalAdvances = financialData?.totalAdvances || 0;
+  const totalRevenue = (financialData as any)?.totalRevenue || 0;
+  const totalExpenses = (financialData as any)?.totalExpenses || 0;
+  const totalAdvances = (financialData as any)?.totalAdvances || 0;
   const totalProfit = totalRevenue - totalAdvances - totalExpenses;
 
   return (
@@ -333,6 +398,72 @@ export default function DirectorDashboard() {
             </DialogContent>
           </Dialog>
         </div>
+
+        {/* Edit Project Modal */}
+        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Редактировать проект</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditProject} className="space-y-4">
+              <div>
+                <Label htmlFor="edit-name">Название проекта</Label>
+                <Input
+                  id="edit-name"
+                  value={projectForm.name}
+                  onChange={(e) => setProjectForm({...projectForm, name: e.target.value})}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-location">Местоположение</Label>
+                <Input
+                  id="edit-location"
+                  value={projectForm.location}
+                  onChange={(e) => setProjectForm({...projectForm, location: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-totalCost">Общая стоимость</Label>
+                <Input
+                  id="edit-totalCost"
+                  type="number"
+                  value={projectForm.totalCost}
+                  onChange={(e) => setProjectForm({...projectForm, totalCost: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-startDate">Дата начала</Label>
+                  <Input
+                    id="edit-startDate"
+                    type="date"
+                    value={projectForm.startDate}
+                    onChange={(e) => setProjectForm({...projectForm, startDate: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-endDate">Дата окончания</Label>
+                  <Input
+                    id="edit-endDate"
+                    type="date"
+                    value={projectForm.endDate}
+                    onChange={(e) => setProjectForm({...projectForm, endDate: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full bg-primary text-white"
+                disabled={editProjectMutation.isPending}
+              >
+                {editProjectMutation.isPending ? "Сохранение..." : "Сохранить изменения"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
         
         {isLoading ? (
           <div className="text-center py-8">
@@ -344,7 +475,8 @@ export default function DirectorDashboard() {
               <ProjectCard 
                 key={project.id} 
                 project={project} 
-                onClick={() => setLocation(`/project/${project.id}`)} 
+                onClick={() => setLocation(`/project/${project.id}`)}
+                onEdit={openEditModal}
               />
             ))}
           </div>

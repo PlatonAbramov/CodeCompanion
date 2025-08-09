@@ -205,6 +205,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/projects/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const projectData = insertProjectSchema.partial().parse(req.body);
+      const updatedProject = await storage.updateProject(req.params.id, projectData);
+      res.json(updatedProject);
+    } catch (error) {
+      console.error("Update project error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/api/projects/:id/financial-summary", requireAuth, async (req, res) => {
     try {
       const summary = await storage.getProjectFinancialSummary(req.params.id);
