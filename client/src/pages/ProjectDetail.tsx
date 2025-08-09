@@ -26,7 +26,8 @@ interface FinancialSummary {
   totalCustomerAdvances: string;
   totalRevenues: string;
   totalExpenses: string;
-  profit: string;
+  currentProfit: string;
+  projectedProfit: string;
 }
 
 interface Expense {
@@ -142,81 +143,11 @@ export default function ProjectDetail() {
               <h3 className="font-semibold text-slate-900 mb-4">{t('financialSummary')}</h3>
               
               <div className="space-y-4">
-                {/* Revenue Row */}
-                <div 
-                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                  onClick={() => setLocation(`/revenues/${projectId}`)}
-                >
-                  <div className="flex items-center flex-1">
-                    <span className="text-slate-600">{t('revenue')}</span>
-                    {user?.role === 'director' && (
-                      <div className="flex items-center ml-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="text-primary hover:bg-primary/10 p-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocation(`/add-revenue?projectId=${projectId}`);
-                          }}
-                        >
-                          <Plus size={14} />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocation(`/revenues/${projectId}`);
-                          }}
-                        >
-                          <Edit size={14} />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                {/* Contract Value Row */}
+                <div className="flex justify-between items-center p-3 rounded-lg bg-slate-50">
+                  <span className="text-slate-600">Стоимость проекта по договору</span>
                   <span className="font-semibold text-slate-900">
-                    {formatCurrency(financialSummary.totalRevenues || '0')}
-                  </span>
-                </div>
-
-                {/* Employee Advances Row */}
-                <div 
-                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                  onClick={() => setLocation(`/advances/${projectId}`)}
-                >
-                  <div className="flex items-center flex-1">
-                    <span className="text-slate-600">Аванс выданный</span>
-                    {user?.role === 'director' && (
-                      <div className="flex items-center ml-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="text-primary hover:bg-primary/10 p-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocation(`/add-advance/${projectId}`);
-                          }}
-                        >
-                          <Plus size={14} />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocation(`/advances/${projectId}`);
-                          }}
-                        >
-                          <Edit size={14} />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <span className="font-semibold text-slate-900">
-                    {formatCurrency(financialSummary.totalAdvances)}
+                    {formatCurrency(financialSummary.totalCost)}
                   </span>
                 </div>
 
@@ -259,13 +190,52 @@ export default function ProjectDetail() {
                   </span>
                 </div>
 
+                {/* Owner Advances (Vlad + Platon) Row */}
+                <div 
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  onClick={() => setLocation(`/advances/${projectId}`)}
+                >
+                  <div className="flex items-center flex-1">
+                    <span className="text-slate-600">Взятые авансы (Влад + Платон)</span>
+                    {user?.role === 'director' && (
+                      <div className="flex items-center ml-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-primary hover:bg-primary/10 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/add-advance/${projectId}`);
+                          }}
+                        >
+                          <Plus size={14} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="ml-1 text-slate-500 hover:bg-slate-100 p-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/advances/${projectId}`);
+                          }}
+                        >
+                          <Edit size={14} />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <span className="font-semibold text-red-600">
+                    {formatCurrency(financialSummary.totalAdvances)}
+                  </span>
+                </div>
+
                 {/* Expenses Row */}
                 <div 
                   className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
                   onClick={() => setLocation(`/expenses/${projectId}`)}
                 >
                   <div className="flex items-center flex-1">
-                    <span className="text-slate-600">{t('expenses')}</span>
+                    <span className="text-slate-600">Расходы на проект</span>
                     {user?.role === 'director' && (
                       <div className="flex items-center ml-2">
                         <Button 
@@ -300,19 +270,19 @@ export default function ProjectDetail() {
 
                 <hr className="border-slate-200" />
                 
-                {/* Profit Row */}
-                <div 
-                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                  onClick={() => {
-                    toast({
-                      title: "Прибыль",
-                      description: "Функция анализа прибыли будет реализована в следующем обновлении",
-                    });
-                  }}
-                >
-                  <span className="font-semibold text-slate-900">{t('profit')}</span>
-                  <span className="font-bold text-secondary">
-                    {formatCurrency(financialSummary.profit)}
+                {/* Current Profit Row */}
+                <div className="flex justify-between items-center p-3 rounded-lg bg-blue-50 border border-blue-200">
+                  <span className="text-blue-800 font-medium">Прибыль на данный момент</span>
+                  <span className={`font-bold ${parseFloat(financialSummary.currentProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(financialSummary.currentProfit)}
+                  </span>
+                </div>
+
+                {/* Projected Profit Row */}
+                <div className="flex justify-between items-center p-3 rounded-lg bg-green-50 border border-green-200">
+                  <span className="text-green-800 font-medium">Прогнозируемая прибыль</span>
+                  <span className={`font-bold ${parseFloat(financialSummary.projectedProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(financialSummary.projectedProfit)}
                   </span>
                 </div>
               </div>

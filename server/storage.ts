@@ -63,7 +63,8 @@ export interface IStorage {
     totalCustomerAdvances: string;
     totalRevenues: string;
     totalExpenses: string;
-    profit: string;
+    currentProfit: string;
+    projectedProfit: string;
   }>;
 }
 
@@ -260,7 +261,8 @@ export class DatabaseStorage implements IStorage {
     totalCustomerAdvances: string;
     totalRevenues: string;
     totalExpenses: string;
-    profit: string;
+    currentProfit: string;
+    projectedProfit: string;
   }> {
     const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
     if (!project) {
@@ -300,7 +302,20 @@ export class DatabaseStorage implements IStorage {
     const totalCustomerAdvances = customerAdvancesSum?.total || "0";
     const totalRevenues = revenuesSum?.total || "0";
     const totalExpenses = expensesSum?.total || "0";
-    const profit = (parseFloat(totalRevenues) - parseFloat(totalExpenses)).toString();
+    
+    // Прибыль на данный момент = аванс от заказчика - взятые авансы собственников - расходы
+    const currentProfit = (
+      parseFloat(totalCustomerAdvances) - 
+      parseFloat(totalAdvances) - 
+      parseFloat(totalExpenses)
+    ).toString();
+    
+    // Прогнозируемая прибыль = общая стоимость проекта - взятые авансы собственников - расходы
+    const projectedProfit = (
+      parseFloat(totalCost) - 
+      parseFloat(totalAdvances) - 
+      parseFloat(totalExpenses)
+    ).toString();
 
     return {
       totalCost,
@@ -308,7 +323,8 @@ export class DatabaseStorage implements IStorage {
       totalCustomerAdvances,
       totalRevenues,
       totalExpenses,
-      profit
+      currentProfit,
+      projectedProfit
     };
   }
 
