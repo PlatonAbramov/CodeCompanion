@@ -176,6 +176,17 @@ export default function ProjectDetail() {
     window.open(document.fileUrl, '_blank');
   };
 
+  const handleDownloadDocument = (document: Document) => {
+    // Create a temporary link element to trigger download
+    const link = document.createElement('a');
+    link.href = document.fileUrl;
+    link.download = document.name; // Set the filename for download
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const goBack = () => {
     if (user?.role === 'director') {
       setLocation('/director');
@@ -467,8 +478,18 @@ export default function ProjectDetail() {
                         size="sm"
                         onClick={() => handleViewDocument(doc)}
                         className="text-blue-600 hover:bg-blue-50"
+                        title="Просмотр документа"
                       >
                         <Eye size={16} />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleDownloadDocument(doc)}
+                        className="text-green-600 hover:bg-green-50"
+                        title="Скачать документ"
+                      >
+                        <Download size={16} />
                       </Button>
                       {user?.role === 'director' && (
                         <Button 
@@ -476,6 +497,7 @@ export default function ProjectDetail() {
                           size="sm"
                           onClick={() => handleDeleteDocument(doc.id)}
                           className="text-red-600 hover:bg-red-50"
+                          title="Удалить документ"
                         >
                           <Trash2 size={16} />
                         </Button>

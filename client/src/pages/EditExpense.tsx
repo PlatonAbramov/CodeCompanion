@@ -122,6 +122,9 @@ export default function EditExpense() {
     { value: 'tools', label: 'Инструменты' },
     { value: 'transport', label: 'Транспорт' },
     { value: 'services', label: 'Услуги' },
+    { value: 'salary_employees', label: 'Зарплата действующим сотрудникам' },
+    { value: 'salary_daily', label: 'Зарплата поднёвщикам' },
+    { value: 'contractor_payments', label: 'Оплата подрядчикам' },
     { value: 'other', label: 'Прочее' }
   ];
 
