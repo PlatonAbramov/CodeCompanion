@@ -237,7 +237,7 @@ export default function ProjectDetail() {
       <div className="p-4 pb-20">
         {/* Financial Summary Card */}
         {financialSummary && (
-          <Card className="mb-6 shadow-sm">
+          <Card className="mb-6 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <Collapsible open={isFinancialSummaryOpen} onOpenChange={setIsFinancialSummaryOpen}>
                 <CollapsibleTrigger asChild>
@@ -459,7 +459,7 @@ export default function ProjectDetail() {
         )}
 
         {/* Project Documents */}
-        <Card className="mb-6 shadow-sm">
+        <Card className="mb-6 shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="p-4">
             <Collapsible open={isDocumentsOpen} onOpenChange={setIsDocumentsOpen}>
               <CollapsibleTrigger asChild>
