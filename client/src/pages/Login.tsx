@@ -15,16 +15,7 @@ export default function Login() {
   const { language, setLanguage, t } = useLanguage();
   const [, setLocation] = useLocation();
 
-  // Redirect if already logged in
-  useEffect(() => {
-    if (user) {
-      if (user.role === 'director') {
-        setLocation('/director');
-      } else {
-        setLocation('/master');
-      }
-    }
-  }, [user, setLocation]);
+  // Redirect logic is handled by AuthenticatedApp component
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
