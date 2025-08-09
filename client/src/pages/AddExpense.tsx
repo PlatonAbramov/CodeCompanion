@@ -10,10 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ObjectUploader } from "@/components/ObjectUploader";
+import { FileUploader } from "@/components/FileUploader";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Camera, Check } from "lucide-react";
-import type { UploadResult } from "@uppy/core";
 
 interface Project {
   id: string;
@@ -38,7 +37,12 @@ export default function AddExpense() {
     description: '',
     receiptUrl: ''
   });
-  const [selectedReceipt, setSelectedReceipt] = useState<File | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<{
+    fileName: string;
+    fileUrl: string;
+    fileSize: number;
+    mimeType: string;
+  } | null>(null);
 
   // Get user projects
   const { data: projects = [] } = useQuery<Project[]>({
@@ -89,26 +93,17 @@ export default function AddExpense() {
     }
   };
 
-  const handleGetUploadParameters = async () => {
-    const res = await apiRequest('POST', '/api/objects/upload');
-    const data = await res.json();
-    return {
-      method: 'PUT' as const,
-      url: data.uploadURL,
-    };
-  };
-
-  const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful.length > 0) {
-      const uploadedFile = result.successful[0];
-      const uploadURL = uploadedFile.uploadURL;
-      
-      // Set ACL policy for the uploaded file
-      const res = await apiRequest('PUT', '/api/files', { fileURL: uploadURL });
-      const data = await res.json();
-      
-      setFormData(prev => ({ ...prev, receiptUrl: data.objectPath }));
-      setSelectedReceipt({ name: uploadedFile.name } as File);
+  // Handle receipt upload
+  const handleReceiptUpload = (files: Array<{
+    fileName: string;
+    fileUrl: string;
+    fileSize: number;
+    mimeType: string;
+  }>) => {
+    if (files.length > 0) {
+      const file = files[0];
+      setFormData(prev => ({ ...prev, receiptUrl: file.fileUrl }));
+      setSelectedReceipt(file);
     }
   };
 
@@ -255,24 +250,23 @@ export default function AddExpense() {
                 <p className="text-sm text-slate-600 mb-2">
                   Сфотографируйте или выберите файл
                 </p>
-                <ObjectUploader
-                  maxNumberOfFiles={1}
+                <FileUploader
+                  onUpload={handleReceiptUpload}
+                  maxFiles={1}
                   maxFileSize={10485760}
-                  onGetUploadParameters={handleGetUploadParameters}
-                  onComplete={handleUploadComplete}
-                  buttonClassName="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+                  accept="image/*,.pdf"
                 >
                   <div className="flex items-center gap-2">
                     <Camera size={16} />
                     <span>{t('attachFile')}</span>
                   </div>
-                </ObjectUploader>
+                </FileUploader>
                 
                 {selectedReceipt && (
                   <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex items-center justify-center">
                       <Check className="text-green-600 mr-2" size={16} />
-                      <span className="text-sm text-green-800">{selectedReceipt.name}</span>
+                      <span className="text-sm text-green-800">{selectedReceipt.fileName}</span>
                     </div>
                   </div>
                 )}

@@ -81,8 +81,14 @@ export default function ExpensesList() {
   }, {} as { [key: string]: Expense[] });
 
   const openReceipt = (receiptUrl: string) => {
-    // Open receipt in new tab
-    window.open(receiptUrl, '_blank');
+    // For local files, just open the URL directly
+    if (receiptUrl.startsWith('/api/files/')) {
+      window.open(receiptUrl, '_blank');
+    } else {
+      // Handle legacy URLs - show error message
+      console.warn('Legacy receipt URL:', receiptUrl);
+      window.open(receiptUrl, '_blank'); // Try to open anyway, might work
+    }
   };
 
   if (isLoading) {

@@ -109,8 +109,17 @@ export default function CategoryExpenses() {
   };
 
   const openReceipt = (receiptUrl: string) => {
-    // Open receipt in new tab
-    window.open(receiptUrl, '_blank');
+    // For local files, just open the URL directly
+    if (receiptUrl.startsWith('/api/files/')) {
+      window.open(receiptUrl, '_blank');
+    } else {
+      // Handle legacy URLs or show error
+      toast({
+        title: "Ошибка",
+        description: "Файл не найден или поврежден",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
