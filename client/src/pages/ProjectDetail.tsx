@@ -90,35 +90,29 @@ export default function ProjectDetail() {
       mimeType: string;
     }) => {
       // First set ACL policy for the uploaded file
-      await apiRequest(`/api/files`, {
-        method: 'PUT',
-        body: { fileURL }
-      });
+      await apiRequest('/api/files', 'PUT', { fileURL });
 
       // Then create document record in database
-      return apiRequest(`/api/projects/${projectId}/documents`, {
-        method: 'POST',
-        body: {
-          name: fileName,
-          fileName,
-          fileUrl: fileURL,
-          fileSize,
-          mimeType
-        }
+      return apiRequest(`/api/projects/${projectId}/documents`, 'POST', {
+        name: fileName,
+        fileName,
+        fileUrl: fileURL,
+        fileSize,
+        mimeType
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'documents'] });
       toast({
-        title: t('success', 'Success'),
-        description: t('documentUploaded', 'Document uploaded successfully'),
+        title: t('success') || 'Success',
+        description: t('documentUploaded') || 'Document uploaded successfully',
       });
     },
     onError: (error) => {
       console.error('Upload error:', error);
       toast({
-        title: t('error', 'Error'),
-        description: t('uploadFailed', 'Failed to upload document'),
+        title: t('error') || 'Error',
+        description: t('uploadFailed') || 'Failed to upload document',
         variant: 'destructive',
       });
     }
@@ -126,21 +120,19 @@ export default function ProjectDetail() {
 
   // Document delete mutation
   const deleteMutation = useMutation({
-    mutationFn: (documentId: string) => apiRequest(`/api/documents/${documentId}`, {
-      method: 'DELETE',
-    }),
+    mutationFn: (documentId: string) => apiRequest(`/api/documents/${documentId}`, 'DELETE'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'documents'] });
       toast({
-        title: t('success', 'Success'),
-        description: t('documentDeleted', 'Document deleted successfully'),
+        title: t('success') || 'Success',
+        description: t('documentDeleted') || 'Document deleted successfully',
       });
     },
     onError: (error) => {
       console.error('Delete error:', error);
       toast({
-        title: t('error', 'Error'),
-        description: t('deleteFailed', 'Failed to delete document'),
+        title: t('error') || 'Error',
+        description: t('deleteFailed') || 'Failed to delete document',
         variant: 'destructive',
       });
     }
@@ -168,21 +160,25 @@ export default function ProjectDetail() {
 
   // Handle file upload
   const handleGetUploadParameters = async () => {
-    const response = await apiRequest('/api/objects/upload', {
-      method: 'POST'
-    });
-    return {
-      method: 'PUT' as const,
-      url: response.uploadURL,
-    };
+    try {
+      const response = await apiRequest('/api/objects/upload', 'POST');
+      const data = await response.json();
+      return {
+        method: 'PUT' as const,
+        url: data.uploadURL,
+      };
+    } catch (error) {
+      console.error('Error getting upload parameters:', error);
+      throw error;
+    }
   };
 
   const handleUploadComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    const file = result.successful[0];
+    const file = result.successful?.[0];
     if (file && file.uploadURL) {
       uploadMutation.mutate({
-        fileURL: file.uploadURL,
-        fileName: file.name,
+        fileURL: file.uploadURL as string,
+        fileName: file.name || 'Unknown file',
         fileSize: file.size || 0,
         mimeType: file.type || 'application/octet-stream'
       });
@@ -190,7 +186,7 @@ export default function ProjectDetail() {
   };
 
   const handleDeleteDocument = (documentId: string) => {
-    if (window.confirm(t('confirmDelete', 'Are you sure you want to delete this document?'))) {
+    if (window.confirm(t('confirmDelete') || 'Are you sure you want to delete this document?')) {
       deleteMutation.mutate(documentId);
     }
   };
@@ -465,7 +461,7 @@ export default function ProjectDetail() {
                   buttonClassName="text-primary text-sm font-medium p-0 h-auto"
                 >
                   <Plus size={16} className="mr-1" />
-                  {t('addDocument', 'Add Document')}
+                  {t('addDocument') || 'Add Document'}
                 </ObjectUploader>
               )}
             </div>

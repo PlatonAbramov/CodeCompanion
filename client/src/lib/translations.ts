@@ -74,6 +74,12 @@ export const translations = {
     // Documents
     documents: 'Документы',
     addDocument: 'Добавить',
+    confirmDelete: 'Вы уверены, что хотите удалить этот документ?',
+    success: 'Успешно',
+    documentUploaded: 'Документ загружен успешно',
+    documentDeleted: 'Документ удален успешно',
+    uploadFailed: 'Не удалось загрузить документ',
+    deleteFailed: 'Не удалось удалить документ',
     
     // Employees
     addEmployee: 'Добавить сотрудника',
@@ -162,6 +168,12 @@ export const translations = {
     // Documents
     documents: 'Documents',
     addDocument: 'Add',
+    confirmDelete: 'Are you sure you want to delete this document?',
+    success: 'Success',
+    documentUploaded: 'Document uploaded successfully',
+    documentDeleted: 'Document deleted successfully',
+    uploadFailed: 'Failed to upload document',
+    deleteFailed: 'Failed to delete document',
     
     // Employees
     addEmployee: 'Add Employee',
