@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { 
-  ArrowLeft, Plus, Edit, MoreVertical, Trash2
+  ArrowLeft, Plus, Edit, MoreVertical, Trash2, DollarSign
 } from "lucide-react";
 
 interface Revenue {
