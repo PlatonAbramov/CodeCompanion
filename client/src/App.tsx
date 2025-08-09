@@ -36,23 +36,21 @@ function AuthenticatedApp() {
     if (isLoading) return;
 
     if (!user) {
-      // User not authenticated, redirect to login
+      // User not authenticated, redirect to login only if not already there
       if (location !== '/login' && location !== '/') {
         setLocation('/login');
       }
       return;
     }
 
-    // User is authenticated, handle redirects
-    if (location === '/login' || location === '/') {
-      // Small delay to ensure user state is properly set
-      setTimeout(() => {
-        if (user.role === 'director') {
-          setLocation('/director');
-        } else if (user.role === 'master') {
-          setLocation('/master');
-        }
-      }, 100);
+    // User is authenticated - only redirect from root/login if user just loaded the page
+    // Don't redirect if already on valid pages (handled by individual auth in useAuth hook)
+    if (location === '/' || (location === '/login' && user)) {
+      if (user.role === 'director') {
+        setLocation('/director');
+      } else if (user.role === 'master') {
+        setLocation('/master');
+      }
     }
   }, [user, isLoading, location, setLocation]);
 

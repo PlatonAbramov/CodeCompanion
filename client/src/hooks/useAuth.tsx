@@ -65,7 +65,12 @@ export function useAuth() {
         description: "Вход выполнен успешно",
       });
       
-      // Redirect will be handled by App.tsx AuthenticatedApp component
+      // Immediate redirect based on user role
+      if (data.user.role === 'director') {
+        setLocation('/director');
+      } else if (data.user.role === 'master') {
+        setLocation('/master');
+      }
     },
     onError: (error: any) => {
       toast({
@@ -89,10 +94,8 @@ export function useAuth() {
         title: "Успешно",
         description: "Выход выполнен успешно",
       });
-      // Force redirect to login by setting location to root first, then login
-      setTimeout(() => {
-        setLocation('/login');
-      }, 50);
+      // Immediate redirect to login
+      setLocation('/login');
     },
   });
 
