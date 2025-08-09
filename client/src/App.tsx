@@ -5,6 +5,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { Layout } from "@/components/Layout";
+import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
+import { useEffect } from "react";
 import Login from "@/pages/Login";
 import DirectorDashboard from "@/pages/DirectorDashboard";
 import MasterDashboard from "@/pages/MasterDashboard";
@@ -25,28 +28,65 @@ import CategoryExpenses from "@/pages/CategoryExpenses";
 import EmployeeManagement from "@/pages/EmployeeManagement";
 import NotFound from "@/pages/not-found";
 
-function Router() {
+function AuthenticatedApp() {
+  const { user, isLoading } = useAuth();
+  const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (!user) {
+      // User not authenticated, redirect to login
+      if (location !== '/login' && location !== '/') {
+        setLocation('/login');
+      }
+      return;
+    }
+
+    // User is authenticated, handle redirects
+    if (location === '/login' || location === '/') {
+      if (user.role === 'director') {
+        setLocation('/director');
+      } else if (user.role === 'master') {
+        setLocation('/master');
+      }
+    }
+  }, [user, isLoading, location, setLocation]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-slate-500">Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
   return (
     <Switch>
-      <Route path="/" component={Login} />
-      <Route path="/login" component={Login} />
-      <Route path="/director" component={DirectorDashboard} />
-      <Route path="/master" component={MasterDashboard} />
+      <Route path="/director" component={user.role === 'director' ? DirectorDashboard : () => { setLocation(user.role === 'master' ? '/master' : '/login'); return null; }} />
+      <Route path="/master" component={user.role === 'master' ? MasterDashboard : () => { setLocation(user.role === 'director' ? '/director' : '/login'); return null; }} />
       <Route path="/project/:id" component={ProjectDetail} />
       <Route path="/add-expense" component={AddExpense} />
-      <Route path="/add-advance/:projectId" component={AddAdvance} />
-      <Route path="/add-customer-advance/:projectId" component={AddCustomerAdvance} />
+      <Route path="/add-advance/:projectId" component={user.role === 'director' ? AddAdvance : () => { setLocation('/director'); return null; }} />
+      <Route path="/add-customer-advance/:projectId" component={user.role === 'director' ? AddCustomerAdvance : () => { setLocation('/director'); return null; }} />
       <Route path="/advances/:projectId" component={AdvancesList} />
       <Route path="/customer-advances/:projectId" component={CustomerAdvancesList} />
-      <Route path="/add-revenue" component={AddRevenue} />
+      <Route path="/add-revenue" component={user.role === 'director' ? AddRevenue : () => { setLocation('/director'); return null; }} />
       <Route path="/revenues/:projectId" component={RevenuesList} />
-      <Route path="/edit-revenue/:projectId/:revenueId" component={EditRevenue} />
-      <Route path="/edit-advance/:projectId/:advanceId" component={EditAdvance} />
-      <Route path="/edit-customer-advance/:projectId/:advanceId" component={EditCustomerAdvance} />
+      <Route path="/edit-revenue/:projectId/:revenueId" component={user.role === 'director' ? EditRevenue : () => { setLocation('/director'); return null; }} />
+      <Route path="/edit-advance/:projectId/:advanceId" component={user.role === 'director' ? EditAdvance : () => { setLocation('/director'); return null; }} />
+      <Route path="/edit-customer-advance/:projectId/:advanceId" component={user.role === 'director' ? EditCustomerAdvance : () => { setLocation('/director'); return null; }} />
       <Route path="/edit-expense/:projectId/:expenseId" component={EditExpense} />
       <Route path="/expenses/:projectId" component={ExpensesList} />
       <Route path="/expenses/:projectId/:category" component={CategoryExpenses} />
-      <Route path="/employees" component={EmployeeManagement} />
+      <Route path="/employees" component={user.role === 'director' ? EmployeeManagement : () => { setLocation('/director'); return null; }} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -59,7 +99,7 @@ function App() {
         <TooltipProvider>
           <Layout>
             <Toaster />
-            <Router />
+            <AuthenticatedApp />
           </Layout>
         </TooltipProvider>
       </LanguageProvider>

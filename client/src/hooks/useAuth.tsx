@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -16,15 +17,40 @@ interface LoginData {
 }
 
 export function useAuth() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Get current user
-  const { data: user, isLoading } = useQuery<User>({
-    queryKey: ['/api/auth/me'],
-    retry: false,
-  });
+  // Check authentication on mount
+  useEffect(() => {
+    let isMounted = true;
+    
+    const checkAuth = async () => {
+      try {
+        const res = await apiRequest('GET', '/api/auth/me');
+        if (res.ok) {
+          const userData = await res.json();
+          if (isMounted) {
+            setUser(userData.user);
+          }
+        }
+      } catch (error) {
+        // User not authenticated
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Login mutation
   const loginMutation = useMutation({
@@ -33,7 +59,7 @@ export function useAuth() {
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['/api/auth/me'], data.user);
+      setUser(data.user);
       toast({
         title: "Успешно",
         description: "Вход выполнен успешно",
@@ -42,7 +68,7 @@ export function useAuth() {
       // Redirect based on role
       if (data.user.role === 'director') {
         setLocation('/director');
-      } else {
+      } else if (data.user.role === 'master') {
         setLocation('/master');
       }
     },
@@ -62,6 +88,7 @@ export function useAuth() {
       return res.json();
     },
     onSuccess: () => {
+      setUser(null);
       queryClient.clear();
       toast({
         title: "Успешно",
