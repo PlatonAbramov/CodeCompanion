@@ -172,15 +172,15 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleViewDocument = (document: Document) => {
-    window.open(document.fileUrl, '_blank');
+  const handleViewDocument = (doc: Document) => {
+    window.open(doc.fileUrl, '_blank');
   };
 
-  const handleDownloadDocument = (document: Document) => {
+  const handleDownloadDocument = (doc: Document) => {
     // Create a temporary link element to trigger download
     const link = document.createElement('a');
-    link.href = document.fileUrl;
-    link.download = document.name; // Set the filename for download
+    link.href = doc.fileUrl;
+    link.download = doc.name; // Set the filename for download
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();
