@@ -135,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Project routes
   app.get("/api/projects", requireAuth, async (req, res) => {
     try {
-      const user = req.session.user;
+      const user = req.session.user!;
       let projects;
       
       if (user.role === 'director') {
@@ -168,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const projectData = insertProjectSchema.parse({
         ...req.body,
-        createdBy: req.session.user.id
+        createdBy: req.session.user!.id
       });
       const project = await storage.createProject(projectData);
       res.status(201).json(project);
@@ -191,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Expense routes
   app.get("/api/expenses", requireAuth, async (req, res) => {
     try {
-      const user = req.session.user;
+      const user = req.session.user!;
       const expenses = await storage.getUserExpenses(user.id);
       res.json(expenses);
     } catch (error) {
@@ -264,7 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const advanceData = insertAdvanceSchema.parse({
         ...req.body,
-        createdBy: req.session.user.id
+        createdBy: req.session.user!.id
       });
       const advance = await storage.createAdvance(advanceData);
       res.status(201).json(advance);
@@ -289,7 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const customerAdvanceData = insertCustomerAdvanceSchema.parse({
         ...req.body,
-        createdBy: req.session.user.id
+        createdBy: req.session.user!.id
       });
       const customerAdvance = await storage.createCustomerAdvance(customerAdvanceData);
       res.status(201).json(customerAdvance);
@@ -428,7 +428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Object storage routes for file uploads
   app.get("/objects/:objectPath(*)", requireAuth, async (req, res) => {
-    const userId = req.session.user.id;
+    const userId = req.session.user!.id;
     const objectStorageService = new ObjectStorageService();
     try {
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
@@ -466,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "fileURL is required" });
     }
 
-    const userId = req.session.user.id;
+    const userId = req.session.user!.id;
 
     try {
       const objectStorageService = new ObjectStorageService();
@@ -483,6 +483,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error setting file ACL:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Documents routes
+  app.get("/api/projects/:projectId/documents", requireAuth, async (req, res) => {
+    try {
+      const documents = await storage.getProjectDocuments(req.params.projectId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -516,7 +527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertOwnerInvestmentSchema.parse({
         ...req.body,
         projectId: req.params.projectId,
-        createdBy: req.session.user.id
+        createdBy: req.session.user!.id
       });
 
       const ownerInvestment = await storage.createOwnerInvestment(validatedData);
@@ -544,6 +555,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting owner investment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Documents routes
+  app.post("/api/projects/:projectId/documents", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const documentData = insertDocumentSchema.parse({
+        ...req.body,
+        projectId: req.params.projectId,
+        uploadedBy: req.session.user!.id,
+      });
+      const document = await storage.createDocument(documentData);
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Create document error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/documents/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const document = await storage.getDocument(req.params.id);
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      // Delete document from database
+      await storage.deleteDocument(req.params.id);
+      
+      res.json({ message: "Document deleted successfully" });
+    } catch (error) {
+      console.error("Delete document error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

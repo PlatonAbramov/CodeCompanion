@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -7,8 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
   ArrowLeft, MoreVertical, Download, Eye, Plus, Edit,
-  FileText, Paperclip
+  FileText, Paperclip, Trash2
 } from "lucide-react";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import { apiRequest } from "@/lib/queryClient";
+import type { UploadResult } from "@uppy/core";
 
 interface Project {
   id: string;
@@ -43,8 +46,11 @@ interface Expense {
 interface Document {
   id: string;
   name: string;
-  type: string;
-  fileSize?: number;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  fileUrl: string;
+  uploadedBy: string;
   createdAt: string;
 }
 
@@ -53,6 +59,7 @@ export default function ProjectDetail() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];
@@ -74,6 +81,71 @@ export default function ProjectDetail() {
     queryKey: ['/api/projects', projectId, 'documents'],
   });
 
+  // Document upload mutation
+  const uploadMutation = useMutation({
+    mutationFn: async ({ fileURL, fileName, fileSize, mimeType }: {
+      fileURL: string;
+      fileName: string;
+      fileSize: number;
+      mimeType: string;
+    }) => {
+      // First set ACL policy for the uploaded file
+      await apiRequest(`/api/files`, {
+        method: 'PUT',
+        body: { fileURL }
+      });
+
+      // Then create document record in database
+      return apiRequest(`/api/projects/${projectId}/documents`, {
+        method: 'POST',
+        body: {
+          name: fileName,
+          fileName,
+          fileUrl: fileURL,
+          fileSize,
+          mimeType
+        }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'documents'] });
+      toast({
+        title: t('success', 'Success'),
+        description: t('documentUploaded', 'Document uploaded successfully'),
+      });
+    },
+    onError: (error) => {
+      console.error('Upload error:', error);
+      toast({
+        title: t('error', 'Error'),
+        description: t('uploadFailed', 'Failed to upload document'),
+        variant: 'destructive',
+      });
+    }
+  });
+
+  // Document delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (documentId: string) => apiRequest(`/api/documents/${documentId}`, {
+      method: 'DELETE',
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'documents'] });
+      toast({
+        title: t('success', 'Success'),
+        description: t('documentDeleted', 'Document deleted successfully'),
+      });
+    },
+    onError: (error) => {
+      console.error('Delete error:', error);
+      toast({
+        title: t('error', 'Error'),
+        description: t('deleteFailed', 'Failed to delete document'),
+        variant: 'destructive',
+      });
+    }
+  });
+
   const formatCurrency = (amount: string) => {
     return new Intl.NumberFormat('ar-AE', {
       style: 'currency',
@@ -86,11 +158,45 @@ export default function ProjectDetail() {
     return new Date(dateString).toLocaleDateString('ru-RU');
   };
 
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '';
-    const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Handle file upload
+  const handleGetUploadParameters = async () => {
+    const response = await apiRequest('/api/objects/upload', {
+      method: 'POST'
+    });
+    return {
+      method: 'PUT' as const,
+      url: response.uploadURL,
+    };
+  };
+
+  const handleUploadComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    const file = result.successful[0];
+    if (file && file.uploadURL) {
+      uploadMutation.mutate({
+        fileURL: file.uploadURL,
+        fileName: file.name,
+        fileSize: file.size || 0,
+        mimeType: file.type || 'application/octet-stream'
+      });
+    }
+  };
+
+  const handleDeleteDocument = (documentId: string) => {
+    if (window.confirm(t('confirmDelete', 'Are you sure you want to delete this document?'))) {
+      deleteMutation.mutate(documentId);
+    }
+  };
+
+  const handleViewDocument = (document: Document) => {
+    window.open(document.fileUrl, '_blank');
   };
 
   const goBack = () => {
@@ -351,19 +457,16 @@ export default function ProjectDetail() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-900">{t('documents')}</h3>
               {user?.role === 'director' && (
-                <Button 
-                  variant="link" 
-                  className="text-primary text-sm font-medium p-0"
-                  onClick={() => {
-                    toast({
-                      title: "Добавление документов",
-                      description: "Функция загрузки документов будет реализована в следующем обновлении",
-                    });
-                  }}
+                <ObjectUploader
+                  maxNumberOfFiles={5}
+                  maxFileSize={50 * 1024 * 1024} // 50MB
+                  onGetUploadParameters={handleGetUploadParameters}
+                  onComplete={handleUploadComplete}
+                  buttonClassName="text-primary text-sm font-medium p-0 h-auto"
                 >
                   <Plus size={16} className="mr-1" />
-                  {t('addDocument')}
-                </Button>
+                  {t('addDocument', 'Add Document')}
+                </ObjectUploader>
               )}
             </div>
             
@@ -373,18 +476,35 @@ export default function ProjectDetail() {
               <div className="space-y-3">
                 {documents.map((doc) => (
                   <div key={doc.id} className="flex items-center p-3 bg-slate-50 rounded-lg">
-                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
-                      <FileText className="text-red-600" size={20} />
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                      <FileText className="text-blue-600" size={20} />
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-slate-900">{doc.name}</p>
                       <p className="text-sm text-slate-500">
-                        {formatFileSize(doc.fileSize)}
+                        {formatFileSize(doc.fileSize)} • {doc.mimeType}
                       </p>
                     </div>
-                    <Button variant="ghost" size="sm">
-                      <Eye size={16} />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleViewDocument(doc)}
+                        className="text-blue-600 hover:bg-blue-50"
+                      >
+                        <Eye size={16} />
+                      </Button>
+                      {user?.role === 'director' && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          className="text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

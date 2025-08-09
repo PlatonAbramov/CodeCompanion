@@ -75,10 +75,11 @@ export const documents = pgTable("documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
   name: text("name").notNull(),
-  type: text("type").notNull(), // 'estimate' | 'permit' | 'documentation' | 'other'
-  fileUrl: text("file_url").notNull(),
-  fileSize: integer("file_size"),
-  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  fileName: text("file_name").notNull(), // Original file name
+  fileSize: integer("file_size").notNull(), // File size in bytes
+  mimeType: text("mime_type").notNull(), // MIME type
+  fileUrl: text("file_url").notNull(), // URL to the stored file
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
