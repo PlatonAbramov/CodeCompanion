@@ -1,10 +1,12 @@
 import { 
   users, projects, expenses, documents, advances, customerAdvances, userProjects, revenues, ownerInvestments,
+  contractors, contractorProjects,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
   type Advance, type InsertAdvance, type CustomerAdvance, type InsertCustomerAdvance,
   type Revenue, type InsertRevenue, type UserProject, type InsertUserProject,
-  type OwnerInvestment, type InsertOwnerInvestment
+  type OwnerInvestment, type InsertOwnerInvestment,
+  type Contractor, type InsertContractor, type ContractorProject, type InsertContractorProject
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -65,6 +67,20 @@ export interface IStorage {
   createOwnerInvestment(ownerInvestment: InsertOwnerInvestment): Promise<OwnerInvestment>;
   updateOwnerInvestment(id: string, ownerInvestment: Partial<InsertOwnerInvestment>): Promise<OwnerInvestment>;
   deleteOwnerInvestment(id: string): Promise<void>;
+  
+  // Contractors
+  getAllContractors(): Promise<Contractor[]>;
+  getContractor(id: string): Promise<Contractor | undefined>;
+  createContractor(contractor: InsertContractor): Promise<Contractor>;
+  updateContractor(id: string, contractor: Partial<InsertContractor>): Promise<Contractor>;
+  deleteContractor(id: string): Promise<void>;
+  
+  // Contractor Projects
+  getProjectContractors(projectId: string): Promise<(ContractorProject & { contractor: Contractor })[]>;
+  getContractorProjects(contractorId: string): Promise<(ContractorProject & { project: Project })[]>;
+  assignContractorToProject(contractorProject: InsertContractorProject): Promise<ContractorProject>;
+  updateContractorProject(id: string, contractorProject: Partial<InsertContractorProject>): Promise<ContractorProject>;
+  removeContractorFromProject(id: string): Promise<void>;
   
   // Analytics
   getProjectFinancialSummary(projectId: string): Promise<{
@@ -446,6 +462,101 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDocument(id: string): Promise<void> {
     await db.delete(documents).where(eq(documents.id, id));
+  }
+
+  // Contractors
+  async getAllContractors(): Promise<Contractor[]> {
+    const result = await db
+      .select()
+      .from(contractors)
+      .where(eq(contractors.isActive, true))
+      .orderBy(contractors.name);
+    return result;
+  }
+
+  async getContractor(id: string): Promise<Contractor | undefined> {
+    const [result] = await db
+      .select()
+      .from(contractors)
+      .where(eq(contractors.id, id));
+    return result || undefined;
+  }
+
+  async createContractor(contractor: InsertContractor): Promise<Contractor> {
+    const [result] = await db
+      .insert(contractors)
+      .values(contractor)
+      .returning();
+    return result;
+  }
+
+  async updateContractor(id: string, contractor: Partial<InsertContractor>): Promise<Contractor> {
+    const [updatedContractor] = await db
+      .update(contractors)
+      .set(contractor)
+      .where(eq(contractors.id, id))
+      .returning();
+    return updatedContractor;
+  }
+
+  async deleteContractor(id: string): Promise<void> {
+    await db
+      .update(contractors)
+      .set({ isActive: false })
+      .where(eq(contractors.id, id));
+  }
+
+  // Contractor Projects
+  async getProjectContractors(projectId: string): Promise<(ContractorProject & { contractor: Contractor })[]> {
+    const result = await db
+      .select()
+      .from(contractorProjects)
+      .innerJoin(contractors, eq(contractorProjects.contractorId, contractors.id))
+      .where(and(
+        eq(contractorProjects.projectId, projectId),
+        eq(contractors.isActive, true)
+      ))
+      .orderBy(contractors.name);
+    
+    return result.map(row => ({
+      ...row.contractor_projects,
+      contractor: row.contractors
+    }));
+  }
+
+  async getContractorProjects(contractorId: string): Promise<(ContractorProject & { project: Project })[]> {
+    const result = await db
+      .select()
+      .from(contractorProjects)
+      .innerJoin(projects, eq(contractorProjects.projectId, projects.id))
+      .where(eq(contractorProjects.contractorId, contractorId))
+      .orderBy(projects.name);
+    
+    return result.map(row => ({
+      ...row.contractor_projects,
+      project: row.projects
+    }));
+  }
+
+  async assignContractorToProject(contractorProject: InsertContractorProject): Promise<ContractorProject> {
+    const [result] = await db
+      .insert(contractorProjects)
+      .values(contractorProject)
+      .returning();
+    return result;
+  }
+
+  async updateContractorProject(id: string, contractorProject: Partial<InsertContractorProject>): Promise<ContractorProject> {
+    const [updatedContractorProject] = await db
+      .update(contractorProjects)
+      .set(contractorProject)
+      .where(eq(contractorProjects.id, id))
+      .returning();
+    return updatedContractorProject;
+  }
+
+  async removeContractorFromProject(id: string): Promise<void> {
+    await db.delete(contractorProjects).where(eq(contractorProjects.id, id));
   }
 }
 

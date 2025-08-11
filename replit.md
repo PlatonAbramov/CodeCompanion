@@ -26,10 +26,12 @@ Preferred communication style: Simple, everyday language.
 ## Database Schema
 - **Users**: Stores employee information with roles (director/master) and authentication data
 - **Projects**: Contains project details, budget information, and status tracking
-- **Expenses**: Records expense entries with categories, amounts, and receipt references
+- **Expenses**: Records expense entries with categories, amounts, receipt references, and contractor links
 - **Documents**: Manages project-related documents and file metadata
 - **Advances**: Tracks advance payments made to projects
 - **User-Project Relations**: Links employees to specific projects for access control
+- **Contractors**: Stores contractor information, specialization, contact details, and license documents
+- **Contractor-Project Relations**: Links contractors to specific projects with budget allocations and work descriptions
 
 ## Authentication & Authorization
 - **Session Management**: Express-session middleware for persistent login sessions

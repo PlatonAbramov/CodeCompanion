@@ -13,7 +13,8 @@ const __dirname = path.dirname(__filename);
 import { 
   insertUserSchema, insertProjectSchema, insertExpenseSchema, 
   insertDocumentSchema, insertAdvanceSchema, insertCustomerAdvanceSchema,
-  insertRevenueSchema, insertOwnerInvestmentSchema 
+  insertRevenueSchema, insertOwnerInvestmentSchema, insertContractorSchema,
+  insertContractorProjectSchema
 } from "@shared/schema";
 
 // Extend session data type
@@ -602,6 +603,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     res.sendFile(filePath);
+  });
+
+  // Contractors routes
+  app.get("/api/contractors", requireAuth, async (req, res) => {
+    try {
+      const contractors = await storage.getAllContractors();
+      res.json(contractors);
+    } catch (error) {
+      console.error("Failed to get contractors:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/contractors/:id", requireAuth, async (req, res) => {
+    try {
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor) {
+        return res.status(404).json({ error: "Contractor not found" });
+      }
+      res.json(contractor);
+    } catch (error) {
+      console.error("Failed to get contractor:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/contractors", requireAuth, async (req, res) => {
+    try {
+      const contractorData = insertContractorSchema.parse({
+        ...req.body,
+        createdBy: req.session?.user?.id
+      });
+      const contractor = await storage.createContractor(contractorData);
+      res.json(contractor);
+    } catch (error) {
+      console.error("Failed to create contractor:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/contractors/:id", requireAuth, async (req, res) => {
+    try {
+      const contractor = await storage.updateContractor(req.params.id, req.body);
+      res.json(contractor);
+    } catch (error) {
+      console.error("Failed to update contractor:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/contractors/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteContractor(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete contractor:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Contractor-Project assignments
+  app.get("/api/projects/:projectId/contractors", requireAuth, async (req, res) => {
+    try {
+      const contractors = await storage.getProjectContractors(req.params.projectId);
+      res.json(contractors);
+    } catch (error) {
+      console.error("Failed to get project contractors:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/contractors/:contractorId/projects", requireAuth, async (req, res) => {
+    try {
+      const projects = await storage.getContractorProjects(req.params.contractorId);
+      res.json(projects);
+    } catch (error) {
+      console.error("Failed to get contractor projects:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/contractors/:contractorId/assign-project", requireAuth, async (req, res) => {
+    try {
+      const contractorProjectData = insertContractorProjectSchema.parse({
+        ...req.body,
+        contractorId: req.params.contractorId,
+        createdBy: req.session?.user?.id
+      });
+      const contractorProject = await storage.assignContractorToProject(contractorProjectData);
+      res.json(contractorProject);
+    } catch (error) {
+      console.error("Failed to assign contractor to project:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/contractor-projects/:id", requireAuth, async (req, res) => {
+    try {
+      const contractorProject = await storage.updateContractorProject(req.params.id, req.body);
+      res.json(contractorProject);
+    } catch (error) {
+      console.error("Failed to update contractor project:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/contractor-projects/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.removeContractorFromProject(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to remove contractor from project:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   const httpServer = createServer(app);

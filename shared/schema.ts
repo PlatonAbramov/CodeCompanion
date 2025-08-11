@@ -67,7 +67,8 @@ export const expenses = pgTable("expenses", {
   category: text("category").notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   description: text("description"),
-  receiptUrl: text("receipt_url").notNull(),
+  receiptUrl: text("receipt_url"),
+  contractorId: varchar("contractor_id").references(() => contractors.id), // Для оплаты подрядчикам
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -94,6 +95,33 @@ export const ownerInvestments = pgTable("owner_investments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const contractors = pgTable("contractors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  company: text("company"),
+  phone: text("phone"),
+  email: text("email"),
+  specialization: text("specialization").notNull(), // Специализация работ
+  licenseUrl: text("license_url"), // URL лицензии
+  documentUrls: jsonb("document_urls").default("[]"), // Массив URL документов
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const contractorProjects = pgTable("contractor_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").references(() => contractors.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  budget: decimal("budget", { precision: 12, scale: 2 }),
+  description: text("description"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  status: text("status").default("active"), // 'active' | 'completed' | 'paused'
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const userProjects = pgTable("user_projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
@@ -110,6 +138,32 @@ export const usersRelations = relations(users, ({ many }) => ({
   advances: many(advances),
   customerAdvances: many(customerAdvances),
   ownerInvestments: many(ownerInvestments),
+  contractors: many(contractors),
+  contractorProjects: many(contractorProjects),
+}));
+
+export const contractorsRelations = relations(contractors, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [contractors.createdBy],
+    references: [users.id],
+  }),
+  contractorProjects: many(contractorProjects),
+  expenses: many(expenses),
+}));
+
+export const contractorProjectsRelations = relations(contractorProjects, ({ one }) => ({
+  contractor: one(contractors, {
+    fields: [contractorProjects.contractorId],
+    references: [contractors.id],
+  }),
+  project: one(projects, {
+    fields: [contractorProjects.projectId],
+    references: [projects.id],
+  }),
+  createdBy: one(users, {
+    fields: [contractorProjects.createdBy],
+    references: [users.id],
+  }),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -123,6 +177,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   customerAdvances: many(customerAdvances),
   userProjects: many(userProjects),
   ownerInvestments: many(ownerInvestments),
+  contractorProjects: many(contractorProjects),
 }));
 
 export const expensesRelations = relations(expenses, ({ one }) => ({
@@ -133,6 +188,10 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
   user: one(users, {
     fields: [expenses.userId],
     references: [users.id],
+  }),
+  contractor: one(contractors, {
+    fields: [expenses.contractorId],
+    references: [contractors.id],
   }),
 }));
 
@@ -279,6 +338,25 @@ export const insertOwnerInvestmentSchema = createInsertSchema(ownerInvestments).
   ]),
 });
 
+export const insertContractorSchema = createInsertSchema(contractors).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertContractorProjectSchema = createInsertSchema(contractorProjects).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  startDate: z.union([
+    z.date(), 
+    z.string().transform((str) => str === '' ? null : new Date(str))
+  ]).optional().nullable(),
+  endDate: z.union([
+    z.date(), 
+    z.string().transform((str) => str === '' ? null : new Date(str))
+  ]).optional().nullable(),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -298,3 +376,7 @@ export type UserProject = typeof userProjects.$inferSelect;
 export type InsertUserProject = z.infer<typeof insertUserProjectSchema>;
 export type OwnerInvestment = typeof ownerInvestments.$inferSelect;
 export type InsertOwnerInvestment = z.infer<typeof insertOwnerInvestmentSchema>;
+export type Contractor = typeof contractors.$inferSelect;
+export type InsertContractor = z.infer<typeof insertContractorSchema>;
+export type ContractorProject = typeof contractorProjects.$inferSelect;
+export type InsertContractorProject = z.infer<typeof insertContractorProjectSchema>;

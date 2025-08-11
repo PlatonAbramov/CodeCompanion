@@ -542,9 +542,12 @@ export default function DirectorDashboard() {
             <Home size={20} className="mb-1" />
             <span className="text-xs">{t('home')}</span>
           </button>
-          <button className="flex flex-col items-center py-2 text-slate-400">
-            <Folder size={20} className="mb-1" />
-            <span className="text-xs">{t('projects')}</span>
+          <button 
+            className="flex flex-col items-center py-2 text-slate-400"
+            onClick={() => setLocation('/contractors')}
+          >
+            <Users size={20} className="mb-1" />
+            <span className="text-xs">Подрядчики</span>
           </button>
           <button 
             className="flex flex-col items-center py-2 text-slate-400"
@@ -552,10 +555,6 @@ export default function DirectorDashboard() {
           >
             <Users size={20} className="mb-1" />
             <span className="text-xs">{t('employees')}</span>
-          </button>
-          <button className="flex flex-col items-center py-2 text-slate-400">
-            <BarChart3 size={20} className="mb-1" />
-            <span className="text-xs">{t('reports')}</span>
           </button>
         </div>
       </nav>

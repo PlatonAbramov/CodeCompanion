@@ -19,6 +19,13 @@ interface Project {
   name: string;
 }
 
+interface Contractor {
+  id: string;
+  name: string;
+  company?: string;
+  specialization: string;
+}
+
 export default function AddExpense() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
@@ -35,7 +42,8 @@ export default function AddExpense() {
     amount: '',
     category: '',
     description: '',
-    receiptUrl: ''
+    receiptUrl: '',
+    contractorId: ''
   });
   const [selectedReceipt, setSelectedReceipt] = useState<{
     fileName: string;
@@ -49,11 +57,16 @@ export default function AddExpense() {
     queryKey: ['/api/projects'],
   });
 
+  // Get contractors when contractor payment category is selected
+  const { data: contractors = [] } = useQuery<Contractor[]>({
+    queryKey: ['/api/contractors'],
+    enabled: formData.category === 'contractor_payments',
+  });
+
   // Create expense mutation
   const createExpenseMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('POST', '/api/expenses', data);
-      return res.json();
+      return await apiRequest('/api/expenses', 'POST', data);
     },
     onSuccess: () => {
       // Invalidate all relevant queries
@@ -109,7 +122,24 @@ export default function AddExpense() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createExpenseMutation.mutate(formData);
+    
+    // Validate contractor selection for contractor payments
+    if (formData.category === 'contractor_payments' && !formData.contractorId) {
+      toast({
+        title: "Ошибка",
+        description: "Выберите подрядчика для оплаты",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Remove contractorId if not contractor payment category
+    const dataToSubmit = {
+      ...formData,
+      contractorId: formData.category === 'contractor_payments' ? formData.contractorId : undefined
+    };
+
+    createExpenseMutation.mutate(dataToSubmit);
   };
 
   const categories = [
@@ -198,7 +228,14 @@ export default function AddExpense() {
               </Label>
               <Select 
                 value={formData.category} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                onValueChange={(value) => {
+                  setFormData(prev => ({ 
+                    ...prev, 
+                    category: value,
+                    // Reset contractor selection if category changes
+                    contractorId: value === 'contractor_payments' ? prev.contractorId : ''
+                  }));
+                }}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Выберите категорию" />
@@ -213,6 +250,38 @@ export default function AddExpense() {
               </Select>
             </CardContent>
           </Card>
+
+          {/* Contractor Selection - Only show for contractor payments */}
+          {formData.category === 'contractor_payments' && (
+            <Card className="shadow-sm">
+              <CardContent className="p-4">
+                <Label className="block text-sm font-medium text-slate-700 mb-2">
+                  Подрядчик *
+                </Label>
+                <Select 
+                  value={formData.contractorId} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, contractorId: value }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Выберите подрядчика" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contractors.map((contractor) => (
+                      <SelectItem key={contractor.id} value={contractor.id}>
+                        <div className="flex flex-col">
+                          <span>{contractor.name}</span>
+                          {contractor.company && (
+                            <span className="text-xs text-slate-500">{contractor.company}</span>
+                          )}
+                          <span className="text-xs text-slate-400">{contractor.specialization}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Description */}
           <Card className="shadow-sm">
