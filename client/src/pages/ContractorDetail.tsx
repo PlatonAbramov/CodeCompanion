@@ -55,36 +55,46 @@ export default function ContractorDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // Use effect for navigation to avoid setState during render
-  useEffect(() => {
-    if (!user || user.role !== 'director') {
-      setLocation('/login');
-    }
-  }, [user, setLocation]);
-
-  if (!user || user.role !== 'director') {
-    return null;
-  }
-
   // Get contractor details
   const { data: contractor, isLoading: contractorLoading } = useQuery<Contractor>({
     queryKey: ['/api/contractors', contractorId],
+    enabled: user?.role === 'director',
   });
 
   // Get contractor expenses
   const { data: expenses = [], isLoading: expensesLoading } = useQuery<ContractorExpense[]>({
     queryKey: ['/api/contractors', contractorId, 'expenses'],
+    enabled: user?.role === 'director',
   });
 
   // Get contractor statistics
   const { data: stats } = useQuery<ContractorStats>({
     queryKey: ['/api/contractors', contractorId, 'stats'],
+    enabled: user?.role === 'director',
   });
 
   // Get contractor projects
   const { data: projects = [], isLoading: projectsLoading } = useQuery<ContractorProject[]>({
     queryKey: ['/api/contractors', contractorId, 'projects'],
+    enabled: user?.role === 'director',
   });
+
+  // Проверка авторизации
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p>Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (user.role !== 'director') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p>Доступ запрещен</p>
+      </div>
+    );
+  }
 
   const goBack = () => {
     setLocation('/contractors');
