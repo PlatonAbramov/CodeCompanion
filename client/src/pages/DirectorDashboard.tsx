@@ -76,13 +76,11 @@ function ProjectCard({
   };
 
   const handleCardClick = () => {
-    if (isExpanded) {
-      onClick();
-    }
+    onClick();
   };
 
   return (
-    <Card className="shadow-sm hover:shadow-md transition-shadow">
+    <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={handleCardClick}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
@@ -165,21 +163,9 @@ function ProjectCard({
           </div>
         )}
         
-        <div className="flex items-center justify-between text-sm text-slate-500">
-          <div className="flex items-center">
-            <Calendar size={16} className="mr-1" />
-            <span>{formatDate(project.createdAt)}</span>
-          </div>
-          {isExpanded && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCardClick}
-              className="text-primary hover:bg-primary/10 px-3 py-1"
-            >
-              Открыть проект
-            </Button>
-          )}
+        <div className="flex items-center text-sm text-slate-500">
+          <Calendar size={16} className="mr-1" />
+          <span>{formatDate(project.createdAt)}</span>
         </div>
       </CardContent>
     </Card>
