@@ -544,7 +544,10 @@ export default function DirectorDashboard() {
           </button>
           <button 
             className="flex flex-col items-center py-2 text-slate-400"
-            onClick={() => setLocation('/contractors')}
+            onClick={() => {
+              console.log('Navigating to contractors');
+              setLocation('/contractors');
+            }}
           >
             <Users size={20} className="mb-1" />
             <span className="text-xs">Подрядчики</span>

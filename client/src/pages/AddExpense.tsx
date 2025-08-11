@@ -276,13 +276,7 @@ export default function AddExpense() {
                   <SelectContent>
                     {contractors.map((contractor) => (
                       <SelectItem key={contractor.id} value={contractor.id}>
-                        <div className="flex flex-col">
-                          <span>{contractor.name}</span>
-                          {contractor.company && (
-                            <span className="text-xs text-slate-500">{contractor.company}</span>
-                          )}
-                          <span className="text-xs text-slate-400">{contractor.specialization}</span>
-                        </div>
+                        {contractor.company || contractor.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
