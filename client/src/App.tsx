@@ -30,6 +30,7 @@ import OwnerInvestmentsList from "@/pages/OwnerInvestmentsList";
 import AddOwnerInvestment from "@/pages/AddOwnerInvestment";
 import EditOwnerInvestment from "@/pages/EditOwnerInvestment";
 import Contractors from "@/pages/Contractors";
+import ContractorDetail from "@/pages/ContractorDetail";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedApp() {
@@ -96,6 +97,7 @@ function AuthenticatedApp() {
       <Route path="/edit-owner-investment/:id" component={user.role === 'director' ? EditOwnerInvestment : () => { setLocation('/director'); return null; }} />
       <Route path="/employees" component={user.role === 'director' ? EmployeeManagement : () => { setLocation('/director'); return null; }} />
       <Route path="/contractors" component={user.role === 'director' ? Contractors : () => { setLocation('/director'); return null; }} />
+      <Route path="/contractor/:id" component={user.role === 'director' ? ContractorDetail : () => { setLocation('/director'); return null; }} />
       <Route component={NotFound} />
     </Switch>
   );

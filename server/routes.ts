@@ -629,6 +629,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contractor expenses
+  app.get("/api/contractors/:id/expenses", requireAuth, async (req, res) => {
+    try {
+      const expenses = await storage.getContractorExpenses(req.params.id);
+      res.json(expenses);
+    } catch (error) {
+      console.error("Failed to get contractor expenses:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get contractor statistics
+  app.get("/api/contractors/:id/stats", requireAuth, async (req, res) => {
+    try {
+      const stats = await storage.getContractorStats(req.params.id);
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to get contractor:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.post("/api/contractors", requireAuth, async (req, res) => {
     try {
       const contractorData = insertContractorSchema.parse({

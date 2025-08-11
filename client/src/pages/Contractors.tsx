@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,8 +52,14 @@ export default function Contractors() {
     specialization: ''
   });
 
+  // Use effect for navigation to avoid setState during render
+  useEffect(() => {
+    if (!user || user.role !== 'director') {
+      setLocation('/login');
+    }
+  }, [user, setLocation]);
+
   if (!user || user.role !== 'director') {
-    setLocation('/login');
     return null;
   }
 
@@ -325,7 +331,8 @@ export default function Contractors() {
             {contractors?.map((contractor) => (
               <Card 
                 key={contractor.id} 
-                className="bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-0 rounded-lg"
+                className="bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-0 rounded-lg cursor-pointer"
+                onClick={() => setLocation(`/contractor/${contractor.id}`)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -338,7 +345,7 @@ export default function Contractors() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="sm"

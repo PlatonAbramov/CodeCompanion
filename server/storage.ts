@@ -506,6 +506,70 @@ export class DatabaseStorage implements IStorage {
       .where(eq(contractors.id, id));
   }
 
+  async getContractorExpenses(contractorId: string): Promise<Array<{
+    id: string;
+    amount: number;
+    description: string;
+    createdAt: string;
+    projectId: string;
+    projectName: string;
+  }>> {
+    const result = await db
+      .select({
+        id: expenses.id,
+        amount: expenses.amount,
+        description: expenses.description,
+        createdAt: expenses.createdAt,
+        projectId: expenses.projectId,
+        projectName: projects.name,
+      })
+      .from(expenses)
+      .innerJoin(projects, eq(expenses.projectId, projects.id))
+      .where(eq(expenses.contractorId, contractorId))
+      .orderBy(desc(expenses.createdAt));
+    
+    return result.map(row => ({
+      ...row,
+      amount: Number(row.amount),
+      description: row.description || '',
+      createdAt: row.createdAt?.toISOString() || new Date().toISOString(),
+    }));
+  }
+
+  async getContractorStats(contractorId: string): Promise<{
+    totalExpenses: number;
+    totalProjects: number;
+    averageExpenseAmount: number;
+  }> {
+    // Get expenses for this contractor
+    const expensesResult = await db
+      .select({
+        amount: expenses.amount,
+        projectId: expenses.projectId,
+      })
+      .from(expenses)
+      .where(eq(expenses.contractorId, contractorId));
+
+    if (expensesResult.length === 0) {
+      return {
+        totalExpenses: 0,
+        totalProjects: 0,
+        averageExpenseAmount: 0,
+      };
+    }
+
+    const totalExpenses = expensesResult.reduce((sum, expense) => sum + Number(expense.amount), 0);
+    const uniqueProjects = new Set(expensesResult.map(e => e.projectId));
+    const totalProjects = uniqueProjects.size;
+    const averageExpenseAmount = totalExpenses / expensesResult.length;
+
+    return {
+      totalExpenses,
+      totalProjects,
+      averageExpenseAmount,
+    };
+  }
+
   // Contractor Projects
   async getProjectContractors(projectId: string): Promise<(ContractorProject & { contractor: Contractor })[]> {
     const result = await db

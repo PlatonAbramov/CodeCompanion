@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/FileUploader";
+import { QuickAddContractor } from "@/components/QuickAddContractor";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Camera, Check } from "lucide-react";
 
@@ -255,9 +256,16 @@ export default function AddExpense() {
           {formData.category === 'contractor_payments' && (
             <Card className="shadow-sm">
               <CardContent className="p-4">
-                <Label className="block text-sm font-medium text-slate-700 mb-2">
-                  Подрядчик *
-                </Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm font-medium text-slate-700">
+                    Подрядчик *
+                  </Label>
+                  <QuickAddContractor 
+                    onContractorAdded={(contractorId) => {
+                      setFormData(prev => ({ ...prev, contractorId }));
+                    }}
+                  />
+                </div>
                 <Select 
                   value={formData.contractorId} 
                   onValueChange={(value) => setFormData(prev => ({ ...prev, contractorId: value }))}
