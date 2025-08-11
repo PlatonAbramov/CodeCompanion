@@ -27,6 +27,44 @@ interface Contractor {
   createdAt: string;
 }
 
+interface ContractorStats {
+  totalExpenses: number;
+  totalProjects: number;
+  averageExpenseAmount: number;
+}
+
+// Компонент для отображения статистики подрядчика
+function ContractorStatsCard({ contractorId }: { contractorId: string }) {
+  const { data: stats } = useQuery<ContractorStats>({
+    queryKey: ['/api/contractors', contractorId, 'stats'],
+  });
+
+  if (!stats) return null;
+
+  return (
+    <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
+      <div className="text-center">
+        <div className="text-lg font-semibold text-green-600">
+          {stats.totalExpenses.toLocaleString('ru-RU')} ₽
+        </div>
+        <div className="text-xs text-slate-500">Всего выплат</div>
+      </div>
+      <div className="text-center">
+        <div className="text-lg font-semibold text-blue-600">
+          {stats.totalProjects}
+        </div>
+        <div className="text-xs text-slate-500">Проектов</div>
+      </div>
+      <div className="text-center">
+        <div className="text-lg font-semibold text-purple-600">
+          {stats.averageExpenseAmount.toLocaleString('ru-RU')} ₽
+        </div>
+        <div className="text-xs text-slate-500">Средняя выплата</div>
+      </div>
+    </div>
+  );
+}
+
 interface ContractorForm {
   name: string;
   company: string;
@@ -52,15 +90,21 @@ export default function Contractors() {
     specialization: ''
   });
 
-  // Use effect for navigation to avoid setState during render
-  useEffect(() => {
-    if (!user || user.role !== 'director') {
-      setLocation('/login');
-    }
-  }, [user, setLocation]);
+  // Проверка авторизации
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p>Загрузка...</p>
+      </div>
+    );
+  }
 
-  if (!user || user.role !== 'director') {
-    return null;
+  if (user.role !== 'director') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p>Доступ запрещен</p>
+      </div>
+    );
   }
 
   const { data: contractors, isLoading } = useQuery<Contractor[]>({
@@ -392,6 +436,7 @@ export default function Contractors() {
                       Добавлен: {new Date(contractor.createdAt).toLocaleDateString('ru-RU')}
                     </div>
                   </div>
+                  <ContractorStatsCard contractorId={contractor.id} />
                 </CardContent>
               </Card>
             ))}
