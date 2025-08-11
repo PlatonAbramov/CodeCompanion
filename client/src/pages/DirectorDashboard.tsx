@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Bus, Bell, LogOut, Plus, Home, Folder, Users, BarChart3,
-  ProjectorIcon, TrendingUp, TrendingDown, Calendar, Edit2
+  ProjectorIcon, TrendingUp, TrendingDown, Calendar, Edit2, ChevronDown, ChevronUp
 } from "lucide-react";
 
 interface Project {
@@ -37,7 +37,19 @@ interface FinancialSummary {
 }
 
 // Component for individual project card with financial summary
-function ProjectCard({ project, onClick, onEdit }: { project: Project; onClick: () => void; onEdit: (project: Project) => void }) {
+function ProjectCard({ 
+  project, 
+  onClick, 
+  onEdit, 
+  isExpanded, 
+  onToggleExpand 
+}: { 
+  project: Project; 
+  onClick: () => void; 
+  onEdit: (project: Project) => void; 
+  isExpanded: boolean; 
+  onToggleExpand: () => void; 
+}) {
   const { t } = useLanguage();
   
   const { data: financialSummary } = useQuery<FinancialSummary>({
@@ -58,15 +70,42 @@ function ProjectCard({ project, onClick, onEdit }: { project: Project; onClick: 
     onEdit(project);
   };
 
+  const handleExpandClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    onToggleExpand();
+  };
+
+  const handleCardClick = () => {
+    if (isExpanded) {
+      onClick();
+    }
+  };
+
   return (
-    <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
+    <Card className="shadow-sm hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
-            <h4 className="font-semibold text-slate-900 mb-1">{project.name}</h4>
-            {project.location && (
-              <p className="text-sm text-slate-500">{project.location}</p>
-            )}
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExpandClick}
+                className="h-8 w-8 p-0 hover:bg-slate-100 mr-2"
+              >
+                {isExpanded ? (
+                  <ChevronUp size={16} className="text-slate-600" />
+                ) : (
+                  <ChevronDown size={16} className="text-slate-600" />
+                )}
+              </Button>
+              <div>
+                <h4 className="font-semibold text-slate-900 mb-1">{project.name}</h4>
+                {project.location && (
+                  <p className="text-sm text-slate-500">{project.location}</p>
+                )}
+              </div>
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             <Button
@@ -83,7 +122,7 @@ function ProjectCard({ project, onClick, onEdit }: { project: Project; onClick: 
           </div>
         </div>
         
-        {financialSummary && (
+        {isExpanded && financialSummary && (
           <div className="space-y-2 mb-4 text-xs">
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -126,9 +165,21 @@ function ProjectCard({ project, onClick, onEdit }: { project: Project; onClick: 
           </div>
         )}
         
-        <div className="flex items-center text-sm text-slate-500">
-          <Calendar size={16} className="mr-1" />
-          <span>{formatDate(project.createdAt)}</span>
+        <div className="flex items-center justify-between text-sm text-slate-500">
+          <div className="flex items-center">
+            <Calendar size={16} className="mr-1" />
+            <span>{formatDate(project.createdAt)}</span>
+          </div>
+          {isExpanded && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCardClick}
+              className="text-primary hover:bg-primary/10 px-3 py-1"
+            >
+              Открыть проект
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -144,6 +195,7 @@ export default function DirectorDashboard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [projectForm, setProjectForm] = useState({
     name: '',
     location: '',
@@ -243,6 +295,18 @@ export default function DirectorDashboard() {
       endDate: project.endDate ? project.endDate.split('T')[0] : ''
     });
     setIsEditModalOpen(true);
+  };
+
+  const toggleProjectExpansion = (projectId: string) => {
+    setExpandedProjects(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(projectId)) {
+        newSet.delete(projectId);
+      } else {
+        newSet.add(projectId);
+      }
+      return newSet;
+    });
   };
 
   const formatCurrency = (amount: string) => {
@@ -477,6 +541,8 @@ export default function DirectorDashboard() {
                 project={project} 
                 onClick={() => setLocation(`/project/${project.id}`)}
                 onEdit={openEditModal}
+                isExpanded={expandedProjects.has(project.id)}
+                onToggleExpand={() => toggleProjectExpansion(project.id)}
               />
             ))}
           </div>
