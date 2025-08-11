@@ -34,7 +34,7 @@ export function QuickAddContractor({ onContractorAdded }: QuickAddContractorProp
 
   const createContractorMutation = useMutation({
     mutationFn: async (contractorData: ContractorForm) => {
-      const response = await apiRequest('/api/contractors', 'POST', contractorData);
+      const response = await apiRequest('POST', '/api/contractors', contractorData);
       return response.json();
     },
     onSuccess: (data) => {

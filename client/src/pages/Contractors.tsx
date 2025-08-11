@@ -69,7 +69,7 @@ export default function Contractors() {
 
   const createContractorMutation = useMutation({
     mutationFn: async (contractorData: ContractorForm) => {
-      return await apiRequest('/api/contractors', 'POST', contractorData);
+      return await apiRequest('POST', '/api/contractors', contractorData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
@@ -97,7 +97,7 @@ export default function Contractors() {
 
   const updateContractorMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<ContractorForm> }) => {
-      return await apiRequest(`/api/contractors/${id}`, 'PUT', data);
+      return await apiRequest('PUT', `/api/contractors/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
@@ -119,7 +119,7 @@ export default function Contractors() {
 
   const deleteContractorMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/contractors/${id}`, 'DELETE');
+      return await apiRequest('DELETE', `/api/contractors/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
