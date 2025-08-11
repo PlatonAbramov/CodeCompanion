@@ -37,6 +37,17 @@ interface ContractorStats {
   averageExpenseAmount: number;
 }
 
+interface ContractorProject {
+  id: string;
+  projectId: string;
+  projectName: string;
+  budgetAllocation: number;
+  workDescription: string;
+  startDate: string;
+  endDate?: string;
+  isActive: boolean;
+}
+
 export default function ContractorDetail() {
   const params = useParams();
   const contractorId = params.id;
@@ -68,6 +79,11 @@ export default function ContractorDetail() {
   // Get contractor statistics
   const { data: stats } = useQuery<ContractorStats>({
     queryKey: ['/api/contractors', contractorId, 'stats'],
+  });
+
+  // Get contractor projects
+  const { data: projects = [], isLoading: projectsLoading } = useQuery<ContractorProject[]>({
+    queryKey: ['/api/contractors', contractorId, 'projects'],
   });
 
   const goBack = () => {
@@ -128,7 +144,9 @@ export default function ContractorDetail() {
             >
               <ArrowLeft size={20} />
             </Button>
-            <h2 className="font-semibold text-slate-900">Подрядчик: {contractor.name}</h2>
+            <h2 className="font-semibold text-slate-900">
+              Подрядчик: {contractor.company || contractor.name}
+            </h2>
           </div>
         </div>
       </header>
@@ -254,6 +272,69 @@ export default function ContractorDetail() {
             </Card>
           </div>
         )}
+
+        {/* Assigned Projects */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Привязанные проекты</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {projects.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-slate-500">Подрядчик пока не привязан к проектам</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {projects.map((project) => {
+                  const projectExpenses = expenses.filter(e => e.projectId === project.projectId);
+                  const totalPaid = projectExpenses.reduce((sum, e) => sum + e.amount, 0);
+                  const remaining = project.budgetAllocation - totalPaid;
+                  
+                  return (
+                    <div key={project.id} className="p-4 border border-slate-200 rounded-lg">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-medium text-slate-900 mb-1">{project.projectName}</h3>
+                          <p className="text-sm text-slate-600">{project.workDescription}</p>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                            <span>Начат: {formatDate(project.startDate)}</span>
+                            {project.endDate && <span>Завершен: {formatDate(project.endDate)}</span>}
+                          </div>
+                        </div>
+                        <Badge variant={project.isActive ? "default" : "secondary"}>
+                          {project.isActive ? "Активен" : "Завершен"}
+                        </Badge>
+                      </div>
+                      
+                      <Separator className="my-3" />
+                      
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <p className="text-sm text-slate-500">Бюджет</p>
+                          <p className="font-semibold text-slate-900">
+                            {formatCurrency(project.budgetAllocation)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-500">Выплачено</p>
+                          <p className="font-semibold text-green-600">
+                            {formatCurrency(totalPaid)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-500">Осталось</p>
+                          <p className={`font-semibold ${remaining > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatCurrency(remaining)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Expenses History */}
         <Card>

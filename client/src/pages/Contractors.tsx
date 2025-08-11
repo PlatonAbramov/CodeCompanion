@@ -382,11 +382,12 @@ export default function Contractors() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-lg text-slate-900">{contractor.name}</CardTitle>
+                      <CardTitle className="text-lg text-slate-900 font-bold">
+                        {contractor.company || contractor.name}
+                      </CardTitle>
                       {contractor.company && (
-                        <p className="text-sm text-slate-600 mt-1 flex items-center">
-                          <Building2 size={14} className="mr-1" />
-                          {contractor.company}
+                        <p className="text-sm text-slate-600 mt-1">
+                          {contractor.name}
                         </p>
                       )}
                     </div>
