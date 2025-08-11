@@ -90,25 +90,9 @@ export default function Contractors() {
     specialization: ''
   });
 
-  // Проверка авторизации
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p>Загрузка...</p>
-      </div>
-    );
-  }
-
-  if (user.role !== 'director') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p>Доступ запрещен</p>
-      </div>
-    );
-  }
-
   const { data: contractors, isLoading } = useQuery<Contractor[]>({
     queryKey: ['/api/contractors'],
+    enabled: user?.role === 'director', // Только загружаем данные если пользователь директор
   });
 
   const createContractorMutation = useMutation({
@@ -180,6 +164,23 @@ export default function Contractors() {
       });
     }
   });
+
+  // Проверка авторизации
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p>Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (user.role !== 'director') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p>Доступ запрещен</p>
+      </div>
+    );
+  }
 
   const handleCreateContractor = async (e: React.FormEvent) => {
     e.preventDefault();

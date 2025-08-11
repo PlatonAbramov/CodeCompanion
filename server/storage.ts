@@ -74,6 +74,19 @@ export interface IStorage {
   createContractor(contractor: InsertContractor): Promise<Contractor>;
   updateContractor(id: string, contractor: Partial<InsertContractor>): Promise<Contractor>;
   deleteContractor(id: string): Promise<void>;
+  getContractorStats(contractorId: string): Promise<{
+    totalExpenses: number;
+    totalProjects: number;
+    averageExpenseAmount: number;
+  }>;
+  getContractorExpenses(contractorId: string): Promise<{
+    id: string;
+    amount: number;
+    description: string;
+    createdAt: string;
+    projectId: string;
+    projectName: string;
+  }[]>;
   
   // Contractor Projects
   getProjectContractors(projectId: string): Promise<(ContractorProject & { contractor: Contractor })[]>;
