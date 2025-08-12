@@ -201,7 +201,7 @@ export default function Tools() {
     return `${num.toLocaleString('ru-RU')} д.إ.`;
   };
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeVariant = (status: string | null): "default" | "secondary" | "destructive" => {
     switch (status) {
       case 'AVAILABLE': return 'default';
       case 'OUT': return 'secondary';
@@ -210,12 +210,12 @@ export default function Tools() {
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string | null) => {
     switch (status) {
       case 'AVAILABLE': return 'В наличии';
       case 'OUT': return 'У человека';
       case 'WRITTEN_OFF': return 'Списан';
-      default: return status;
+      default: return status || 'Неизвестно';
     }
   };
 
@@ -315,7 +315,7 @@ export default function Tools() {
                   name="cost"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Стоимость (د.إ.)</FormLabel>
+                      <FormLabel>Стоимость (AED)</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" placeholder="0" {...field} />
                       </FormControl>
@@ -685,8 +685,8 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
 
   if (!tool) return null;
 
-  const formatCurrency = (amount: string) => {
-    const num = parseFloat(amount || '0');
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount || '0') : amount;
     return `${num.toLocaleString('ru-RU')} AED`;
   };
 

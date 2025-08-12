@@ -66,7 +66,7 @@ function ProjectCard({
 
   const formatCurrency = (amount: string) => {
     const num = parseFloat(amount || '0');
-    return `${num.toLocaleString('ru-RU')} د.إ.`;
+    return `${num.toLocaleString('ru-RU')} AED`;
   };
 
   const formatDate = (dateString: string) => {
@@ -348,7 +348,7 @@ export default function DirectorDashboard() {
 
   const formatCurrency = (amount: string) => {
     const num = parseFloat(amount || '0');
-    return `${num.toLocaleString('ru-RU')} د.إ.`;
+    return `${num.toLocaleString('ru-RU')} AED`;
   };
 
   const formatDate = (dateString: string) => {
