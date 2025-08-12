@@ -14,7 +14,7 @@ import {
   insertUserSchema, insertProjectSchema, insertExpenseSchema, 
   insertDocumentSchema, insertAdvanceSchema, insertCustomerAdvanceSchema,
   insertRevenueSchema, insertOwnerInvestmentSchema, insertContractorSchema,
-  insertContractorProjectSchema
+  insertContractorProjectSchema, type InsertContractorProject
 } from "@shared/schema";
 
 // Extend session data type
@@ -722,11 +722,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/contractor-projects/:id", requireAuth, requireDirector, async (req, res) => {
     try {
-      const assignmentData = {
-        ...req.body,
-        budget: req.body.budget ? req.body.budget.toString() : null,
-      };
-      const assignment = await storage.updateContractorProject(req.params.id, assignmentData);
+      const updateData: Partial<InsertContractorProject> = {};
+      
+      if (req.body.budget !== undefined) {
+        updateData.budget = req.body.budget;
+      }
+      if (req.body.description !== undefined) {
+        updateData.description = req.body.description;
+      }
+      if (req.body.startDate !== undefined) {
+        updateData.startDate = new Date(req.body.startDate);
+      }
+      if (req.body.endDate !== undefined) {
+        updateData.endDate = req.body.endDate ? new Date(req.body.endDate) : null;
+      }
+      if (req.body.status !== undefined) {
+        updateData.status = req.body.status as 'active' | 'completed' | 'paused';
+      }
+
+      const assignment = await storage.updateContractorProject(req.params.id, updateData);
       res.json(assignment);
     } catch (error) {
       console.error("Failed to update contractor project assignment:", error);

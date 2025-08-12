@@ -26,6 +26,10 @@ interface Expense {
     id: string;
     name: string;
   };
+  contractor?: {
+    name: string;
+    company?: string;
+  };
 }
 
 export default function CategoryExpenses() {
@@ -230,9 +234,16 @@ export default function CategoryExpenses() {
                           </p>
                         )}
                         
-                        <p className="text-xs text-slate-400">
-                          Добавил: {expense.user?.name || 'Неизвестно'}
-                        </p>
+                        <div className="space-y-1">
+                          {expense.contractor && (
+                            <p className="text-xs text-blue-600 font-medium">
+                              Подрядчик: {expense.contractor.company || expense.contractor.name}
+                            </p>
+                          )}
+                          <p className="text-xs text-slate-400">
+                            Добавил: {expense.user?.name || 'Неизвестно'}
+                          </p>
+                        </div>
                       </div>
                       
                       <div className="ml-4 flex items-center">

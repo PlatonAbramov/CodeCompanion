@@ -42,6 +42,10 @@ interface Expense {
   description?: string;
   createdAt: string;
   user: { name: string };
+  contractor?: {
+    name: string;
+    company?: string;
+  };
 }
 
 interface Document {

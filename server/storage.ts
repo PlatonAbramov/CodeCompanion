@@ -194,18 +194,27 @@ export class DatabaseStorage implements IStorage {
     return userProjectsList.map(up => up.project);
   }
 
-  async getProjectExpenses(projectId: string): Promise<(Expense & { user: { name: string } })[]> {
+  async getProjectExpenses(projectId: string): Promise<(Expense & { user: { name: string }, contractor?: { name: string, company?: string } })[]> {
     const result = await db
       .select({
         expense: expenses,
-        user: { name: users.name }
+        user: { name: users.name },
+        contractor: { name: contractors.name, company: contractors.company }
       })
       .from(expenses)
       .innerJoin(users, eq(expenses.userId, users.id))
+      .leftJoin(contractors, eq(expenses.contractorId, contractors.id))
       .where(eq(expenses.projectId, projectId))
       .orderBy(desc(expenses.createdAt));
     
-    return result.map(r => ({ ...r.expense, user: r.user }));
+    return result.map(r => ({ 
+      ...r.expense, 
+      user: r.user,
+      contractor: r.contractor?.name ? { 
+        name: r.contractor.name, 
+        company: r.contractor.company || undefined 
+      } : undefined
+    }));
   }
 
   async getUserExpenses(userId: string): Promise<(Expense & { project: { name: string } })[]> {
@@ -711,52 +720,13 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async updateContractorProject(id: string, updates: {
-    budget?: string;
-    description?: string;
-    startDate?: string;
-    endDate?: string | null;
-    status?: string;
-  }): Promise<{
-    id: string;
-    contractorId: string;
-    projectId: string;
-    projectName: string;
-    budgetAllocation: number;
-    workDescription: string;
-    startDate: string;
-    endDate?: string;
-    isActive: boolean;
-  }> {
-    const updateData: Partial<InsertContractorProject> = {};
-    
-    if (updates.budget !== undefined) {
-      updateData.budget = updates.budget;
-    }
-    if (updates.description !== undefined) {
-      updateData.description = updates.description;
-    }
-    if (updates.startDate !== undefined) {
-      updateData.startDate = new Date(updates.startDate);
-    }
-    if (updates.endDate !== undefined) {
-      updateData.endDate = updates.endDate ? new Date(updates.endDate) : null;
-    }
-    if (updates.status !== undefined) {
-      updateData.status = updates.status as 'active' | 'completed' | 'paused';
-    }
-
-    await db
+  async updateContractorProject(id: string, contractorProject: Partial<InsertContractorProject>): Promise<ContractorProject> {
+    const [updatedContractorProject] = await db
       .update(contractorProjects)
-      .set(updateData)
-      .where(eq(contractorProjects.id, id));
-
-    // Return the updated assignment with project name
-    const assignment = await this.getContractorProjectAssignment(id);
-    if (!assignment) {
-      throw new Error('Assignment not found after update');
-    }
-    return assignment;
+      .set(contractorProject)
+      .where(eq(contractorProjects.id, id))
+      .returning();
+    return updatedContractorProject;
   }
 
   async removeContractorFromProject(id: string): Promise<void> {
