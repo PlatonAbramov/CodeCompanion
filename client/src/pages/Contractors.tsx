@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { 
   Home, Users, Plus, Edit2, Trash2, FileText, Building2, Phone, Mail, Upload, File
 } from "lucide-react";
+import { BottomNavigation } from "@/components/BottomNavigation";
 
 interface Contractor {
   id: string;
@@ -45,7 +46,7 @@ function ContractorStatsCard({ contractorId }: { contractorId: string }) {
     <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
       <div className="text-center">
         <div className="text-lg font-semibold text-green-600">
-          {stats.totalExpenses.toLocaleString('ru-RU')} د.إ
+          {stats.totalExpenses.toLocaleString('ru-RU')} AED
         </div>
         <div className="text-xs text-slate-500">Всего выплат</div>
       </div>
@@ -57,7 +58,7 @@ function ContractorStatsCard({ contractorId }: { contractorId: string }) {
       </div>
       <div className="text-center">
         <div className="text-lg font-semibold text-purple-600">
-          {stats.remainingBudget.toLocaleString('ru-RU')} د.إ
+          {stats.remainingBudget.toLocaleString('ru-RU')} AED
         </div>
         <div className="text-xs text-slate-500">Осталось выплатить</div>
       </div>
@@ -454,29 +455,7 @@ export default function Contractors() {
         )}
       </div>
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2">
-        <div className="flex items-center justify-around">
-          <button 
-            className="flex flex-col items-center py-2 text-slate-400"
-            onClick={() => setLocation('/')}
-          >
-            <Home size={20} className="mb-1" />
-            <span className="text-xs">Главная</span>
-          </button>
-          <button className="flex flex-col items-center py-2 text-primary">
-            <Users size={20} className="mb-1" />
-            <span className="text-xs">Подрядчики</span>
-          </button>
-          <button 
-            className="flex flex-col items-center py-2 text-slate-400"
-            onClick={() => setLocation('/employees')}
-          >
-            <Users size={20} className="mb-1" />
-            <span className="text-xs">Сотрудники</span>
-          </button>
-        </div>
-      </nav>
+      <BottomNavigation currentPage="contractors" />
     </div>
   );
 }

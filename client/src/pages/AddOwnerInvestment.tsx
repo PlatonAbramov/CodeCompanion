@@ -109,7 +109,7 @@ export default function AddOwnerInvestment() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="amount">Сумма (د.إ.) *</Label>
+                <Label htmlFor="amount">Сумма (AED) *</Label>
                 <Input
                   id="amount"
                   type="number"

@@ -58,7 +58,7 @@ export default function OwnerInvestmentsList() {
 
   const formatCurrency = (amount: string) => {
     const num = parseFloat(amount || '0');
-    return `${num.toLocaleString('ru-RU')} د.إ.`;
+    return `${num.toLocaleString('ru-RU')} AED`;
   };
 
   const formatDate = (dateString: string) => {

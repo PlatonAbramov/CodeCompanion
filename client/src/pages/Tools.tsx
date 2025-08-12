@@ -29,6 +29,8 @@ type FilterStatus = 'all' | 'available' | 'out' | 'written_off';
 
 const createToolFormSchema = insertToolSchema.extend({
   cost: z.union([z.number(), z.string().transform((str) => parseFloat(str || "0"))]),
+  inventoryNumber: z.string().optional(),
+  description: z.string().optional(),
 });
 
 const toolMovementFormSchema = insertToolMovementSchema.omit({ 
@@ -37,6 +39,8 @@ const toolMovementFormSchema = insertToolMovementSchema.omit({
   photoUrl: true 
 }).extend({
   type: z.enum(['ISSUE', 'RETURN']),
+  eventTime: z.string().optional(),
+  comment: z.string().optional(),
 });
 
 export default function Tools() {
@@ -59,9 +63,9 @@ export default function Tools() {
     resolver: zodResolver(createToolFormSchema),
     defaultValues: {
       name: "",
-      inventoryNumber: "",
+      inventoryNumber: undefined,
       cost: 0,
-      description: "",
+      description: undefined,
     },
   });
 
@@ -72,7 +76,7 @@ export default function Tools() {
       type: 'ISSUE',
       personName: "",
       personPhone: "",
-      comment: "",
+      comment: undefined,
       eventTime: new Date().toISOString().slice(0, 16),
     },
   });
@@ -110,7 +114,7 @@ export default function Tools() {
       formData.append('type', data.type);
       formData.append('personName', data.personName);
       formData.append('personPhone', data.personPhone);
-      formData.append('eventTime', data.eventTime);
+      if (data.eventTime) formData.append('eventTime', new Date(data.eventTime).toISOString());
       if (data.comment) formData.append('comment', data.comment);
       formData.append('photo', selectedFile);
 
@@ -413,7 +417,7 @@ export default function Tools() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{formatCurrency(tool.cost)}</span>
+                    <span className="text-sm">{formatCurrency(parseFloat(tool.cost) || 0)}</span>
                   </div>
                   
                   {tool.status === 'OUT' && tool.currentPerson && (
@@ -507,7 +511,7 @@ export default function Tools() {
                 name="cost"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Стоимость (د.إ.)</FormLabel>
+                    <FormLabel>Стоимость (AED)</FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" placeholder="0" {...field} />
                     </FormControl>
@@ -683,7 +687,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
 
   const formatCurrency = (amount: string) => {
     const num = parseFloat(amount || '0');
-    return `${num.toLocaleString('ru-RU')} د.إ.`;
+    return `${num.toLocaleString('ru-RU')} AED`;
   };
 
   const formatDateTime = (date: string | Date) => {
@@ -747,12 +751,22 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
                     <div className="flex gap-3 items-start">
                       {/* Mini photo */}
                       <div className="flex-shrink-0">
-                        <img
-                          src={movement.photoUrl}
-                          alt="Фото движения"
-                          className="w-12 h-12 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => setSelectedPhoto(movement.photoUrl)}
-                        />
+                        {movement.photoUrl && (
+                          <img
+                            src={movement.photoUrl}
+                            alt="Фото движения"
+                            className="w-12 h-12 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity border"
+                            onClick={() => setSelectedPhoto(movement.photoUrl)}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `<div class="w-12 h-12 bg-gray-200 rounded-md flex items-center justify-center text-xs text-gray-500">Фото</div>`;
+                              }
+                            }}
+                          />
+                        )}
                       </div>
                       
                       {/* Movement details */}

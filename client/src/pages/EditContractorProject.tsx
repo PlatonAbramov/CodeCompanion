@@ -172,7 +172,7 @@ export default function EditContractorProject() {
   }
 
   const formatCurrency = (amount: number) => {
-    return `${amount.toLocaleString('ru-RU')} د.إ`;
+    return `${amount.toLocaleString('ru-RU')} AED`;
   };
 
   return (

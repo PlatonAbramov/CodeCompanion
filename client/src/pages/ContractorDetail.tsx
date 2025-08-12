@@ -127,7 +127,7 @@ export default function ContractorDetail() {
   }
 
   const formatCurrency = (amount: number) => {
-    return `${amount.toLocaleString('ru-RU')} د.إ`;
+    return `${amount.toLocaleString('ru-RU')} AED`;
   };
 
   const formatDate = (dateString: string) => {
@@ -409,7 +409,7 @@ export default function ContractorDetail() {
         contractorId={contractorId}
       />
 
-      <BottomNavigation userRole={user?.role} />
+      <BottomNavigation currentPage="contractors" />
     </div>
   );
 }
