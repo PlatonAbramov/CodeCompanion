@@ -51,6 +51,17 @@ export default function ClientDetailPage() {
     queryKey: ["/api/projects"],
   });
 
+  // Safe access to data with defaults
+  const safeClient = client as any;
+  const safeStats = clientStats as any || {
+    totalProjects: 0,
+    totalPayments: 0,
+    remainingAmount: 0
+  };
+  const safeClientProjects = clientProjects as any[] || [];
+  const safeClientPayments = clientPayments as any[] || [];
+  const safeAllProjects = allProjects as any[] || [];
+
   const projectForm = useForm<InsertClientProject>({
     resolver: zodResolver(insertClientProjectSchema),
     defaultValues: {
@@ -172,7 +183,10 @@ export default function ClientDetailPage() {
   });
 
   const onProjectSubmit = (data: InsertClientProject) => {
-    assignProjectMutation.mutate(data);
+    assignProjectMutation.mutate({
+      ...data,
+      clientId: clientId!,
+    });
   };
 
   const onPaymentSubmit = (data: InsertClientPayment) => {
@@ -194,7 +208,7 @@ export default function ClientDetailPage() {
     }
   };
 
-  if (clientLoading || !client) {
+  if (clientLoading || !safeClient) {
     return (
       <div className="container mx-auto p-6">
         <div className="animate-pulse space-y-6">
@@ -224,15 +238,15 @@ export default function ClientDetailPage() {
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
               <Building2 className="w-8 h-8" />
-              {client.name}
+              {safeClient?.name}
             </h1>
-            {client.company && (
-              <p className="text-lg text-muted-foreground">{client.company}</p>
+            {safeClient?.company && (
+              <p className="text-lg text-muted-foreground">{safeClient.company}</p>
             )}
           </div>
         </div>
-        <Badge variant={client.isActive ? "default" : "secondary"}>
-          {client.isActive ? "Активный" : "Неактивный"}
+        <Badge variant={safeClient?.isActive ? "default" : "secondary"}>
+          {safeClient?.isActive ? "Активный" : "Неактивный"}
         </Badge>
       </div>
 
@@ -244,7 +258,7 @@ export default function ClientDetailPage() {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalProjects}</div>
+            <div className="text-2xl font-bold">{safeStats.totalProjects}</div>
           </CardContent>
         </Card>
         <Card>
@@ -253,7 +267,7 @@ export default function ClientDetailPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalPayments)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(safeStats.totalPayments)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -262,8 +276,8 @@ export default function ClientDetailPage() {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${stats.remainingAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-              {formatCurrency(stats.remainingAmount)}
+            <div className={`text-2xl font-bold ${safeStats.remainingAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+              {formatCurrency(safeStats.remainingAmount)}
             </div>
           </CardContent>
         </Card>
@@ -276,28 +290,28 @@ export default function ClientDetailPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            {client.contactPerson && (
+            {safeClient?.contactPerson && (
               <div>
-                <strong>Контактное лицо:</strong> {client.contactPerson}
+                <strong>Контактное лицо:</strong> {safeClient.contactPerson}
               </div>
             )}
-            {client.phone && (
+            {safeClient?.phone && (
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4" />
-                <strong>Телефон:</strong> {client.phone}
+                <strong>Телефон:</strong> {safeClient.phone}
               </div>
             )}
-            {client.email && (
+            {safeClient?.email && (
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4" />
-                <strong>Email:</strong> {client.email}
+                <strong>Email:</strong> {safeClient.email}
               </div>
             )}
-            {client.address && (
+            {safeClient?.address && (
               <div className="flex items-start gap-2 md:col-span-2">
                 <MapPin className="w-4 h-4 mt-1" />
                 <div>
-                  <strong>Адрес:</strong> {client.address}
+                  <strong>Адрес:</strong> {safeClient.address}
                 </div>
               </div>
             )}
@@ -340,7 +354,7 @@ export default function ClientDetailPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {allProjects?.map((project: any) => (
+                              {safeAllProjects.map((project: any) => (
                                 <SelectItem key={project.id} value={project.id}>
                                   {project.name}
                                 </SelectItem>
@@ -364,6 +378,7 @@ export default function ClientDetailPage() {
                                 step="0.01"
                                 placeholder="0.00"
                                 {...field}
+                                value={field.value || ""}
                                 onChange={(e) => field.onChange(Number(e.target.value))}
                               />
                             </FormControl>
@@ -378,7 +393,7 @@ export default function ClientDetailPage() {
                           <FormItem>
                             <FormLabel>Номер договора</FormLabel>
                             <FormControl>
-                              <Input placeholder="№ договора" {...field} />
+                              <Input placeholder="№ договора" {...field} value={field.value || ""} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -410,7 +425,7 @@ export default function ClientDetailPage() {
                         <FormItem>
                           <FormLabel>Описание работ</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Описание работ по договору" {...field} />
+                            <Textarea placeholder="Описание работ по договору" {...field} value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -431,7 +446,7 @@ export default function ClientDetailPage() {
           </div>
 
           <div className="space-y-4">
-            {clientProjects?.map((project: any) => (
+            {safeClientProjects.map((project: any) => (
               <Card key={project.id}>
                 <CardContent className="pt-6">
                   <div className="flex justify-between items-start">
@@ -473,7 +488,7 @@ export default function ClientDetailPage() {
                 </CardContent>
               </Card>
             ))}
-            {(!clientProjects || clientProjects.length === 0) && (
+            {(!safeClientProjects || safeClientProjects.length === 0) && (
               <div className="text-center py-8">
                 <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">Проекты не назначены</p>
@@ -511,7 +526,7 @@ export default function ClientDetailPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {clientProjects?.map((project: any) => (
+                              {safeClientProjects.map((project: any) => (
                                 <SelectItem key={project.projectId} value={project.projectId}>
                                   {project.projectName}
                                 </SelectItem>
@@ -535,6 +550,7 @@ export default function ClientDetailPage() {
                                 step="0.01"
                                 placeholder="0.00"
                                 {...field}
+                                value={field.value || ""}
                                 onChange={(e) => field.onChange(Number(e.target.value))}
                               />
                             </FormControl>
@@ -568,7 +584,7 @@ export default function ClientDetailPage() {
                         <FormItem>
                           <FormLabel>Способ оплаты</FormLabel>
                           <FormControl>
-                            <Input placeholder="Банковский перевод, наличные и т.д." {...field} />
+                            <Input placeholder="Банковский перевод, наличные и т.д." {...field} value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -581,7 +597,7 @@ export default function ClientDetailPage() {
                         <FormItem>
                           <FormLabel>Описание</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Описание платежа" {...field} />
+                            <Textarea placeholder="Описание платежа" {...field} value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -602,7 +618,7 @@ export default function ClientDetailPage() {
           </div>
 
           <div className="space-y-4">
-            {clientPayments?.map((payment: any) => (
+            {safeClientPayments.map((payment: any) => (
               <Card key={payment.id}>
                 <CardContent className="pt-6">
                   <div className="flex justify-between items-start">
@@ -639,7 +655,7 @@ export default function ClientDetailPage() {
                 </CardContent>
               </Card>
             ))}
-            {(!clientPayments || clientPayments.length === 0) && (
+            {(!safeClientPayments || safeClientPayments.length === 0) && (
               <div className="text-center py-8">
                 <CreditCard className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">Платежи не найдены</p>
