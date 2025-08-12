@@ -121,8 +121,9 @@ export default function ClientDetailPage() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      console.log("Project assigned successfully");
+    onSuccess: (data) => {
+      console.log("Project assigned successfully, result:", data);
+      console.log("Invalidating queries and closing dialog...");
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
       setIsProjectDialogOpen(false);
@@ -279,8 +280,13 @@ export default function ClientDetailPage() {
   };
 
   const handleRemoveProject = (assignmentId: string, projectName: string) => {
+    console.log("handleRemoveProject called with:", { assignmentId, projectName });
+    console.trace("Remove project stack trace");
     if (window.confirm(`Вы уверены, что хотите отвязать проект "${projectName}"?`)) {
+      console.log("User confirmed removal, calling mutation");
       removeProjectMutation.mutate(assignmentId);
+    } else {
+      console.log("User cancelled removal");
     }
   };
 
