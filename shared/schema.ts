@@ -169,6 +169,42 @@ export const clientPayments = pgTable("client_payments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const tools = pgTable("tools", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  inventoryNumber: text("inventory_number").unique(),
+  cost: decimal("cost", { precision: 12, scale: 2 }).notNull().default("0"),
+  description: text("description"),
+  status: text("status").default("AVAILABLE"), // 'AVAILABLE' | 'OUT' | 'WRITTEN_OFF'
+  currentIssueEventId: varchar("current_issue_event_id"), // ссылка на открытое событие выдачи
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const toolMovements = pgTable("tool_movements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  toolId: varchar("tool_id").references(() => tools.id).notNull(),
+  type: text("type").notNull(), // 'ISSUE' | 'RETURN'
+  personName: text("person_name").notNull(),
+  personPhone: text("person_phone").notNull(),
+  photoUrl: text("photo_url").notNull(),
+  comment: text("comment"),
+  eventTime: timestamp("event_time").notNull().defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+  isAdminCorrected: boolean("is_admin_corrected").default(false),
+  correctionReason: text("correction_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const toolPersons = pgTable("tool_persons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  phone: text("phone").notNull().unique(),
+  lastUsedAt: timestamp("last_used_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
@@ -342,6 +378,25 @@ export const clientPaymentsRelations = relations(clientPayments, ({ one }) => ({
   }),
   createdBy: one(users, {
     fields: [clientPayments.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const toolsRelations = relations(tools, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [tools.createdBy],
+    references: [users.id],
+  }),
+  movements: many(toolMovements),
+}));
+
+export const toolMovementsRelations = relations(toolMovements, ({ one }) => ({
+  tool: one(tools, {
+    fields: [toolMovements.toolId],
+    references: [tools.id],
+  }),
+  createdBy: one(users, {
+    fields: [toolMovements.createdBy],
     references: [users.id],
   }),
 }));
@@ -539,3 +594,39 @@ export type ClientProject = typeof clientProjects.$inferSelect;
 export type InsertClientProject = z.infer<typeof insertClientProjectSchema>;
 export type ClientPayment = typeof clientPayments.$inferSelect;
 export type InsertClientPayment = z.infer<typeof insertClientPaymentSchema>;
+
+// Tool schemas
+export const insertToolSchema = createInsertSchema(tools).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  cost: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str || "0"))
+  ]),
+});
+
+export const insertToolMovementSchema = createInsertSchema(toolMovements).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  eventTime: z.union([
+    z.date(), 
+    z.string().transform((str) => new Date(str))
+  ]).optional(),
+  personPhone: z.string().min(1, "Телефон обязателен").regex(/^[\+]?[0-9\-\(\)\s]+$/, "Неверный формат телефона"),
+});
+
+export const insertToolPersonSchema = createInsertSchema(toolPersons).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Tool types
+export type Tool = typeof tools.$inferSelect;
+export type InsertTool = z.infer<typeof insertToolSchema>;
+export type ToolMovement = typeof toolMovements.$inferSelect;
+export type InsertToolMovement = z.infer<typeof insertToolMovementSchema>;
+export type ToolPerson = typeof toolPersons.$inferSelect;
+export type InsertToolPerson = z.infer<typeof insertToolPersonSchema>;

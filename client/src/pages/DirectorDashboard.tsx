@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Bus, Bell, LogOut, Plus, Home, Folder, Users, BarChart3,
   ProjectorIcon, TrendingUp, TrendingDown, Calendar, Edit2, ChevronDown, ChevronUp,
-  Building2
+  Building2, Wrench
 } from "lucide-react";
 import { AssignClientModal } from '@/components/AssignClientModal';
 
@@ -625,10 +625,7 @@ export default function DirectorDashboard() {
           </button>
           <button 
             className="flex flex-col items-center py-2 text-slate-400"
-            onClick={() => {
-              console.log('Navigating to contractors');
-              setLocation('/contractors');
-            }}
+            onClick={() => setLocation('/contractors')}
           >
             <Users size={20} className="mb-1" />
             <span className="text-xs">Подрядчики</span>
@@ -639,6 +636,13 @@ export default function DirectorDashboard() {
           >
             <Building2 size={20} className="mb-1" />
             <span className="text-xs">Заказчики</span>
+          </button>
+          <button 
+            className="flex flex-col items-center py-2 text-slate-400"
+            onClick={() => setLocation('/tools')}
+          >
+            <Wrench size={20} className="mb-1" />
+            <span className="text-xs">Инструменты</span>
           </button>
           <button 
             className="flex flex-col items-center py-2 text-slate-400"

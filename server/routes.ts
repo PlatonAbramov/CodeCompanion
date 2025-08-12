@@ -15,8 +15,9 @@ import {
   insertDocumentSchema, insertAdvanceSchema, insertCustomerAdvanceSchema,
   insertRevenueSchema, insertOwnerInvestmentSchema, insertContractorSchema,
   insertContractorProjectSchema, insertClientSchema, insertClientProjectSchema,
-  insertClientPaymentSchema, 
-  type InsertContractorProject, type InsertClientProject, type InsertClientPayment
+  insertClientPaymentSchema, insertToolSchema, insertToolMovementSchema,
+  type InsertContractorProject, type InsertClientProject, type InsertClientPayment,
+  type InsertTool, type InsertToolMovement
 } from "@shared/schema";
 
 // Extend session data type
@@ -973,6 +974,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete client payment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Tools routes
+  app.get("/api/tools", requireAuth, async (req, res) => {
+    try {
+      const tools = await storage.getAllTools();
+      res.json(tools);
+    } catch (error) {
+      console.error("Failed to get tools:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/tools/:id", requireAuth, async (req, res) => {
+    try {
+      const tool = await storage.getTool(req.params.id);
+      if (!tool) {
+        return res.status(404).json({ error: "Tool not found" });
+      }
+      res.json(tool);
+    } catch (error) {
+      console.error("Failed to get tool:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/tools", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertToolSchema.parse({
+        ...req.body,
+        createdBy: req.session.user!.id,
+      });
+      const tool = await storage.createTool(validatedData);
+      res.status(201).json(tool);
+    } catch (error) {
+      console.error("Failed to create tool:", error);
+      res.status(400).json({ error: "Validation error" });
+    }
+  });
+
+  app.patch("/api/tools/:id", requireAuth, async (req, res) => {
+    try {
+      const tool = await storage.updateTool(req.params.id, req.body);
+      res.json(tool);
+    } catch (error) {
+      console.error("Failed to update tool:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/tools/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteTool(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete tool:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Tool movements routes
+  app.get("/api/tools/:id/movements", requireAuth, async (req, res) => {
+    try {
+      const movements = await storage.getToolMovements(req.params.id);
+      res.json(movements);
+    } catch (error) {
+      console.error("Failed to get tool movements:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/tools/:id/movements", requireAuth, upload.single('photo'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Photo is required" });
+      }
+
+      const validatedData = insertToolMovementSchema.parse({
+        ...req.body,
+        toolId: req.params.id,
+        photoUrl: `/uploads/${req.file.filename}`,
+        createdBy: req.session.user!.id,
+      });
+
+      const movement = await storage.createToolMovement(validatedData);
+      res.status(201).json(movement);
+    } catch (error) {
+      console.error("Failed to create tool movement:", error);
+      res.status(400).json({ error: "Validation error" });
+    }
+  });
+
+  // Recent tool persons
+  app.get("/api/tool-persons/recent", requireAuth, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const persons = await storage.getRecentToolPersons(limit);
+      res.json(persons);
+    } catch (error) {
+      console.error("Failed to get recent tool persons:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

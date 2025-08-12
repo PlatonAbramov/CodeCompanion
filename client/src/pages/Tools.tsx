@@ -1,0 +1,594 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { insertToolSchema, insertToolMovementSchema, type Tool, type ToolMovement } from "@shared/schema";
+import { z } from "zod";
+import { Plus, Search, Camera, User, Package, ArrowUpDown, Eye } from "lucide-react";
+
+interface ToolWithPerson extends Tool {
+  currentPerson?: { name: string; phone: string };
+}
+
+type FilterStatus = 'all' | 'available' | 'out' | 'written_off';
+
+const createToolFormSchema = insertToolSchema.extend({
+  cost: z.union([z.number(), z.string().transform((str) => parseFloat(str || "0"))]),
+});
+
+const toolMovementFormSchema = insertToolMovementSchema.omit({ 
+  toolId: true, 
+  createdBy: true, 
+  photoUrl: true 
+}).extend({
+  type: z.enum(['ISSUE', 'RETURN']),
+});
+
+export default function Tools() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedTool, setSelectedTool] = useState<ToolWithPerson | null>(null);
+  const [isToolDetailOpen, setIsToolDetailOpen] = useState(false);
+  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
+  const [movementTool, setMovementTool] = useState<ToolWithPerson | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Form for creating/editing tools
+  const form = useForm<z.infer<typeof createToolFormSchema>>({
+    resolver: zodResolver(createToolFormSchema),
+    defaultValues: {
+      name: "",
+      inventoryNumber: "",
+      cost: 0,
+      description: "",
+    },
+  });
+
+  // Form for tool movements
+  const movementForm = useForm<z.infer<typeof toolMovementFormSchema>>({
+    resolver: zodResolver(toolMovementFormSchema),
+    defaultValues: {
+      type: 'ISSUE',
+      personName: "",
+      personPhone: "",
+      comment: "",
+      eventTime: new Date().toISOString().slice(0, 16),
+    },
+  });
+
+  // Get all tools
+  const { data: tools = [], isLoading } = useQuery<ToolWithPerson[]>({
+    queryKey: ['/api/tools'],
+  });
+
+  // Create tool mutation
+  const createToolMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof createToolFormSchema>) => {
+      const res = await apiRequest('POST', '/api/tools', data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tools'] });
+      setIsCreateModalOpen(false);
+      form.reset();
+      toast({ title: "Инструмент создан" });
+    },
+    onError: (error) => {
+      toast({ title: "Ошибка создания инструмента", variant: "destructive" });
+    },
+  });
+
+  // Create tool movement mutation
+  const createMovementMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof toolMovementFormSchema>) => {
+      if (!movementTool || !selectedFile) {
+        throw new Error("Инструмент или фото не выбраны");
+      }
+      
+      const formData = new FormData();
+      formData.append('type', data.type);
+      formData.append('personName', data.personName);
+      formData.append('personPhone', data.personPhone);
+      formData.append('eventTime', data.eventTime);
+      if (data.comment) formData.append('comment', data.comment);
+      formData.append('photo', selectedFile);
+
+      const res = await fetch(`/api/tools/${movementTool.id}/movements`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Ошибка: ${res.status}`);
+      }
+      
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tools'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tools', movementTool?.id, 'movements'] });
+      setIsMovementModalOpen(false);
+      setMovementTool(null);
+      setSelectedFile(null);
+      movementForm.reset();
+      toast({ title: "Движение записано" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Ошибка записи движения", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Filter tools based on search and status
+  const filteredTools = tools.filter(tool => {
+    const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (tool.currentPerson?.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                         (tool.currentPerson?.phone.includes(searchQuery));
+    
+    const matchesStatus = 
+      filterStatus === 'all' ||
+      (filterStatus === 'available' && tool.status === 'AVAILABLE') ||
+      (filterStatus === 'out' && tool.status === 'OUT') ||
+      (filterStatus === 'written_off' && tool.status === 'WRITTEN_OFF');
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const formatCurrency = (amount: string) => {
+    const num = parseFloat(amount || '0');
+    return `${num.toLocaleString('ru-RU')} д.إ.`;
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'AVAILABLE': return 'default';
+      case 'OUT': return 'secondary';
+      case 'WRITTEN_OFF': return 'destructive';
+      default: return 'default';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'AVAILABLE': return 'В наличии';
+      case 'OUT': return 'У человека';
+      case 'WRITTEN_OFF': return 'Списан';
+      default: return status;
+    }
+  };
+
+  const handleCreateTool = (data: z.infer<typeof createToolFormSchema>) => {
+    createToolMutation.mutate(data);
+  };
+
+  const handleMovementSubmit = (data: z.infer<typeof toolMovementFormSchema>) => {
+    createMovementMutation.mutate(data);
+  };
+
+  const openToolDetail = (tool: ToolWithPerson) => {
+    setSelectedTool(tool);
+    setIsToolDetailOpen(true);
+  };
+
+  const openMovementModal = (tool: ToolWithPerson) => {
+    setMovementTool(tool);
+    const type = tool.status === 'AVAILABLE' ? 'ISSUE' : 'RETURN';
+    movementForm.setValue('type', type);
+    setIsMovementModalOpen(true);
+  };
+
+  return (
+    <div className="container mx-auto py-6 px-4">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Инструменты</h1>
+        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Добавить инструмент
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Создать инструмент</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleCreateTool)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Название инструмента *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Например: Дрель Bosch" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="inventoryNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Инвентарный номер</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Например: DR-001" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="cost"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Стоимость (د.إ.)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Описание</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Дополнительная информация..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex gap-2 pt-4">
+                  <Button type="submit" disabled={createToolMutation.isPending}>
+                    {createToolMutation.isPending ? "Создание..." : "Создать"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                    Отмена
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Поиск по названию, имени или телефону..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Tabs value={filterStatus} onValueChange={(value) => setFilterStatus(value as FilterStatus)} className="w-auto">
+          <TabsList>
+            <TabsTrigger value="all">Все</TabsTrigger>
+            <TabsTrigger value="available">В наличии</TabsTrigger>
+            <TabsTrigger value="out">В работе</TabsTrigger>
+            <TabsTrigger value="written_off">Списанные</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Tools Grid */}
+      {isLoading ? (
+        <div className="text-center py-8">Загрузка...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredTools.map((tool) => (
+            <Card key={tool.id} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <CardTitle className="text-lg">{tool.name}</CardTitle>
+                  <Badge variant={getStatusBadgeVariant(tool.status)}>
+                    {getStatusText(tool.status)}
+                  </Badge>
+                </div>
+                {tool.inventoryNumber && (
+                  <p className="text-sm text-muted-foreground">№ {tool.inventoryNumber}</p>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{formatCurrency(tool.cost)}</span>
+                  </div>
+                  
+                  {tool.status === 'OUT' && tool.currentPerson && (
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">
+                        {tool.currentPerson.name} ({tool.currentPerson.phone})
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openToolDetail(tool)}
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Детали
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={tool.status === 'AVAILABLE' ? 'default' : 'secondary'}
+                      className="flex-1"
+                      onClick={() => openMovementModal(tool)}
+                    >
+                      <ArrowUpDown className="h-4 w-4 mr-1" />
+                      {tool.status === 'AVAILABLE' ? 'Выдать' : 'Вернуть'}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {filteredTools.length === 0 && !isLoading && (
+        <div className="text-center py-8 text-muted-foreground">
+          {searchQuery || filterStatus !== 'all' 
+            ? 'Инструменты не найдены' 
+            : 'Нет инструментов'
+          }
+        </div>
+      )}
+
+      {/* Tool Detail Dialog */}
+      <ToolDetailDialog 
+        tool={selectedTool}
+        open={isToolDetailOpen}
+        onOpenChange={setIsToolDetailOpen}
+      />
+
+      {/* Tool Movement Dialog */}
+      <Dialog open={isMovementModalOpen} onOpenChange={setIsMovementModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {movementTool?.status === 'AVAILABLE' ? 'Выдать инструмент' : 'Вернуть инструмент'}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...movementForm}>
+            <form onSubmit={movementForm.handleSubmit(handleMovementSubmit)} className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                <strong>{movementTool?.name}</strong>
+                {movementTool?.inventoryNumber && ` (№ ${movementTool.inventoryNumber})`}
+              </div>
+
+              <FormField
+                control={movementForm.control}
+                name="personName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Имя получателя/возвращающего *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Введите имя" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={movementForm.control}
+                name="personPhone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Телефон *</FormLabel>
+                    <FormControl>
+                      <Input type="tel" placeholder="+971 XX XXX XXXX" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={movementForm.control}
+                name="eventTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Дата и время</FormLabel>
+                    <FormControl>
+                      <Input type="datetime-local" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div>
+                <Label htmlFor="photo">Фото *</Label>
+                <Input
+                  id="photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Сделайте фото инструмента и человека
+                </p>
+              </div>
+
+              <FormField
+                control={movementForm.control}
+                name="comment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Комментарий</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Дополнительные заметки..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  type="submit" 
+                  disabled={createMovementMutation.isPending || !selectedFile}
+                >
+                  {createMovementMutation.isPending ? "Сохранение..." : "Сохранить"}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsMovementModalOpen(false);
+                    setMovementTool(null);
+                    setSelectedFile(null);
+                    movementForm.reset();
+                  }}
+                >
+                  Отмена
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Tool Detail Dialog Component
+interface ToolDetailDialogProps {
+  tool: ToolWithPerson | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
+  const { data: movements = [] } = useQuery<ToolMovement[]>({
+    queryKey: ['/api/tools', tool?.id, 'movements'],
+    enabled: !!tool?.id,
+  });
+
+  if (!tool) return null;
+
+  const formatCurrency = (amount: string) => {
+    const num = parseFloat(amount || '0');
+    return `${num.toLocaleString('ru-RU')} د.إ.`;
+  };
+
+  const formatDateTime = (date: string | Date) => {
+    return new Date(date).toLocaleString('ru-RU');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>{tool.name}</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-6">
+          {/* Basic Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h4 className="font-semibold mb-2">Основная информация</h4>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Инвентарный номер:</span>
+                  <span className="ml-2">{tool.inventoryNumber || 'Не указан'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Стоимость:</span>
+                  <span className="ml-2">{formatCurrency(tool.cost)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Описание:</span>
+                  <span className="ml-2">{tool.description || 'Не указано'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-2">Текущий статус</h4>
+              <div className="space-y-2">
+                <Badge variant={tool.status === 'AVAILABLE' ? 'default' : 'secondary'}>
+                  {tool.status === 'AVAILABLE' ? 'В наличии' : 
+                   tool.status === 'OUT' ? 'У человека' : 'Списан'}
+                </Badge>
+                {tool.currentPerson && (
+                  <div className="text-sm">
+                    <div>{tool.currentPerson.name}</div>
+                    <div className="text-muted-foreground">{tool.currentPerson.phone}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Movement History */}
+          <div>
+            <h4 className="font-semibold mb-3">История движений</h4>
+            {movements.length === 0 ? (
+              <p className="text-muted-foreground">История движений пуста</p>
+            ) : (
+              <div className="space-y-2">
+                {movements.map((movement) => (
+                  <Card key={movement.id} className="p-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium">
+                          {movement.type === 'ISSUE' ? 'Выдано' : 'Возвращено'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {movement.personName} ({movement.personPhone})
+                        </div>
+                        {movement.comment && (
+                          <div className="text-sm mt-1">{movement.comment}</div>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {formatDateTime(movement.eventTime)}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

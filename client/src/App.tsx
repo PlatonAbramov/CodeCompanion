@@ -34,6 +34,7 @@ import ContractorDetail from "@/pages/ContractorDetail";
 import EditContractorProject from "@/pages/EditContractorProject";
 import Clients from "@/pages/Clients";
 import ClientDetail from "@/pages/ClientDetail";
+import Tools from "@/pages/Tools";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedApp() {
@@ -104,6 +105,7 @@ function AuthenticatedApp() {
       <Route path="/contractor/:contractorId/project/:assignmentId" component={user.role === 'director' ? EditContractorProject : () => { setLocation('/director'); return null; }} />
       <Route path="/clients" component={user.role === 'director' ? Clients : () => { setLocation('/director'); return null; }} />
       <Route path="/clients/:id" component={user.role === 'director' ? ClientDetail : () => { setLocation('/director'); return null; }} />
+      <Route path="/tools" component={user.role === 'director' ? Tools : () => { setLocation('/director'); return null; }} />
       <Route component={NotFound} />
     </Switch>
   );

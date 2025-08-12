@@ -1,6 +1,7 @@
 import { 
   users, projects, expenses, documents, advances, customerAdvances, userProjects, revenues, ownerInvestments,
   contractors, contractorProjects, clients, clientProjects, clientPayments,
+  tools, toolMovements, toolPersons,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
   type Advance, type InsertAdvance, type CustomerAdvance, type InsertCustomerAdvance,
@@ -8,7 +9,9 @@ import {
   type OwnerInvestment, type InsertOwnerInvestment,
   type Contractor, type InsertContractor, type ContractorProject, type InsertContractorProject,
   type Client, type InsertClient, type ClientProject, type InsertClientProject,
-  type ClientPayment, type InsertClientPayment
+  type ClientPayment, type InsertClientPayment,
+  type Tool, type InsertTool, type ToolMovement, type InsertToolMovement,
+  type ToolPerson, type InsertToolPerson
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -173,11 +176,32 @@ export interface IStorage {
     totalCost: string;
     totalAdvances: string;
     totalCustomerAdvances: string;
+    totalClientPayments: string;
     totalRevenues: string;
     totalExpenses: string;
+    totalOwnerInvestments: string;
     currentProfit: string;
     projectedProfit: string;
+    vladAdvances: string;
+    platonAdvances: string;
+    vladEarnings: string;
+    platonEarnings: string;
   }>;
+
+  // Tools
+  getAllTools(): Promise<(Tool & { currentPerson?: { name: string; phone: string } })[]>;
+  getTool(id: string): Promise<Tool | undefined>;
+  createTool(tool: InsertTool): Promise<Tool>;
+  updateTool(id: string, tool: Partial<InsertTool>): Promise<Tool>;
+  deleteTool(id: string): Promise<void>;
+  
+  // Tool Movements  
+  getToolMovements(toolId: string): Promise<Array<Omit<ToolMovement, 'createdBy'> & { createdBy: { name: string } }>>;
+  createToolMovement(movement: InsertToolMovement): Promise<ToolMovement>;
+  
+  // Tool Persons
+  getRecentToolPersons(limit?: number): Promise<ToolPerson[]>;
+  createOrUpdateToolPerson(person: InsertToolPerson): Promise<ToolPerson>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1357,6 +1381,205 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClientPayment(id: string): Promise<void> {
     await db.delete(clientPayments).where(eq(clientPayments.id, id));
+  }
+
+  // Tools implementation
+  async getAllTools(): Promise<(Tool & { currentPerson?: { name: string; phone: string } })[]> {
+    const toolsQuery = await db
+      .select({
+        id: tools.id,
+        name: tools.name,
+        inventoryNumber: tools.inventoryNumber,
+        cost: tools.cost,
+        description: tools.description,
+        status: tools.status,
+        currentIssueEventId: tools.currentIssueEventId,
+        createdBy: tools.createdBy,
+        createdAt: tools.createdAt,
+        updatedAt: tools.updatedAt,
+      })
+      .from(tools)
+      .orderBy(desc(tools.createdAt));
+
+    // Get current person for tools that are OUT
+    const result = [];
+    for (const tool of toolsQuery) {
+      let currentPerson = undefined;
+      
+      if (tool.status === 'OUT' && tool.currentIssueEventId) {
+        const [movement] = await db
+          .select({
+            personName: toolMovements.personName,
+            personPhone: toolMovements.personPhone,
+          })
+          .from(toolMovements)
+          .where(eq(toolMovements.id, tool.currentIssueEventId));
+          
+        if (movement) {
+          currentPerson = {
+            name: movement.personName,
+            phone: movement.personPhone,
+          };
+        }
+      }
+      
+      result.push({ ...tool, currentPerson });
+    }
+
+    return result;
+  }
+
+  async getTool(id: string): Promise<Tool | undefined> {
+    const [tool] = await db.select().from(tools).where(eq(tools.id, id));
+    return tool || undefined;
+  }
+
+  async createTool(tool: InsertTool): Promise<Tool> {
+    const [result] = await db
+      .insert(tools)
+      .values({
+        ...tool,
+        cost: tool.cost.toString(),
+      })
+      .returning();
+    return result;
+  }
+
+  async updateTool(id: string, tool: Partial<InsertTool>): Promise<Tool> {
+    const [updatedTool] = await db
+      .update(tools)
+      .set({
+        ...tool,
+        cost: tool.cost ? tool.cost.toString() : undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(tools.id, id))
+      .returning();
+    return updatedTool;
+  }
+
+  async deleteTool(id: string): Promise<void> {
+    // Check if tool is currently out
+    const [tool] = await db.select().from(tools).where(eq(tools.id, id));
+    if (tool && tool.status === 'OUT') {
+      throw new Error('Cannot delete tool that is currently out');
+    }
+    
+    await db.delete(tools).where(eq(tools.id, id));
+  }
+
+  async getToolMovements(toolId: string): Promise<(ToolMovement & { createdBy: { name: string } })[]> {
+    const movements = await db
+      .select({
+        id: toolMovements.id,
+        toolId: toolMovements.toolId,
+        type: toolMovements.type,
+        personName: toolMovements.personName,
+        personPhone: toolMovements.personPhone,
+        photoUrl: toolMovements.photoUrl,
+        comment: toolMovements.comment,
+        eventTime: toolMovements.eventTime,
+        createdBy: toolMovements.createdBy,
+        isAdminCorrected: toolMovements.isAdminCorrected,
+        correctionReason: toolMovements.correctionReason,
+        createdAt: toolMovements.createdAt,
+        createdByName: users.name,
+      })
+      .from(toolMovements)
+      .innerJoin(users, eq(toolMovements.createdBy, users.id))
+      .where(eq(toolMovements.toolId, toolId))
+      .orderBy(desc(toolMovements.eventTime));
+
+    return movements.map(movement => ({
+      id: movement.id,
+      toolId: movement.toolId,
+      type: movement.type,
+      personName: movement.personName,
+      personPhone: movement.personPhone,
+      photoUrl: movement.photoUrl,
+      comment: movement.comment,
+      eventTime: movement.eventTime,
+      isAdminCorrected: movement.isAdminCorrected,
+      correctionReason: movement.correctionReason,
+      createdAt: movement.createdAt,
+      createdBy: { name: movement.createdByName },
+    }));
+  }
+
+  async createToolMovement(movement: InsertToolMovement): Promise<ToolMovement> {
+    // Create the movement record
+    const [result] = await db
+      .insert(toolMovements)
+      .values({
+        ...movement,
+        eventTime: movement.eventTime || new Date(),
+      })
+      .returning();
+
+    // Update tool status based on movement type
+    if (movement.type === 'ISSUE') {
+      await db
+        .update(tools)
+        .set({
+          status: 'OUT',
+          currentIssueEventId: result.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(tools.id, movement.toolId));
+    } else if (movement.type === 'RETURN') {
+      await db
+        .update(tools)
+        .set({
+          status: 'AVAILABLE',
+          currentIssueEventId: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(tools.id, movement.toolId));
+    }
+
+    // Create or update person record
+    await this.createOrUpdateToolPerson({
+      name: movement.personName,
+      phone: movement.personPhone,
+    });
+
+    return result;
+  }
+
+  async getRecentToolPersons(limit: number = 20): Promise<ToolPerson[]> {
+    return await db
+      .select()
+      .from(toolPersons)
+      .orderBy(desc(toolPersons.lastUsedAt))
+      .limit(limit);
+  }
+
+  async createOrUpdateToolPerson(person: InsertToolPerson): Promise<ToolPerson> {
+    // Try to find existing person by phone
+    const [existing] = await db
+      .select()
+      .from(toolPersons)
+      .where(eq(toolPersons.phone, person.phone));
+
+    if (existing) {
+      // Update last used time and name if different
+      const [updated] = await db
+        .update(toolPersons)
+        .set({
+          name: person.name,
+          lastUsedAt: new Date(),
+        })
+        .where(eq(toolPersons.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new person
+      const [created] = await db
+        .insert(toolPersons)
+        .values(person)
+        .returning();
+      return created;
+    }
   }
 }
 
