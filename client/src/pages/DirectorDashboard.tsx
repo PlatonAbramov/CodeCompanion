@@ -439,7 +439,7 @@ export default function DirectorDashboard() {
                     <SelectContent>
                       {clients.map((client: any) => (
                         <SelectItem key={client.id} value={client.id}>
-                          {client.companyName || client.contactPerson}
+                          {client.company || client.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
