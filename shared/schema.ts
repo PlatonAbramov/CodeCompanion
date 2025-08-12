@@ -480,6 +480,7 @@ export const insertClientProjectSchema = createInsertSchema(clientProjects).omit
   id: true,
   createdAt: true,
 }).extend({
+  projectId: z.string().min(1, "Проект обязателен для заполнения"),
   contractAmount: z.union([
     z.number(),
     z.string().transform((str) => str === '' ? null : parseFloat(str))

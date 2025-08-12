@@ -67,6 +67,7 @@ export default function ClientDetailPage() {
   const projectForm = useForm<InsertClientProject>({
     resolver: zodResolver(insertClientProjectSchema),
     defaultValues: {
+      clientId: clientId || "",
       projectId: "",
       contractAmount: undefined,
       contractNumber: "",
@@ -353,7 +354,9 @@ export default function ClientDetailPage() {
                   <DialogTitle>Назначить проект заказчику</DialogTitle>
                 </DialogHeader>
                 <Form {...projectForm}>
-                  <form onSubmit={projectForm.handleSubmit(onProjectSubmit)} className="space-y-4">
+                  <form onSubmit={projectForm.handleSubmit(onProjectSubmit, (errors) => {
+                    console.log("Form validation errors:", errors);
+                  })} className="space-y-4">
                     <FormField
                       control={projectForm.control}
                       name="projectId"
@@ -452,8 +455,16 @@ export default function ClientDetailPage() {
                       <Button type="button" variant="outline" onClick={() => setIsProjectDialogOpen(false)}>
                         Отмена
                       </Button>
-                      <Button type="submit" disabled={assignProjectMutation.isPending}>
-                        Назначить
+                      <Button 
+                        type="submit" 
+                        disabled={assignProjectMutation.isPending}
+                        onClick={() => {
+                          console.log("Assign button clicked");
+                          console.log("Form values:", projectForm.getValues());
+                          console.log("Form state:", projectForm.formState);
+                        }}
+                      >
+                        {assignProjectMutation.isPending ? "Назначение..." : "Назначить"}
                       </Button>
                     </div>
                   </form>
