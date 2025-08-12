@@ -520,11 +520,6 @@ export default function ClientDetailPage() {
                       <Button 
                         type="submit" 
                         disabled={assignProjectMutation.isPending}
-                        onClick={() => {
-                          console.log("Assign button clicked");
-                          console.log("Form values:", projectForm.getValues());
-                          console.log("Form state:", projectForm.formState);
-                        }}
                       >
                         {assignProjectMutation.isPending ? "Назначение..." : "Назначить"}
                       </Button>
@@ -547,7 +542,7 @@ export default function ClientDetailPage() {
                       </div>
                       <p className="text-sm text-muted-foreground mb-3">
                         <User className="w-4 h-4 inline mr-1" />
-                        {client?.name || 'Заказчик не указан'}
+                        {client && typeof client === 'object' && 'name' in client ? (client as any).name : 'Заказчик не указан'}
                       </p>
                       
                       {/* Financial Information */}
