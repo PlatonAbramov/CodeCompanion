@@ -17,6 +17,7 @@ import {
   Building2, Wrench
 } from "lucide-react";
 import { AssignClientModal } from '@/components/AssignClientModal';
+import { BottomNavigation } from "@/components/BottomNavigation";
 
 interface Project {
   id: string;
@@ -616,43 +617,7 @@ export default function DirectorDashboard() {
         )}
       </div>
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2">
-        <div className="flex items-center justify-around">
-          <button className="flex flex-col items-center py-2 text-primary">
-            <Home size={20} className="mb-1" />
-            <span className="text-xs">{t('home')}</span>
-          </button>
-          <button 
-            className="flex flex-col items-center py-2 text-slate-400"
-            onClick={() => setLocation('/contractors')}
-          >
-            <Users size={20} className="mb-1" />
-            <span className="text-xs">Подрядчики</span>
-          </button>
-          <button 
-            className="flex flex-col items-center py-2 text-slate-400"
-            onClick={() => setLocation('/clients')}
-          >
-            <Building2 size={20} className="mb-1" />
-            <span className="text-xs">Заказчики</span>
-          </button>
-          <button 
-            className="flex flex-col items-center py-2 text-slate-400"
-            onClick={() => setLocation('/tools')}
-          >
-            <Wrench size={20} className="mb-1" />
-            <span className="text-xs">Инструменты</span>
-          </button>
-          <button 
-            className="flex flex-col items-center py-2 text-slate-400"
-            onClick={() => setLocation('/employees')}
-          >
-            <Users size={20} className="mb-1" />
-            <span className="text-xs">{t('employees')}</span>
-          </button>
-        </div>
-      </nav>
+      <BottomNavigation currentPage="home" />
 
       {/* Assign Client Modal */}
       <AssignClientModal 

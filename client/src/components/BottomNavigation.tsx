@@ -1,52 +1,66 @@
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Home, Users, Building2, FileText, User } from "lucide-react";
+import { Home, Users, Building2, Wrench } from "lucide-react";
 
 interface BottomNavigationProps {
-  userRole?: string;
+  currentPage?: 'home' | 'contractors' | 'clients' | 'tools' | 'employees';
 }
 
-export function BottomNavigation({ userRole }: BottomNavigationProps) {
+export function BottomNavigation({ currentPage = 'home' }: BottomNavigationProps) {
   const [, setLocation] = useLocation();
 
-  if (userRole !== 'director') {
-    return null;
-  }
+  const navItems = [
+    {
+      key: 'home',
+      icon: Home,
+      label: 'Главная',
+      path: '/director'
+    },
+    {
+      key: 'contractors',
+      icon: Users,
+      label: 'Подрядчики', 
+      path: '/contractors'
+    },
+    {
+      key: 'clients',
+      icon: Building2,
+      label: 'Заказчики',
+      path: '/clients'
+    },
+    {
+      key: 'tools',
+      icon: Wrench,
+      label: 'Инструменты',
+      path: '/tools'
+    },
+    {
+      key: 'employees',
+      icon: Users,
+      label: 'Сотрудники',
+      path: '/employees'
+    }
+  ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 z-50">
-      <div className="flex justify-around items-center max-w-lg mx-auto">
-        <button
-          onClick={() => setLocation('/director')}
-          className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-slate-100 transition-colors"
-        >
-          <Home size={20} className="text-slate-600" />
-          <span className="text-xs text-slate-600">Главная</span>
-        </button>
-        
-        <button
-          onClick={() => setLocation('/contractors')}
-          className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-slate-100 transition-colors"
-        >
-          <Users size={20} className="text-slate-600" />
-          <span className="text-xs text-slate-600">Подрядчики</span>
-        </button>
-        
-        <button
-          onClick={() => setLocation('/clients')}
-          className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-slate-100 transition-colors"
-        >
-          <Building2 size={20} className="text-slate-600" />
-          <span className="text-xs text-slate-600">Заказчики</span>
-        </button>
-        
-        <button
-          onClick={() => setLocation('/employees')}
-          className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-slate-100 transition-colors"
-        >
-          <User size={20} className="text-slate-600" />
-          <span className="text-xs text-slate-600">Сотрудники</span>
-        </button>
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2">
+      <div className="flex items-center justify-around">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = currentPage === item.key;
+          
+          return (
+            <button
+              key={item.key}
+              className={`flex flex-col items-center py-2 ${
+                isActive ? 'text-primary' : 'text-slate-400'
+              }`}
+              onClick={() => setLocation(item.path)}
+            >
+              <Icon size={20} className="mb-1" />
+              <span className="text-xs">{item.label}</span>
+            </button>
+          );
+        })}
       </div>
     </nav>
   );

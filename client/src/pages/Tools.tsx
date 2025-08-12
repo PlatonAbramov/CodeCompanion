@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertToolSchema, insertToolMovementSchema, type Tool, type ToolMovement } from "@shared/schema";
 import { z } from "zod";
-import { Plus, Search, Camera, User, Package, ArrowUpDown, Eye } from "lucide-react";
+import { Plus, Search, Camera, User, Package, ArrowUpDown, Eye, MoreVertical, Edit, Trash2, ArrowLeft } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { BottomNavigation } from "@/components/BottomNavigation";
 
 interface ToolWithPerson extends Tool {
   currentPerson?: { name: string; phone: string };
@@ -39,6 +42,7 @@ const toolMovementFormSchema = insertToolMovementSchema.omit({
 export default function Tools() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -47,6 +51,8 @@ export default function Tools() {
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [movementTool, setMovementTool] = useState<ToolWithPerson | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTool, setEditingTool] = useState<ToolWithPerson | null>(null);
 
   // Form for creating/editing tools
   const form = useForm<z.infer<typeof createToolFormSchema>>({
@@ -137,6 +143,40 @@ export default function Tools() {
     },
   });
 
+  // Edit tool mutation
+  const editToolMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof createToolFormSchema>) => {
+      if (!editingTool) return;
+      const res = await apiRequest('PATCH', `/api/tools/${editingTool.id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tools'] });
+      setIsEditModalOpen(false);
+      setEditingTool(null);
+      form.reset();
+      toast({ title: "Инструмент обновлен" });
+    },
+    onError: () => {
+      toast({ title: "Ошибка обновления инструмента", variant: "destructive" });
+    },
+  });
+
+  // Delete tool mutation
+  const deleteToolMutation = useMutation({
+    mutationFn: async (toolId: string) => {
+      const res = await apiRequest('DELETE', `/api/tools/${toolId}`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tools'] });
+      toast({ title: "Инструмент удален" });
+    },
+    onError: () => {
+      toast({ title: "Ошибка удаления инструмента", variant: "destructive" });
+    },
+  });
+
   // Filter tools based on search and status
   const filteredTools = tools.filter(tool => {
     const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -179,6 +219,10 @@ export default function Tools() {
     createToolMutation.mutate(data);
   };
 
+  const handleEditTool = (data: z.infer<typeof createToolFormSchema>) => {
+    editToolMutation.mutate(data);
+  };
+
   const handleMovementSubmit = (data: z.infer<typeof toolMovementFormSchema>) => {
     createMovementMutation.mutate(data);
   };
@@ -195,10 +239,34 @@ export default function Tools() {
     setIsMovementModalOpen(true);
   };
 
+  const openEditModal = (tool: ToolWithPerson) => {
+    setEditingTool(tool);
+    form.setValue('name', tool.name);
+    form.setValue('inventoryNumber', tool.inventoryNumber || '');
+    form.setValue('cost', parseFloat(tool.cost));
+    form.setValue('description', tool.description || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleDelete = (toolId: string) => {
+    if (confirm('Вы уверены, что хотите удалить этот инструмент?')) {
+      deleteToolMutation.mutate(toolId);
+    }
+  };
+
   return (
-    <div className="container mx-auto py-6 px-4">
+    <div className="container mx-auto py-6 px-4 pb-20">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Инструменты</h1>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setLocation('/director')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold">Инструменты</h1>
+        </div>
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -308,14 +376,38 @@ export default function Tools() {
             <Card key={tool.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-lg">{tool.name}</CardTitle>
-                  <Badge variant={getStatusBadgeVariant(tool.status)}>
-                    {getStatusText(tool.status)}
-                  </Badge>
+                  <div className="flex-1">
+                    <CardTitle className="text-lg">{tool.name}</CardTitle>
+                    {tool.inventoryNumber && (
+                      <p className="text-sm text-muted-foreground">№ {tool.inventoryNumber}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getStatusBadgeVariant(tool.status)}>
+                      {getStatusText(tool.status)}
+                    </Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditModal(tool)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Редактировать
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleDelete(tool.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Удалить
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-                {tool.inventoryNumber && (
-                  <p className="text-sm text-muted-foreground">№ {tool.inventoryNumber}</p>
-                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -375,6 +467,87 @@ export default function Tools() {
         open={isToolDetailOpen}
         onOpenChange={setIsToolDetailOpen}
       />
+
+      {/* Edit Tool Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Редактировать инструмент</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleEditTool)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Название инструмента *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Например: Дрель Bosch" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="inventoryNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Инвентарный номер</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Например: DR-001" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="cost"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Стоимость (د.إ.)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Описание</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Дополнительная информация..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex gap-2 pt-4">
+                <Button type="submit" disabled={editToolMutation.isPending}>
+                  {editToolMutation.isPending ? "Сохранение..." : "Сохранить"}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingTool(null);
+                    form.reset();
+                  }}
+                >
+                  Отмена
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {/* Tool Movement Dialog */}
       <Dialog open={isMovementModalOpen} onOpenChange={setIsMovementModalOpen}>
@@ -485,6 +658,8 @@ export default function Tools() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      <BottomNavigation currentPage="tools" />
     </div>
   );
 }
@@ -497,6 +672,8 @@ interface ToolDetailDialogProps {
 }
 
 function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  
   const { data: movements = [] } = useQuery<ToolMovement[]>({
     queryKey: ['/api/tools', tool?.id, 'movements'],
     enabled: !!tool?.id,
@@ -567,20 +744,35 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
               <div className="space-y-2">
                 {movements.map((movement) => (
                   <Card key={movement.id} className="p-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-medium">
-                          {movement.type === 'ISSUE' ? 'Выдано' : 'Возвращено'}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {movement.personName} ({movement.personPhone})
-                        </div>
-                        {movement.comment && (
-                          <div className="text-sm mt-1">{movement.comment}</div>
-                        )}
+                    <div className="flex gap-3 items-start">
+                      {/* Mini photo */}
+                      <div className="flex-shrink-0">
+                        <img
+                          src={movement.photoUrl}
+                          alt="Фото движения"
+                          className="w-12 h-12 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => setSelectedPhoto(movement.photoUrl)}
+                        />
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatDateTime(movement.eventTime)}
+                      
+                      {/* Movement details */}
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium">
+                              {movement.type === 'ISSUE' ? 'Выдано' : 'Возвращено'}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {movement.personName} ({movement.personPhone})
+                            </div>
+                            {movement.comment && (
+                              <div className="text-sm mt-1">{movement.comment}</div>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {formatDateTime(movement.eventTime)}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -590,6 +782,24 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
           </div>
         </div>
       </DialogContent>
+
+      {/* Photo Viewer Dialog */}
+      {selectedPhoto && (
+        <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Фото движения инструмента</DialogTitle>
+            </DialogHeader>
+            <div className="flex justify-center">
+              <img
+                src={selectedPhoto}
+                alt="Полное фото"
+                className="max-w-full max-h-[70vh] object-contain rounded-md"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }
