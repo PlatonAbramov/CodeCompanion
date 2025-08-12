@@ -706,6 +706,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contractor project assignment routes
+  app.get("/api/contractor-projects/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const assignment = await storage.getContractorProjectAssignment(req.params.id);
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      res.json(assignment);
+    } catch (error) {
+      console.error("Failed to get contractor project assignment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/contractor-projects/:id", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const assignmentData = {
+        ...req.body,
+        budget: req.body.budget ? req.body.budget.toString() : null,
+      };
+      const assignment = await storage.updateContractorProject(req.params.id, assignmentData);
+      res.json(assignment);
+    } catch (error) {
+      console.error("Failed to update contractor project assignment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.post("/api/contractors/:contractorId/assign-project", requireAuth, async (req, res) => {
     try {
       const contractorProjectData = insertContractorProjectSchema.parse({

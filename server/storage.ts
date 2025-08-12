@@ -100,6 +100,17 @@ export interface IStorage {
     endDate?: string;
     isActive: boolean;
   }>>;
+  getContractorProjectAssignment(assignmentId: string): Promise<{
+    id: string;
+    contractorId: string;
+    projectId: string;
+    projectName: string;
+    budgetAllocation: number;
+    workDescription: string;
+    startDate: string;
+    endDate?: string;
+    isActive: boolean;
+  } | undefined>;
   assignContractorToProject(contractorProject: InsertContractorProject): Promise<ContractorProject>;
   updateContractorProject(id: string, contractorProject: Partial<InsertContractorProject>): Promise<ContractorProject>;
   removeContractorFromProject(id: string): Promise<void>;
@@ -646,6 +657,52 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async getContractorProjectAssignment(assignmentId: string): Promise<{
+    id: string;
+    contractorId: string;
+    projectId: string;
+    projectName: string;
+    budgetAllocation: number;
+    workDescription: string;
+    startDate: string;
+    endDate?: string;
+    isActive: boolean;
+  } | undefined> {
+    const result = await db
+      .select({
+        id: contractorProjects.id,
+        contractorId: contractorProjects.contractorId,
+        projectId: contractorProjects.projectId,
+        projectName: projects.name,
+        budgetAllocation: contractorProjects.budget,
+        workDescription: contractorProjects.description,
+        startDate: contractorProjects.startDate,
+        endDate: contractorProjects.endDate,
+        isActive: contractorProjects.status,
+      })
+      .from(contractorProjects)
+      .innerJoin(projects, eq(contractorProjects.projectId, projects.id))
+      .where(eq(contractorProjects.id, assignmentId))
+      .limit(1);
+
+    if (result.length === 0) {
+      return undefined;
+    }
+
+    const row = result[0];
+    return {
+      id: row.id,
+      contractorId: row.contractorId,
+      projectId: row.projectId,
+      projectName: row.projectName,
+      budgetAllocation: Number(row.budgetAllocation || '0'),
+      workDescription: row.workDescription || '',
+      startDate: row.startDate?.toISOString() || new Date().toISOString(),
+      endDate: row.endDate?.toISOString(),
+      isActive: row.isActive === 'active',
+    };
+  }
+
   async assignContractorToProject(contractorProject: InsertContractorProject): Promise<ContractorProject> {
     const [result] = await db
       .insert(contractorProjects)
@@ -654,13 +711,52 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async updateContractorProject(id: string, contractorProject: Partial<InsertContractorProject>): Promise<ContractorProject> {
-    const [updatedContractorProject] = await db
+  async updateContractorProject(id: string, updates: {
+    budget?: string;
+    description?: string;
+    startDate?: string;
+    endDate?: string | null;
+    status?: string;
+  }): Promise<{
+    id: string;
+    contractorId: string;
+    projectId: string;
+    projectName: string;
+    budgetAllocation: number;
+    workDescription: string;
+    startDate: string;
+    endDate?: string;
+    isActive: boolean;
+  }> {
+    const updateData: Partial<InsertContractorProject> = {};
+    
+    if (updates.budget !== undefined) {
+      updateData.budget = updates.budget;
+    }
+    if (updates.description !== undefined) {
+      updateData.description = updates.description;
+    }
+    if (updates.startDate !== undefined) {
+      updateData.startDate = new Date(updates.startDate);
+    }
+    if (updates.endDate !== undefined) {
+      updateData.endDate = updates.endDate ? new Date(updates.endDate) : null;
+    }
+    if (updates.status !== undefined) {
+      updateData.status = updates.status as 'active' | 'completed' | 'paused';
+    }
+
+    await db
       .update(contractorProjects)
-      .set(contractorProject)
-      .where(eq(contractorProjects.id, id))
-      .returning();
-    return updatedContractorProject;
+      .set(updateData)
+      .where(eq(contractorProjects.id, id));
+
+    // Return the updated assignment with project name
+    const assignment = await this.getContractorProjectAssignment(id);
+    if (!assignment) {
+      throw new Error('Assignment not found after update');
+    }
+    return assignment;
   }
 
   async removeContractorFromProject(id: string): Promise<void> {

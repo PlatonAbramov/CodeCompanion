@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Phone, Mail, Building2, User, FileText, Calendar, DollarSign } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Building2, User, FileText, Calendar, DollarSign, Edit } from "lucide-react";
 
 interface Contractor {
   id: string;
@@ -299,7 +299,17 @@ export default function ContractorDetail() {
                     <div key={project.id} className="p-4 border border-slate-200 rounded-lg">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
-                          <h3 className="font-medium text-slate-900 mb-1">{project.projectName}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium text-slate-900 mb-1">{project.projectName}</h3>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLocation(`/contractor/${contractorId}/project/${project.id}`)}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Edit size={14} />
+                            </Button>
+                          </div>
                           <p className="text-sm text-slate-600">{project.workDescription}</p>
                           <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                             <span>Начат: {formatDate(project.startDate)}</span>
