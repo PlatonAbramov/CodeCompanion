@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, Eye } from "lucide-react";
+import { Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, Eye, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,15 +12,23 @@ import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientSchema, type Client, type InsertClient } from "@shared/schema";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { BottomNavigation } from "@/components/BottomNavigation";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ClientsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+
+  const goBack = () => {
+    setLocation('/director');
+  };
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ["/api/clients"],
@@ -161,16 +169,33 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Заказчики</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setEditingClient(null)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Добавить заказчика
+    <div className="min-h-screen bg-slate-50 pb-20">
+      {/* Header with back button */}
+      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
+        <div className="px-4 py-3">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={goBack}
+              className="mr-2"
+            >
+              <ArrowLeft size={20} />
             </Button>
-          </DialogTrigger>
+            <h1 className="text-xl font-semibold text-slate-900">Заказчики</h1>
+          </div>
+        </div>
+      </header>
+
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setEditingClient(null)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Добавить заказчика
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
@@ -298,9 +323,13 @@ export default function ClientsPage() {
         </Dialog>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {(clients as Client[] || []).map((client: Client) => (
-          <Card key={client.id} className="hover:shadow-lg transition-shadow">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {(clients as Client[] || []).map((client: Client) => (
+            <Card 
+              key={client.id} 
+              className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50"
+              onClick={() => setLocation(`/clients/${client.id}`)}
+            >
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -345,16 +374,13 @@ export default function ClientsPage() {
                 </div>
               )}
               <div className="flex justify-end space-x-2 pt-2">
-                <Link href={`/clients/${client.id}`}>
-                  <Button variant="outline" size="sm">
-                    <Eye className="w-4 h-4 mr-1" />
-                    Подробно
-                  </Button>
-                </Link>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleEdit(client)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEdit(client);
+                  }}
                 >
                   <Edit2 className="w-4 h-4 mr-1" />
                   Редактировать
@@ -362,31 +388,37 @@ export default function ClientsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleDelete(client)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(client);
+                  }}
                   className="text-red-600 hover:text-red-700"
                 >
                   <Trash2 className="w-4 h-4 mr-1" />
                   Удалить
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {Array.isArray(clients) && clients.length === 0 && (
+          <div className="text-center py-12">
+            <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Заказчики не найдены</h3>
+            <p className="text-muted-foreground mb-6">
+              Добавьте первого заказчика для начала работы
+            </p>
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Добавить заказчика
+            </Button>
+          </div>
+        )}
       </div>
 
-      {clients && (clients as Client[]).length === 0 && (
-        <div className="text-center py-12">
-          <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Заказчики не найдены</h3>
-          <p className="text-muted-foreground mb-6">
-            Добавьте первого заказчика для начала работы
-          </p>
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Добавить заказчика
-          </Button>
-        </div>
-      )}
+      <BottomNavigation userRole={user?.role} />
     </div>
   );
 }

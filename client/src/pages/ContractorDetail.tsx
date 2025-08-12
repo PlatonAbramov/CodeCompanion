@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Phone, Mail, Building2, User, FileText, Calendar, DollarSign, Edit } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Building2, User, FileText, Calendar, DollarSign, Edit, Plus } from "lucide-react";
+import { AssignContractorModal } from "@/components/AssignContractorModal";
+import { BottomNavigation } from "@/components/BottomNavigation";
 
 interface Contractor {
   id: string;
@@ -54,6 +56,7 @@ export default function ContractorDetail() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
   // Get contractor details
   const { data: contractor, isLoading: contractorLoading } = useQuery<Contractor>({
@@ -136,7 +139,7 @@ export default function ContractorDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
@@ -281,7 +284,16 @@ export default function ContractorDetail() {
         {/* Assigned Projects */}
         <Card>
           <CardHeader>
-            <CardTitle>Привязанные проекты</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Привязанные проекты</CardTitle>
+              <Button 
+                onClick={() => setIsAssignModalOpen(true)}
+                size="sm"
+              >
+                <Plus size={16} className="mr-1" />
+                Назначить на проект
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {projects.length === 0 ? (
@@ -390,6 +402,14 @@ export default function ContractorDetail() {
           </CardContent>
         </Card>
       </div>
+
+      <AssignContractorModal 
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        contractorId={contractorId}
+      />
+
+      <BottomNavigation userRole={user?.role} />
     </div>
   );
 }

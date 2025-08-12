@@ -15,6 +15,7 @@ import {
   ProjectorIcon, TrendingUp, TrendingDown, Calendar, Edit2, ChevronDown, ChevronUp,
   Building2
 } from "lucide-react";
+import { AssignClientModal } from '@/components/AssignClientModal';
 
 interface Project {
   id: string;
@@ -183,6 +184,8 @@ export default function DirectorDashboard() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [isAssignClientModalOpen, setIsAssignClientModalOpen] = useState(false);
+  const [clientAssignmentProjectId, setClientAssignmentProjectId] = useState<string>("");
   const [projectForm, setProjectForm] = useState({
     name: '',
     location: '',
@@ -505,13 +508,29 @@ export default function DirectorDashboard() {
                 </div>
               </div>
               
-              <Button 
-                type="submit" 
-                className="w-full bg-primary text-white"
-                disabled={editProjectMutation.isPending}
-              >
-                {editProjectMutation.isPending ? "Сохранение..." : "Сохранить изменения"}
-              </Button>
+              <div className="space-y-3">
+                <Button 
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    if (editingProject) {
+                      setClientAssignmentProjectId(editingProject.id);
+                      setIsAssignClientModalOpen(true);
+                    }
+                  }}
+                >
+                  Назначить заказчика
+                </Button>
+                
+                <Button 
+                  type="submit" 
+                  className="w-full bg-primary text-white"
+                  disabled={editProjectMutation.isPending}
+                >
+                  {editProjectMutation.isPending ? "Сохранение..." : "Сохранить изменения"}
+                </Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>
@@ -569,6 +588,13 @@ export default function DirectorDashboard() {
           </button>
         </div>
       </nav>
+
+      {/* Assign Client Modal */}
+      <AssignClientModal 
+        isOpen={isAssignClientModalOpen}
+        onClose={() => setIsAssignClientModalOpen(false)}
+        projectId={clientAssignmentProjectId}
+      />
     </div>
   );
 }
