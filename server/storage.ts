@@ -487,20 +487,18 @@ export class DatabaseStorage implements IStorage {
     // Используем clientPayments как основной источник платежей от заказчиков
     const totalFromClients = Math.max(parseFloat(totalClientPayments), parseFloat(totalCustomerAdvances));
     
-    // Прибыль на данный момент = платежи от клиентов - взятые авансы собственников - расходы - собственные вложения
+    // Текущая прибыль = Полученные авансы от заказчика - Расходы - Взятые авансы
     const currentProfit = (
       totalFromClients - 
-      parseFloat(totalAdvances) - 
       parseFloat(totalExpenses) - 
-      parseFloat(totalOwnerInvestments)
+      parseFloat(totalAdvances)
     ).toString();
     
-    // Прогнозируемая прибыль = общая стоимость проекта - взятые авансы собственников - расходы - собственные вложения
+    // Прогнозируемая прибыль = общая стоимость проекта - расходы - взятые авансы
     const projectedProfit = (
       parseFloat(totalCost) - 
-      parseFloat(totalAdvances) - 
       parseFloat(totalExpenses) - 
-      parseFloat(totalOwnerInvestments)
+      parseFloat(totalAdvances)
     ).toString();
 
     return {
