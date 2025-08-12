@@ -489,6 +489,11 @@ export const insertClientProjectSchema = createInsertSchema(clientProjects).omit
     z.date(), 
     z.string().transform((str) => str === '' ? null : new Date(str))
   ]).optional().nullable(),
+  contractNumber: z.string().optional(),
+  description: z.string().optional(),
+  status: z.string().optional(),
+  clientId: z.string().optional(),
+  createdBy: z.string().optional(),
 });
 
 export const insertClientPaymentSchema = createInsertSchema(clientPayments).omit({

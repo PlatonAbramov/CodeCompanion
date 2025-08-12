@@ -68,6 +68,7 @@ export default function ClientDetailPage() {
 
   const projectForm = useForm<InsertClientProject>({
     resolver: zodResolver(insertClientProjectSchema),
+    mode: "onChange",
     defaultValues: {
       clientId: clientId || "",
       projectId: "",
@@ -424,7 +425,11 @@ export default function ClientDetailPage() {
                 <Form {...projectForm}>
                   <form onSubmit={projectForm.handleSubmit(onProjectSubmit, (errors) => {
                     console.log("Form validation errors:", errors);
-                  })} className="space-y-4">
+                  })} className="space-y-4"
+                    onChange={() => {
+                      console.log("Form changed, current values:", projectForm.getValues());
+                      console.log("Project ID:", projectForm.watch('projectId'));
+                    }}>
                     <FormField
                       control={projectForm.control}
                       name="projectId"
@@ -525,11 +530,12 @@ export default function ClientDetailPage() {
                       </Button>
                       <Button 
                         type="submit" 
-                        disabled={assignProjectMutation.isPending || !projectForm.formState.isValid}
+                        disabled={assignProjectMutation.isPending || !projectForm.watch('projectId')}
                         onClick={() => {
                           console.log("Assign button clicked");
                           console.log("Form values:", projectForm.getValues());
                           console.log("Form state:", projectForm.formState);
+                          console.log("Project ID:", projectForm.watch('projectId'));
                           console.log("Is valid:", projectForm.formState.isValid);
                           console.log("Errors:", projectForm.formState.errors);
                         }}
