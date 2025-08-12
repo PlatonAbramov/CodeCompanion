@@ -30,7 +30,7 @@ interface Contractor {
 interface ContractorStats {
   totalExpenses: number;
   totalProjects: number;
-  averageExpenseAmount: number;
+  remainingBudget: number;
 }
 
 // Компонент для отображения статистики подрядчика
@@ -45,7 +45,7 @@ function ContractorStatsCard({ contractorId }: { contractorId: string }) {
     <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
       <div className="text-center">
         <div className="text-lg font-semibold text-green-600">
-          {stats.totalExpenses.toLocaleString('ru-RU')} ₽
+          {stats.totalExpenses.toLocaleString('ru-RU')} د.إ
         </div>
         <div className="text-xs text-slate-500">Всего выплат</div>
       </div>
@@ -57,9 +57,9 @@ function ContractorStatsCard({ contractorId }: { contractorId: string }) {
       </div>
       <div className="text-center">
         <div className="text-lg font-semibold text-purple-600">
-          {stats.averageExpenseAmount.toLocaleString('ru-RU')} ₽
+          {stats.remainingBudget.toLocaleString('ru-RU')} د.إ
         </div>
-        <div className="text-xs text-slate-500">Средняя выплата</div>
+        <div className="text-xs text-slate-500">Осталось выплатить</div>
       </div>
     </div>
   );
