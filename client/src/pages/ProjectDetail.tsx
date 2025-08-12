@@ -12,6 +12,7 @@ import {
   FileText, Paperclip, Trash2, ChevronDown, ChevronUp
 } from "lucide-react";
 import { FileUploader } from "@/components/FileUploader";
+import { AssignClientModal } from "@/components/AssignClientModal";
 import { apiRequest } from "@/lib/queryClient";
 
 interface Project {
@@ -67,6 +68,7 @@ export default function ProjectDetail() {
   const queryClient = useQueryClient();
   const [isFinancialSummaryOpen, setIsFinancialSummaryOpen] = useState(false);
   const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
+  const [isAssignClientModalOpen, setIsAssignClientModalOpen] = useState(false);
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];
@@ -239,8 +241,8 @@ export default function ProjectDetail() {
       </header>
 
       <div className="p-4 pb-20">
-        {/* Add Expense Button */}
-        <div className="flex justify-center mb-6">
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-3 mb-6">
           <Button 
             className="bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md"
             onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
@@ -250,6 +252,19 @@ export default function ProjectDetail() {
             </div>
             Добавить расход
           </Button>
+          
+          {user?.role === 'director' && (
+            <Button 
+              variant="outline"
+              className="px-6 py-3 rounded-full shadow-sm"
+              onClick={() => setIsAssignClientModalOpen(true)}
+            >
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                <Plus size={16} className="text-blue-600" />
+              </div>
+              Назначить заказчика
+            </Button>
+          )}
         </div>
 
         {/* Financial Summary Card */}
@@ -564,6 +579,13 @@ export default function ProjectDetail() {
         </Card>
 
       </div>
+      
+      {/* Assign Client Modal */}
+      <AssignClientModal 
+        isOpen={isAssignClientModalOpen}
+        onClose={() => setIsAssignClientModalOpen(false)}
+        projectId={projectId}
+      />
     </div>
   );
 }
