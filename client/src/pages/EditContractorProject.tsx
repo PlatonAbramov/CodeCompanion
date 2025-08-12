@@ -94,7 +94,7 @@ export default function EditContractorProject() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: EditContractorProjectFormData) => {
-      return apiRequest(`/api/contractor-projects/${projectAssignmentId}`, 'PUT', {
+      return apiRequest('PUT', `/api/contractor-projects/${projectAssignmentId}`, {
         budget: data.budgetAllocation.toString(),
         description: data.workDescription,
         startDate: new Date(data.startDate).toISOString(),
