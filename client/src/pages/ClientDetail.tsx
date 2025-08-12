@@ -61,6 +61,8 @@ export default function ClientDetailPage() {
   const safeClientProjects = clientProjects as any[] || [];
   const safeClientPayments = clientPayments as any[] || [];
   const safeAllProjects = allProjects as any[] || [];
+  
+  console.log("Available projects for assignment:", safeAllProjects);
 
   const projectForm = useForm<InsertClientProject>({
     resolver: zodResolver(insertClientProjectSchema),
@@ -88,25 +90,34 @@ export default function ClientDetailPage() {
 
   const assignProjectMutation = useMutation({
     mutationFn: async (data: InsertClientProject) => {
+      console.log("Making API request to:", `/api/clients/${clientId}/projects`);
+      console.log("Request data:", data);
       const response = await fetch(`/api/clients/${clientId}/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error("Failed to assign project");
+      console.log("Response status:", response.status);
+      if (!response.ok) {
+        const error = await response.text();
+        console.error("Response error:", error);
+        throw new Error(`Failed to assign project: ${error}`);
+      }
       return response.json();
     },
     onSuccess: () => {
+      console.log("Project assigned successfully");
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
       setIsProjectDialogOpen(false);
       projectForm.reset();
       toast({ title: "Проект назначен успешно" });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Assignment failed:", error);
       toast({
         title: "Ошибка",
-        description: "Не удалось назначить проект",
+        description: `Не удалось назначить проект: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -183,6 +194,8 @@ export default function ClientDetailPage() {
   });
 
   const onProjectSubmit = (data: InsertClientProject) => {
+    console.log("Submitting project assignment:", data);
+    console.log("Client ID:", clientId);
     assignProjectMutation.mutate({
       ...data,
       clientId: clientId!,
@@ -354,11 +367,15 @@ export default function ClientDetailPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {safeAllProjects.map((project: any) => (
-                                <SelectItem key={project.id} value={project.id}>
-                                  {project.name}
-                                </SelectItem>
-                              ))}
+                              {safeAllProjects.length === 0 ? (
+                                <div className="p-2 text-sm text-muted-foreground">Нет доступных проектов</div>
+                              ) : (
+                                safeAllProjects.map((project: any) => (
+                                  <SelectItem key={project.id} value={project.id}>
+                                    {project.name}
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
