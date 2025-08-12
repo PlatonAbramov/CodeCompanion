@@ -525,7 +525,14 @@ export default function ClientDetailPage() {
                       </Button>
                       <Button 
                         type="submit" 
-                        disabled={assignProjectMutation.isPending}
+                        disabled={assignProjectMutation.isPending || !projectForm.formState.isValid}
+                        onClick={() => {
+                          console.log("Assign button clicked");
+                          console.log("Form values:", projectForm.getValues());
+                          console.log("Form state:", projectForm.formState);
+                          console.log("Is valid:", projectForm.formState.isValid);
+                          console.log("Errors:", projectForm.formState.errors);
+                        }}
                       >
                         {assignProjectMutation.isPending ? "Назначение..." : "Назначить"}
                       </Button>
