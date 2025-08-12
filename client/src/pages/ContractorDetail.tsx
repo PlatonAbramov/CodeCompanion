@@ -34,7 +34,7 @@ interface ContractorExpense {
 interface ContractorStats {
   totalExpenses: number;
   totalProjects: number;
-  averageExpenseAmount: number;
+  remainingBudget: number;
 }
 
 interface ContractorProject {
@@ -267,9 +267,9 @@ export default function ContractorDetail() {
                     <DollarSign className="text-purple-600" size={20} />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-500">Средняя выплата</p>
+                    <p className="text-sm text-slate-500">Осталось выплатить по активным проектам</p>
                     <p className="text-xl font-semibold text-slate-900">
-                      {formatCurrency(stats.averageExpenseAmount)}
+                      {formatCurrency(stats.remainingBudget || 0)}
                     </p>
                   </div>
                 </div>

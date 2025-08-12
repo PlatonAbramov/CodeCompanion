@@ -581,7 +581,7 @@ export class DatabaseStorage implements IStorage {
   async getContractorStats(contractorId: string): Promise<{
     totalExpenses: number;
     totalProjects: number;
-    averageExpenseAmount: number;
+    remainingBudget: number;
   }> {
     // Get expenses for this contractor
     const expensesResult = await db
@@ -592,23 +592,29 @@ export class DatabaseStorage implements IStorage {
       .from(expenses)
       .where(eq(expenses.contractorId, contractorId));
 
-    if (expensesResult.length === 0) {
-      return {
-        totalExpenses: 0,
-        totalProjects: 0,
-        averageExpenseAmount: 0,
-      };
-    }
+    // Get active project assignments for this contractor
+    const activeProjectsResult = await db
+      .select({
+        budget: contractorProjects.budget,
+      })
+      .from(contractorProjects)
+      .where(and(
+        eq(contractorProjects.contractorId, contractorId),
+        eq(contractorProjects.status, 'active')
+      ));
 
     const totalExpenses = expensesResult.reduce((sum, expense) => sum + Number(expense.amount), 0);
     const uniqueProjects = new Set(expensesResult.map(e => e.projectId));
     const totalProjects = uniqueProjects.size;
-    const averageExpenseAmount = totalExpenses / expensesResult.length;
+    
+    // Calculate remaining budget for active projects
+    const totalActiveBudget = activeProjectsResult.reduce((sum, project) => sum + Number(project.budget || '0'), 0);
+    const remainingBudget = totalActiveBudget - totalExpenses;
 
     return {
       totalExpenses,
       totalProjects,
-      averageExpenseAmount,
+      remainingBudget: Math.max(0, remainingBudget), // Don't show negative values
     };
   }
 
