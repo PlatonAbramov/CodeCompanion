@@ -241,6 +241,17 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(projects.id, id))
       .returning();
+
+    // Синхронизируем contractAmount в clientProjects при изменении totalCost проекта
+    if (project.totalCost !== undefined) {
+      await db
+        .update(clientProjects)
+        .set({
+          contractAmount: project.totalCost.toString()
+        })
+        .where(eq(clientProjects.projectId, id));
+    }
+
     return updatedProject;
   }
 
@@ -388,6 +399,7 @@ export class DatabaseStorage implements IStorage {
     totalCost: string;
     totalAdvances: string;
     totalCustomerAdvances: string;
+    totalClientPayments: string;
     totalRevenues: string;
     totalExpenses: string;
     totalOwnerInvestments: string;
@@ -413,6 +425,13 @@ export class DatabaseStorage implements IStorage {
       .from(customerAdvances)
       .where(eq(customerAdvances.projectId, projectId));
 
+    const [clientPaymentsSum] = await db
+      .select({ 
+        total: sql<string>`COALESCE(SUM(${clientPayments.amount}), 0)` 
+      })
+      .from(clientPayments)
+      .where(eq(clientPayments.projectId, projectId));
+
     const [expensesSum] = await db
       .select({ 
         total: sql<string>`COALESCE(SUM(${expenses.amount}), 0)` 
@@ -437,13 +456,17 @@ export class DatabaseStorage implements IStorage {
     const totalCost = project.totalCost;
     const totalAdvances = advancesSum?.total || "0";
     const totalCustomerAdvances = customerAdvancesSum?.total || "0";
+    const totalClientPayments = clientPaymentsSum?.total || "0";
     const totalRevenues = revenuesSum?.total || "0";
     const totalExpenses = expensesSum?.total || "0";
     const totalOwnerInvestments = ownerInvestmentsSum?.total || "0";
     
-    // Прибыль на данный момент = аванс от заказчика - взятые авансы собственников - расходы - собственные вложения
+    // Используем clientPayments как основной источник платежей от заказчиков
+    const totalFromClients = Math.max(parseFloat(totalClientPayments), parseFloat(totalCustomerAdvances));
+    
+    // Прибыль на данный момент = платежи от клиентов - взятые авансы собственников - расходы - собственные вложения
     const currentProfit = (
-      parseFloat(totalCustomerAdvances) - 
+      totalFromClients - 
       parseFloat(totalAdvances) - 
       parseFloat(totalExpenses) - 
       parseFloat(totalOwnerInvestments)
@@ -461,6 +484,7 @@ export class DatabaseStorage implements IStorage {
       totalCost,
       totalAdvances,
       totalCustomerAdvances,
+      totalClientPayments,
       totalRevenues,
       totalExpenses,
       totalOwnerInvestments,
@@ -879,13 +903,14 @@ export class DatabaseStorage implements IStorage {
       .from(clientPayments)
       .where(eq(clientPayments.clientId, clientId));
 
-    // Get total projects and contract amounts
+    // Get total projects and use project totalCost as source of truth
     const projectsResult = await db
       .select({
         count: sql<number>`COUNT(*)`,
-        totalContract: sql<number>`COALESCE(SUM(${clientProjects.contractAmount}::numeric), 0)`,
+        totalContract: sql<number>`COALESCE(SUM(${projects.totalCost}::numeric), 0)`,
       })
       .from(clientProjects)
+      .innerJoin(projects, eq(clientProjects.projectId, projects.id))
       .where(eq(clientProjects.clientId, clientId));
 
     const totalPayments = Number(paymentsResult[0]?.total || 0);
@@ -975,7 +1000,7 @@ export class DatabaseStorage implements IStorage {
       projectName: row.projectName,
       location: row.location || '',
       totalCost: row.totalCost || '0',
-      contractAmount: Number(row.contractAmount || '0'),
+      contractAmount: Number(row.totalCost || '0'), // Используем totalCost как источник истины
       contractNumber: row.contractNumber || undefined,
       contractDate: row.contractDate?.toISOString(),
       description: row.description || undefined,
@@ -985,11 +1010,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async assignClientToProject(clientProject: InsertClientProject): Promise<ClientProject> {
+    // Получаем стоимость проекта для синхронизации
+    const project = await this.getProject(clientProject.projectId);
+    const contractAmount = clientProject.contractAmount || Number(project?.totalCost || 0);
+    
     const [result] = await db
       .insert(clientProjects)
       .values({
         ...clientProject,
-        contractAmount: clientProject.contractAmount ? clientProject.contractAmount.toString() : null
+        contractAmount: contractAmount.toString()
       })
       .returning();
     return result;
