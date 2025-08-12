@@ -1040,8 +1040,14 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db
       .insert(clientProjects)
       .values({
-        ...clientProject,
-        contractAmount: contractAmount.toString()
+        clientId: clientProject.clientId,
+        projectId: clientProject.projectId,
+        contractAmount: contractAmount.toString(),
+        contractNumber: clientProject.contractNumber,
+        contractDate: clientProject.contractDate,
+        description: clientProject.description,
+        status: clientProject.status || 'active',
+        createdBy: clientProject.createdBy
       })
       .returning();
 
@@ -1076,7 +1082,7 @@ export class DatabaseStorage implements IStorage {
             description: advance.description || "Аванс от заказчика",
             paymentDate: advance.date,
             paymentMethod: "advance",
-            createdBy: advance.createdBy || null,
+            createdBy: advance.createdBy
           });
       }
     }
@@ -1085,6 +1091,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateClientProject(id: string, clientProject: Partial<InsertClientProject>): Promise<ClientProject> {
+    // Получаем текущие данные клиент-проекта
+    const [currentClientProject] = await db
+      .select()
+      .from(clientProjects)
+      .where(eq(clientProjects.id, id))
+      .limit(1);
+
+    if (!currentClientProject) {
+      throw new Error("Client project not found");
+    }
+
     const [updatedClientProject] = await db
       .update(clientProjects)
       .set({
@@ -1093,6 +1110,18 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(clientProjects.id, id))
       .returning();
+
+    // Синхронизируем изменение contractAmount с totalCost в проекте
+    if (clientProject.contractAmount !== undefined) {
+      await db
+        .update(projects)
+        .set({
+          totalCost: clientProject.contractAmount.toString(),
+          updatedAt: new Date()
+        })
+        .where(eq(projects.id, currentClientProject.projectId));
+    }
+
     return updatedClientProject;
   }
 
