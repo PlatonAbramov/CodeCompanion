@@ -358,6 +358,10 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
+  totalCost: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str))
+  ]),
   startDate: z.union([
     z.date(), 
     z.string().transform((str) => str === '' ? null : new Date(str))
@@ -371,6 +375,11 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
 export const insertExpenseSchema = createInsertSchema(expenses).omit({
   id: true,
   createdAt: true,
+}).extend({
+  amount: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str))
+  ]),
 });
 
 export const insertDocumentSchema = createInsertSchema(documents).omit({
@@ -382,6 +391,10 @@ export const insertAdvanceSchema = createInsertSchema(advances).omit({
   id: true,
   createdAt: true,
 }).extend({
+  amount: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str))
+  ]),
   date: z.union([
     z.date(), 
     z.string().transform((str) => new Date(str))
@@ -392,6 +405,10 @@ export const insertCustomerAdvanceSchema = createInsertSchema(customerAdvances).
   id: true,
   createdAt: true,
 }).extend({
+  amount: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str))
+  ]),
   date: z.union([
     z.date(), 
     z.string().transform((str) => new Date(str))
@@ -402,6 +419,10 @@ export const insertRevenueSchema = createInsertSchema(revenues).omit({
   id: true,
   createdAt: true,
 }).extend({
+  amount: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str))
+  ]),
   date: z.union([
     z.date(), 
     z.string().transform((str) => new Date(str))
@@ -417,6 +438,10 @@ export const insertOwnerInvestmentSchema = createInsertSchema(ownerInvestments).
   id: true,
   createdAt: true,
 }).extend({
+  amount: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str))
+  ]),
   date: z.union([
     z.date(), 
     z.string().transform((str) => new Date(str))
@@ -432,6 +457,10 @@ export const insertContractorProjectSchema = createInsertSchema(contractorProjec
   id: true,
   createdAt: true,
 }).extend({
+  budget: z.union([
+    z.number(),
+    z.string().transform((str) => str === '' ? null : parseFloat(str))
+  ]).optional().nullable(),
   startDate: z.union([
     z.date(), 
     z.string().transform((str) => str === '' ? null : new Date(str))
@@ -451,6 +480,10 @@ export const insertClientProjectSchema = createInsertSchema(clientProjects).omit
   id: true,
   createdAt: true,
 }).extend({
+  contractAmount: z.union([
+    z.number(),
+    z.string().transform((str) => str === '' ? null : parseFloat(str))
+  ]).optional().nullable(),
   contractDate: z.union([
     z.date(), 
     z.string().transform((str) => str === '' ? null : new Date(str))
@@ -461,6 +494,10 @@ export const insertClientPaymentSchema = createInsertSchema(clientPayments).omit
   id: true,
   createdAt: true,
 }).extend({
+  amount: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str))
+  ]),
   paymentDate: z.union([
     z.date(), 
     z.string().transform((str) => new Date(str))
