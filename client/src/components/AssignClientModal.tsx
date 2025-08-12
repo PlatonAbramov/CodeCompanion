@@ -38,12 +38,13 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
 
   const form = useForm<InsertClientProject>({
     resolver: zodResolver(insertClientProjectSchema),
+    mode: "onChange",
     defaultValues: {
       projectId,
       clientId: "",
-      contractAmount: 0,
+      contractAmount: undefined,
       contractNumber: "",
-      contractDate: new Date(),
+      contractDate: undefined,
       description: "",
       status: "active",
     },
@@ -380,7 +381,13 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                 <Button 
                   type="submit"
                   className="flex-1"
-                  disabled={assignMutation.isPending}
+                  disabled={assignMutation.isPending || !form.watch('clientId')}
+                  onClick={() => {
+                    console.log("AssignClientModal button clicked");
+                    console.log("Form values:", form.getValues());
+                    console.log("Client ID:", form.watch('clientId'));
+                    console.log("Form errors:", form.formState.errors);
+                  }}
                 >
                   {assignMutation.isPending ? "Назначаем..." : "Назначить"}
                 </Button>
