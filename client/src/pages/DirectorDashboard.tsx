@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -188,7 +189,7 @@ export default function DirectorDashboard() {
   const [clientAssignmentProjectId, setClientAssignmentProjectId] = useState<string>("");
   const [projectForm, setProjectForm] = useState({
     name: '',
-    location: '',
+    clientId: '',
     totalCost: '',
     startDate: '',
     endDate: ''
@@ -204,6 +205,11 @@ export default function DirectorDashboard() {
     queryKey: ['/api/financial-overview'],
   });
 
+  // Get clients for project creation
+  const { data: clients = [] } = useQuery({
+    queryKey: ['/api/clients'],
+  });
+
   // Create project mutation
   const createProjectMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -215,7 +221,7 @@ export default function DirectorDashboard() {
       setIsCreateModalOpen(false);
       setProjectForm({
         name: '',
-        location: '',
+        clientId: '',
         totalCost: '',
         startDate: '',
         endDate: ''
@@ -246,7 +252,7 @@ export default function DirectorDashboard() {
       setEditingProject(null);
       setProjectForm({
         name: '',
-        location: '',
+        clientId: '',
         totalCost: '',
         startDate: '',
         endDate: ''
@@ -267,7 +273,24 @@ export default function DirectorDashboard() {
 
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
-    createProjectMutation.mutate(projectForm);
+    
+    if (!projectForm.clientId) {
+      toast({
+        title: "Ошибка",
+        description: "Необходимо выбрать заказчика",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Создаем проект и сразу связываем с заказчиком
+    createProjectMutation.mutate({
+      name: projectForm.name,
+      totalCost: projectForm.totalCost,
+      startDate: projectForm.startDate,
+      endDate: projectForm.endDate || null,
+      clientId: projectForm.clientId, // Передаем для автоматического связывания
+    });
   };
 
   const handleEditProject = (e: React.FormEvent) => {
@@ -279,7 +302,7 @@ export default function DirectorDashboard() {
     setEditingProject(project);
     setProjectForm({
       name: project.name,
-      location: project.location || '',
+      clientId: '',  // Will be populated when client selection is implemented
       totalCost: project.totalCost,
       startDate: project.startDate ? project.startDate.split('T')[0] : '',
       endDate: project.endDate ? project.endDate.split('T')[0] : ''
@@ -394,51 +417,66 @@ export default function DirectorDashboard() {
               </DialogHeader>
               <form onSubmit={handleCreateProject} className="space-y-4">
                 <div>
-                  <Label htmlFor="name">{t('projectName')}</Label>
+                  <Label htmlFor="name">Название проекта *</Label>
                   <Input
                     id="name"
+                    placeholder="Введите название проекта"
                     value={projectForm.name}
                     onChange={(e) => setProjectForm({...projectForm, name: e.target.value})}
                     required
                   />
                 </div>
+                
                 <div>
-                  <Label htmlFor="location">{t('location')}</Label>
-                  <Input
-                    id="location"
-                    value={projectForm.location}
-                    onChange={(e) => setProjectForm({...projectForm, location: e.target.value})}
-                  />
+                  <Label htmlFor="clientId">Заказчик *</Label>
+                  <Select
+                    value={projectForm.clientId}
+                    onValueChange={(value) => setProjectForm({...projectForm, clientId: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите заказчика" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((client: any) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.companyName || client.contactPerson}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
                 <div>
-                  <Label htmlFor="totalCost">{t('totalCost')}</Label>
+                  <Label htmlFor="totalCost">Общая стоимость (AED) *</Label>
                   <Input
                     id="totalCost"
                     type="number"
+                    placeholder="Введите общую стоимость"
                     value={projectForm.totalCost}
                     onChange={(e) => setProjectForm({...projectForm, totalCost: e.target.value})}
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="startDate">{t('startDate')}</Label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={projectForm.startDate}
-                      onChange={(e) => setProjectForm({...projectForm, startDate: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="endDate">{t('endDate')}</Label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={projectForm.endDate}
-                      onChange={(e) => setProjectForm({...projectForm, endDate: e.target.value})}
-                    />
-                  </div>
+                
+                <div>
+                  <Label htmlFor="startDate">Дата начала *</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={projectForm.startDate}
+                    onChange={(e) => setProjectForm({...projectForm, startDate: e.target.value})}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="endDate">Срок завершения (опционально)</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={projectForm.endDate}
+                    onChange={(e) => setProjectForm({...projectForm, endDate: e.target.value})}
+                  />
                 </div>
                 
                 <Button 

@@ -220,15 +220,32 @@ export class DatabaseStorage implements IStorage {
     return project || undefined;
   }
 
-  async createProject(project: InsertProject): Promise<Project> {
+  async createProject(project: InsertProject & { clientId?: string }): Promise<Project> {
+    const { clientId, ...projectData } = project;
+    
     const [newProject] = await db
       .insert(projects)
       .values({
-        ...project,
-        totalCost: project.totalCost.toString()
+        ...projectData,
+        totalCost: projectData.totalCost.toString()
       })
       .returning();
+    
+    // Если указан clientId, автоматически связываем проект с заказчиком
+    if (clientId) {
+      await this.assignProjectToClient(newProject.id, clientId, newProject.totalCost);
+    }
+    
     return newProject;
+  }
+
+  async assignProjectToClient(projectId: string, clientId: string, contractAmount: string): Promise<void> {
+    // Создаем связь между проектом и заказчиком
+    await db.insert(clientProjects).values({
+      clientId,
+      projectId,
+      contractAmount
+    });
   }
 
   async updateProject(id: string, project: Partial<InsertProject>): Promise<Project> {
