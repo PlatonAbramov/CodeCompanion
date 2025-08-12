@@ -527,6 +527,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCustomerAdvance(id: string, customerAdvance: Partial<InsertCustomerAdvance>): Promise<CustomerAdvance> {
+    // Получаем старые данные аванса
+    const [oldAdvance] = await db
+      .select()
+      .from(customerAdvances)
+      .where(eq(customerAdvances.id, id))
+      .limit(1);
+
     const [updatedCustomerAdvance] = await db
       .update(customerAdvances)
       .set({
@@ -535,6 +542,36 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(customerAdvances.id, id))
       .returning();
+
+    // Синхронизируем изменения с client_payments если есть связанный заказчик
+    if (oldAdvance) {
+      const clientProject = await db
+        .select()
+        .from(clientProjects)
+        .where(eq(clientProjects.projectId, oldAdvance.projectId))
+        .limit(1);
+
+      if (clientProject.length > 0) {
+        // Обновляем соответствующий платеж в client_payments
+        await db
+          .update(clientPayments)
+          .set({
+            amount: customerAdvance.amount ? customerAdvance.amount.toString() : oldAdvance.amount,
+            description: customerAdvance.description || oldAdvance.description,
+            paymentDate: customerAdvance.date || oldAdvance.date,
+          })
+          .where(
+            and(
+              eq(clientPayments.clientId, clientProject[0].clientId),
+              eq(clientPayments.projectId, oldAdvance.projectId),
+              sql`${clientPayments.amount} = ${oldAdvance.amount}`,
+              sql`${clientPayments.paymentDate} = ${oldAdvance.date}`,
+              eq(clientPayments.paymentMethod, 'advance')
+            )
+          );
+      }
+    }
+
     return updatedCustomerAdvance;
   }
 
@@ -555,6 +592,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCustomerAdvance(id: string): Promise<void> {
+    // Получаем данные удаляемого аванса перед удалением
+    const [advanceToDelete] = await db
+      .select()
+      .from(customerAdvances)
+      .where(eq(customerAdvances.id, id))
+      .limit(1);
+
+    if (advanceToDelete) {
+      // Проверяем, есть ли связанный заказчик для этого проекта
+      const clientProject = await db
+        .select()
+        .from(clientProjects)
+        .where(eq(clientProjects.projectId, advanceToDelete.projectId))
+        .limit(1);
+
+      // Если есть связанный заказчик, удаляем соответствующий платеж
+      if (clientProject.length > 0) {
+        await db
+          .delete(clientPayments)
+          .where(
+            and(
+              eq(clientPayments.clientId, clientProject[0].clientId),
+              eq(clientPayments.projectId, advanceToDelete.projectId),
+              sql`${clientPayments.amount} = ${advanceToDelete.amount}`,
+              sql`${clientPayments.paymentDate} = ${advanceToDelete.date}`,
+              eq(clientPayments.paymentMethod, 'advance')
+            )
+          );
+      }
+    }
+
+    // Удаляем сам аванс
     await db.delete(customerAdvances).where(eq(customerAdvances.id, id));
   }
 
