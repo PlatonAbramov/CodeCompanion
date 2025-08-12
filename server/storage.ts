@@ -368,7 +368,7 @@ export class DatabaseStorage implements IStorage {
           description: customerAdvance.description || "Аванс от заказчика",
           paymentDate: customerAdvance.date,
           paymentMethod: "advance",
-          createdBy: customerAdvance.createdBy,
+          createdBy: customerAdvance.createdBy || null,
         });
     }
 
@@ -1061,8 +1061,8 @@ export class DatabaseStorage implements IStorage {
           and(
             eq(clientPayments.clientId, clientProject.clientId),
             eq(clientPayments.projectId, clientProject.projectId),
-            eq(clientPayments.amount, advance.amount),
-            eq(clientPayments.paymentDate, advance.date)
+            sql`${clientPayments.amount} = ${advance.amount}`,
+            sql`${clientPayments.paymentDate} = ${advance.date}`
           )
         );
 
@@ -1076,7 +1076,7 @@ export class DatabaseStorage implements IStorage {
             description: advance.description || "Аванс от заказчика",
             paymentDate: advance.date,
             paymentMethod: "advance",
-            createdBy: advance.createdBy,
+            createdBy: advance.createdBy || null,
           });
       }
     }
