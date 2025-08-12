@@ -124,12 +124,7 @@ export default function ContractorDetail() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: 'RUB',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+    return `${amount.toLocaleString('ru-RU')} د.إ`;
   };
 
   const formatDate = (dateString: string) => {
@@ -177,11 +172,6 @@ export default function ContractorDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-slate-500">Имя</label>
-                <p className="text-slate-900">{contractor.name}</p>
-              </div>
-              
               {contractor.company && (
                 <div>
                   <label className="text-sm font-medium text-slate-500">Компания</label>
@@ -191,6 +181,11 @@ export default function ContractorDetail() {
                   </p>
                 </div>
               )}
+              
+              <div>
+                <label className="text-sm font-medium text-slate-500">Имя</label>
+                <p className="text-slate-900">{contractor.name}</p>
+              </div>
               
               <div>
                 <label className="text-sm font-medium text-slate-500">Специализация</label>

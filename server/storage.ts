@@ -90,7 +90,16 @@ export interface IStorage {
   
   // Contractor Projects
   getProjectContractors(projectId: string): Promise<(ContractorProject & { contractor: Contractor })[]>;
-  getContractorProjects(contractorId: string): Promise<(ContractorProject & { project: Project })[]>;
+  getContractorProjects(contractorId: string): Promise<Array<{
+    id: string;
+    projectId: string;
+    projectName: string;
+    budgetAllocation: number;
+    workDescription: string;
+    startDate: string;
+    endDate?: string;
+    isActive: boolean;
+  }>>;
   assignContractorToProject(contractorProject: InsertContractorProject): Promise<ContractorProject>;
   updateContractorProject(id: string, contractorProject: Partial<InsertContractorProject>): Promise<ContractorProject>;
   removeContractorFromProject(id: string): Promise<void>;
@@ -601,17 +610,39 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getContractorProjects(contractorId: string): Promise<(ContractorProject & { project: Project })[]> {
+  async getContractorProjects(contractorId: string): Promise<Array<{
+    id: string;
+    projectId: string;
+    projectName: string;
+    budgetAllocation: number;
+    workDescription: string;
+    startDate: string;
+    endDate?: string;
+    isActive: boolean;
+  }>> {
     const result = await db
-      .select()
+      .select({
+        id: contractorProjects.id,
+        projectId: contractorProjects.projectId,
+        projectName: projects.name,
+        budgetAllocation: contractorProjects.budget,
+        workDescription: contractorProjects.description,
+        startDate: contractorProjects.startDate,
+        endDate: contractorProjects.endDate,
+        isActive: contractorProjects.status,
+      })
       .from(contractorProjects)
       .innerJoin(projects, eq(contractorProjects.projectId, projects.id))
       .where(eq(contractorProjects.contractorId, contractorId))
       .orderBy(projects.name);
     
     return result.map(row => ({
-      ...row.contractor_projects,
-      project: row.projects
+      ...row,
+      budgetAllocation: Number(row.budgetAllocation || '0'),
+      workDescription: row.workDescription || '',
+      startDate: row.startDate?.toISOString() || new Date().toISOString(),
+      endDate: row.endDate?.toISOString(),
+      isActive: row.isActive === 'active',
     }));
   }
 
