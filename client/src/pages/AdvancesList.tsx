@@ -79,11 +79,8 @@ export default function AdvancesList() {
 
   const formatCurrency = (amount: string) => {
     if (!amount) return '';
-    return new Intl.NumberFormat('ar-AE', {
-      style: 'currency',
-      currency: 'AED',
-      minimumFractionDigits: 0,
-    }).format(parseFloat(amount));
+    const num = parseFloat(amount);
+    return `${num.toLocaleString('ru-RU')} AED`;
   };
 
   const formatDate = (dateString: string) => {

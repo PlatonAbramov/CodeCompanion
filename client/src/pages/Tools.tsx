@@ -417,7 +417,7 @@ export default function Tools() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{formatCurrency(parseFloat(tool.cost) || 0)}</span>
+                    <span className="text-sm">{formatCurrency((parseFloat(tool.cost) || 0).toString())}</span>
                   </div>
                   
                   {tool.status === 'OUT' && tool.currentPerson && (

@@ -48,11 +48,8 @@ export default function ExpensesList() {
   };
 
   const formatCurrency = (amount: string) => {
-    return new Intl.NumberFormat('ar-AE', {
-      style: 'currency',
-      currency: 'AED',
-      minimumFractionDigits: 0,
-    }).format(parseFloat(amount));
+    const num = parseFloat(amount || "0");
+    return `${num.toLocaleString("ru-RU")} AED`;
   };
 
   const formatDate = (dateString: string) => {

@@ -30,11 +30,8 @@ export default function MasterDashboard() {
   });
 
   const formatCurrency = (amount: string) => {
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: 'RUB',
-      minimumFractionDigits: 0,
-    }).format(parseFloat(amount));
+    const num = parseFloat(amount || "0");
+    return `${num.toLocaleString("ru-RU")} AED`;
   };
 
   const formatDate = (dateString: string) => {

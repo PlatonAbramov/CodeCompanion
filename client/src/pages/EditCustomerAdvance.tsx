@@ -106,11 +106,8 @@ export default function EditCustomerAdvance() {
 
   const formatCurrency = (amount: string) => {
     if (!amount) return '';
-    return new Intl.NumberFormat('ar-AE', {
-      style: 'currency',
-      currency: 'AED',
-      minimumFractionDigits: 0,
-    }).format(parseFloat(amount));
+    const num = parseFloat(amount || "0");
+    return `${num.toLocaleString("ru-RU")} AED`;
   };
 
   if (isLoading) {
