@@ -1124,14 +1124,14 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db
       .insert(clientProjects)
       .values({
-        clientId: clientProject.clientId,
+        clientId: clientProject.clientId || '',
         projectId: clientProject.projectId,
         contractAmount: contractAmount.toString(),
         contractNumber: clientProject.contractNumber,
         contractDate: clientProject.contractDate,
         description: clientProject.description,
         status: clientProject.status || 'active',
-        createdBy: clientProject.createdBy
+        createdBy: clientProject.createdBy || ''
       })
       .returning();
 
@@ -1149,7 +1149,7 @@ export class DatabaseStorage implements IStorage {
         .from(clientPayments)
         .where(
           and(
-            eq(clientPayments.clientId, clientProject.clientId),
+            eq(clientPayments.clientId, clientProject.clientId || ''),
             eq(clientPayments.projectId, clientProject.projectId),
             sql`${clientPayments.amount} = ${advance.amount}`,
             sql`${clientPayments.paymentDate} = ${advance.date}`
@@ -1160,13 +1160,13 @@ export class DatabaseStorage implements IStorage {
         await db
           .insert(clientPayments)
           .values({
-            clientId: clientProject.clientId,
+            clientId: clientProject.clientId || '',
             projectId: clientProject.projectId,
             amount: advance.amount,
             description: advance.description || "Аванс от заказчика",
             paymentDate: advance.date,
             paymentMethod: "advance",
-            createdBy: advance.createdBy
+            createdBy: advance.createdBy || ''
           });
       }
     }
@@ -1196,7 +1196,7 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     // Синхронизируем изменение contractAmount с totalCost в проекте
-    if (clientProject.contractAmount !== undefined) {
+    if (clientProject.contractAmount !== undefined && clientProject.contractAmount !== null) {
       await db
         .update(projects)
         .set({

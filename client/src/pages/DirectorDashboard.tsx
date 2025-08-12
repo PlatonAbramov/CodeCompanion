@@ -189,6 +189,7 @@ export default function DirectorDashboard() {
   const [clientAssignmentProjectId, setClientAssignmentProjectId] = useState<string>("");
   const [projectForm, setProjectForm] = useState({
     name: '',
+    location: '',
     clientId: '',
     totalCost: '',
     startDate: '',
@@ -206,7 +207,7 @@ export default function DirectorDashboard() {
   });
 
   // Get clients for project creation
-  const { data: clients = [] } = useQuery({
+  const { data: clients = [] } = useQuery<Array<{id: string, name: string, company?: string}>>({
     queryKey: ['/api/clients'],
   });
 
@@ -221,6 +222,7 @@ export default function DirectorDashboard() {
       setIsCreateModalOpen(false);
       setProjectForm({
         name: '',
+        location: '',
         clientId: '',
         totalCost: '',
         startDate: '',
@@ -252,6 +254,7 @@ export default function DirectorDashboard() {
       setEditingProject(null);
       setProjectForm({
         name: '',
+        location: '',
         clientId: '',
         totalCost: '',
         startDate: '',
@@ -302,6 +305,7 @@ export default function DirectorDashboard() {
     setEditingProject(project);
     setProjectForm({
       name: project.name,
+      location: project.location || '',
       clientId: '',  // Will be populated when client selection is implemented
       totalCost: project.totalCost,
       startDate: project.startDate ? project.startDate.split('T')[0] : '',
