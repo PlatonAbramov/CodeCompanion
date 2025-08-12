@@ -14,7 +14,9 @@ import {
   insertUserSchema, insertProjectSchema, insertExpenseSchema, 
   insertDocumentSchema, insertAdvanceSchema, insertCustomerAdvanceSchema,
   insertRevenueSchema, insertOwnerInvestmentSchema, insertContractorSchema,
-  insertContractorProjectSchema, type InsertContractorProject
+  insertContractorProjectSchema, insertClientSchema, insertClientProjectSchema,
+  insertClientPaymentSchema, 
+  type InsertContractorProject, type InsertClientProject, type InsertClientPayment
 } from "@shared/schema";
 
 // Extend session data type
@@ -779,6 +781,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to remove contractor from project:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Clients routes
+  app.get("/api/clients", requireAuth, async (req, res) => {
+    try {
+      const clients = await storage.getAllClients();
+      res.json(clients);
+    } catch (error) {
+      console.error("Failed to get clients:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/clients/:id", requireAuth, async (req, res) => {
+    try {
+      const client = await storage.getClient(req.params.id);
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+      res.json(client);
+    } catch (error) {
+      console.error("Failed to get client:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get client statistics
+  app.get("/api/clients/:id/stats", requireAuth, async (req, res) => {
+    try {
+      const stats = await storage.getClientStats(req.params.id);
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to get client stats:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get client payments
+  app.get("/api/clients/:id/payments", requireAuth, async (req, res) => {
+    try {
+      const payments = await storage.getClientPayments(req.params.id);
+      res.json(payments);
+    } catch (error) {
+      console.error("Failed to get client payments:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get client projects
+  app.get("/api/clients/:id/projects", requireAuth, async (req, res) => {
+    try {
+      const projects = await storage.getClientProjects(req.params.id);
+      res.json(projects);
+    } catch (error) {
+      console.error("Failed to get client projects:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/clients", requireAuth, async (req, res) => {
+    try {
+      const clientData = insertClientSchema.parse({
+        ...req.body,
+        createdBy: req.session?.user?.id
+      });
+      const client = await storage.createClient(clientData);
+      res.json(client);
+    } catch (error) {
+      console.error("Failed to create client:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/clients/:id", requireAuth, async (req, res) => {
+    try {
+      const client = await storage.updateClient(req.params.id, req.body);
+      res.json(client);
+    } catch (error) {
+      console.error("Failed to update client:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/clients/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteClient(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete client:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Client projects routes
+  app.get("/api/projects/:projectId/clients", requireAuth, async (req, res) => {
+    try {
+      const clients = await storage.getProjectClients(req.params.projectId);
+      res.json(clients);
+    } catch (error) {
+      console.error("Failed to get project clients:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/clients/:clientId/projects", requireAuth, async (req, res) => {
+    try {
+      const clientProjectData = insertClientProjectSchema.parse({
+        ...req.body,
+        clientId: req.params.clientId,
+        createdBy: req.session?.user?.id
+      });
+      const clientProject = await storage.assignClientToProject(clientProjectData);
+      res.json(clientProject);
+    } catch (error) {
+      console.error("Failed to assign client to project:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/client-projects/:id", requireAuth, async (req, res) => {
+    try {
+      const clientProject = await storage.updateClientProject(req.params.id, req.body);
+      res.json(clientProject);
+    } catch (error) {
+      console.error("Failed to update client project:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/client-projects/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.removeClientFromProject(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to remove client from project:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Client payments routes
+  app.get("/api/projects/:projectId/client-payments", requireAuth, async (req, res) => {
+    try {
+      const payments = await storage.getProjectClientPayments(req.params.projectId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Failed to get project client payments:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/client-payments", requireAuth, async (req, res) => {
+    try {
+      const paymentData = insertClientPaymentSchema.parse({
+        ...req.body,
+        createdBy: req.session?.user?.id
+      });
+      const payment = await storage.createClientPayment(paymentData);
+      res.json(payment);
+    } catch (error) {
+      console.error("Failed to create client payment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/client-payments/:id", requireAuth, async (req, res) => {
+    try {
+      const payment = await storage.updateClientPayment(req.params.id, req.body);
+      res.json(payment);
+    } catch (error) {
+      console.error("Failed to update client payment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/client-payments/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteClientPayment(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete client payment:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

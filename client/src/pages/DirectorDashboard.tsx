@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Bus, Bell, LogOut, Plus, Home, Folder, Users, BarChart3,
-  ProjectorIcon, TrendingUp, TrendingDown, Calendar, Edit2, ChevronDown, ChevronUp
+  ProjectorIcon, TrendingUp, TrendingDown, Calendar, Edit2, ChevronDown, ChevronUp,
+  Building2
 } from "lucide-react";
 
 interface Project {
@@ -551,6 +552,13 @@ export default function DirectorDashboard() {
           >
             <Users size={20} className="mb-1" />
             <span className="text-xs">Подрядчики</span>
+          </button>
+          <button 
+            className="flex flex-col items-center py-2 text-slate-400"
+            onClick={() => setLocation('/clients')}
+          >
+            <Building2 size={20} className="mb-1" />
+            <span className="text-xs">Заказчики</span>
           </button>
           <button 
             className="flex flex-col items-center py-2 text-slate-400"

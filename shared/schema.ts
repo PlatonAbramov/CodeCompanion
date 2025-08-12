@@ -129,6 +129,46 @@ export const userProjects = pgTable("user_projects", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const clients = pgTable("clients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  company: text("company"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  contactPerson: text("contact_person"), // Контактное лицо
+  documentUrls: jsonb("document_urls").default("[]"), // Массив URL документов
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const clientProjects = pgTable("client_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => clients.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  contractAmount: decimal("contract_amount", { precision: 12, scale: 2 }), // Сумма договора
+  contractNumber: text("contract_number"), // Номер договора
+  contractDate: timestamp("contract_date"), // Дата договора
+  description: text("description"),
+  status: text("status").default("active"), // 'active' | 'completed' | 'paused'
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const clientPayments = pgTable("client_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => clients.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  description: text("description"),
+  paymentDate: timestamp("payment_date").notNull(),
+  paymentMethod: text("payment_method"), // Способ оплаты
+  documentUrl: text("document_url"), // URL документа об оплате
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
@@ -140,6 +180,9 @@ export const usersRelations = relations(users, ({ many }) => ({
   ownerInvestments: many(ownerInvestments),
   contractors: many(contractors),
   contractorProjects: many(contractorProjects),
+  clients: many(clients),
+  clientProjects: many(clientProjects),
+  clientPayments: many(clientPayments),
 }));
 
 export const contractorsRelations = relations(contractors, ({ one, many }) => ({
@@ -178,6 +221,8 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   userProjects: many(userProjects),
   ownerInvestments: many(ownerInvestments),
   contractorProjects: many(contractorProjects),
+  clientProjects: many(clientProjects),
+  clientPayments: many(clientPayments),
 }));
 
 export const expensesRelations = relations(expenses, ({ one }) => ({
@@ -257,6 +302,46 @@ export const ownerInvestmentsRelations = relations(ownerInvestments, ({ one }) =
   }),
   createdBy: one(users, {
     fields: [ownerInvestments.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const clientsRelations = relations(clients, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [clients.createdBy],
+    references: [users.id],
+  }),
+  clientProjects: many(clientProjects),
+  clientPayments: many(clientPayments),
+}));
+
+export const clientProjectsRelations = relations(clientProjects, ({ one, many }) => ({
+  client: one(clients, {
+    fields: [clientProjects.clientId],
+    references: [clients.id],
+  }),
+  project: one(projects, {
+    fields: [clientProjects.projectId],
+    references: [projects.id],
+  }),
+  createdBy: one(users, {
+    fields: [clientProjects.createdBy],
+    references: [users.id],
+  }),
+  clientPayments: many(clientPayments),
+}));
+
+export const clientPaymentsRelations = relations(clientPayments, ({ one }) => ({
+  client: one(clients, {
+    fields: [clientPayments.clientId],
+    references: [clients.id],
+  }),
+  project: one(projects, {
+    fields: [clientPayments.projectId],
+    references: [projects.id],
+  }),
+  createdBy: one(users, {
+    fields: [clientPayments.createdBy],
     references: [users.id],
   }),
 }));
@@ -357,6 +442,31 @@ export const insertContractorProjectSchema = createInsertSchema(contractorProjec
   ]).optional().nullable(),
 });
 
+export const insertClientSchema = createInsertSchema(clients).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertClientProjectSchema = createInsertSchema(clientProjects).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  contractDate: z.union([
+    z.date(), 
+    z.string().transform((str) => str === '' ? null : new Date(str))
+  ]).optional().nullable(),
+});
+
+export const insertClientPaymentSchema = createInsertSchema(clientPayments).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  paymentDate: z.union([
+    z.date(), 
+    z.string().transform((str) => new Date(str))
+  ]),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -380,3 +490,9 @@ export type Contractor = typeof contractors.$inferSelect;
 export type InsertContractor = z.infer<typeof insertContractorSchema>;
 export type ContractorProject = typeof contractorProjects.$inferSelect;
 export type InsertContractorProject = z.infer<typeof insertContractorProjectSchema>;
+export type Client = typeof clients.$inferSelect;
+export type InsertClient = z.infer<typeof insertClientSchema>;
+export type ClientProject = typeof clientProjects.$inferSelect;
+export type InsertClientProject = z.infer<typeof insertClientProjectSchema>;
+export type ClientPayment = typeof clientPayments.$inferSelect;
+export type InsertClientPayment = z.infer<typeof insertClientPaymentSchema>;

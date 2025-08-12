@@ -1,12 +1,14 @@
 import { 
   users, projects, expenses, documents, advances, customerAdvances, userProjects, revenues, ownerInvestments,
-  contractors, contractorProjects,
+  contractors, contractorProjects, clients, clientProjects, clientPayments,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
   type Advance, type InsertAdvance, type CustomerAdvance, type InsertCustomerAdvance,
   type Revenue, type InsertRevenue, type UserProject, type InsertUserProject,
   type OwnerInvestment, type InsertOwnerInvestment,
-  type Contractor, type InsertContractor, type ContractorProject, type InsertContractorProject
+  type Contractor, type InsertContractor, type ContractorProject, type InsertContractorProject,
+  type Client, type InsertClient, type ClientProject, type InsertClientProject,
+  type ClientPayment, type InsertClientPayment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -114,6 +116,57 @@ export interface IStorage {
   assignContractorToProject(contractorProject: InsertContractorProject): Promise<ContractorProject>;
   updateContractorProject(id: string, contractorProject: Partial<InsertContractorProject>): Promise<ContractorProject>;
   removeContractorFromProject(id: string): Promise<void>;
+  
+  // Clients
+  getAllClients(): Promise<Client[]>;
+  getClient(id: string): Promise<Client | undefined>;
+  createClient(client: InsertClient): Promise<Client>;
+  updateClient(id: string, client: Partial<InsertClient>): Promise<Client>;
+  deleteClient(id: string): Promise<void>;
+  getClientStats(clientId: string): Promise<{
+    totalPayments: number;
+    totalProjects: number;
+    remainingAmount: number;
+  }>;
+  
+  // Client Projects
+  getProjectClients(projectId: string): Promise<(ClientProject & { client: Client })[]>;
+  getClientProjects(clientId: string): Promise<Array<{
+    id: string;
+    projectId: string;
+    projectName: string;
+    contractAmount: number;
+    contractNumber?: string;
+    contractDate?: string;
+    description?: string;
+    status: string;
+  }>>;
+  assignClientToProject(clientProject: InsertClientProject): Promise<ClientProject>;
+  updateClientProject(id: string, clientProject: Partial<InsertClientProject>): Promise<ClientProject>;
+  removeClientFromProject(id: string): Promise<void>;
+  
+  // Client Payments
+  getClientPayments(clientId: string): Promise<Array<{
+    id: string;
+    amount: number;
+    description?: string;
+    paymentDate: string;
+    paymentMethod?: string;
+    projectId: string;
+    projectName: string;
+  }>>;
+  getProjectClientPayments(projectId: string): Promise<Array<{
+    id: string;
+    amount: number;
+    description?: string;
+    paymentDate: string;
+    paymentMethod?: string;
+    clientId: string;
+    clientName: string;
+  }>>;
+  createClientPayment(clientPayment: InsertClientPayment): Promise<ClientPayment>;
+  updateClientPayment(id: string, clientPayment: Partial<InsertClientPayment>): Promise<ClientPayment>;
+  deleteClientPayment(id: string): Promise<void>;
   
   // Analytics
   getProjectFinancialSummary(projectId: string): Promise<{
@@ -737,6 +790,236 @@ export class DatabaseStorage implements IStorage {
 
   async removeContractorFromProject(id: string): Promise<void> {
     await db.delete(contractorProjects).where(eq(contractorProjects.id, id));
+  }
+
+  // Clients
+  async getAllClients(): Promise<Client[]> {
+    return await db.select().from(clients).orderBy(desc(clients.createdAt));
+  }
+
+  async getClient(id: string): Promise<Client | undefined> {
+    const [client] = await db.select().from(clients).where(eq(clients.id, id));
+    return client || undefined;
+  }
+
+  async createClient(client: InsertClient): Promise<Client> {
+    const [createdClient] = await db
+      .insert(clients)
+      .values(client)
+      .returning();
+    return createdClient;
+  }
+
+  async updateClient(id: string, client: Partial<InsertClient>): Promise<Client> {
+    const [updatedClient] = await db
+      .update(clients)
+      .set(client)
+      .where(eq(clients.id, id))
+      .returning();
+    return updatedClient;
+  }
+
+  async deleteClient(id: string): Promise<void> {
+    await db.delete(clients).where(eq(clients.id, id));
+  }
+
+  async getClientStats(clientId: string): Promise<{
+    totalPayments: number;
+    totalProjects: number;
+    remainingAmount: number;
+  }> {
+    // Get total payments
+    const paymentsResult = await db
+      .select({
+        total: sql<number>`COALESCE(SUM(${clientPayments.amount}::numeric), 0)`,
+      })
+      .from(clientPayments)
+      .where(eq(clientPayments.clientId, clientId));
+
+    // Get total projects and contract amounts
+    const projectsResult = await db
+      .select({
+        count: sql<number>`COUNT(*)`,
+        totalContract: sql<number>`COALESCE(SUM(${clientProjects.contractAmount}::numeric), 0)`,
+      })
+      .from(clientProjects)
+      .where(eq(clientProjects.clientId, clientId));
+
+    const totalPayments = Number(paymentsResult[0]?.total || 0);
+    const totalProjects = Number(projectsResult[0]?.count || 0);
+    const totalContract = Number(projectsResult[0]?.totalContract || 0);
+    const remainingAmount = totalContract - totalPayments;
+
+    return {
+      totalPayments,
+      totalProjects,
+      remainingAmount,
+    };
+  }
+
+  // Client Projects
+  async getProjectClients(projectId: string): Promise<(ClientProject & { client: Client })[]> {
+    const result = await db
+      .select()
+      .from(clientProjects)
+      .innerJoin(clients, eq(clientProjects.clientId, clients.id))
+      .where(eq(clientProjects.projectId, projectId));
+
+    return result.map(row => ({
+      ...row.client_projects,
+      client: row.clients,
+    }));
+  }
+
+  async getClientProjects(clientId: string): Promise<Array<{
+    id: string;
+    projectId: string;
+    projectName: string;
+    contractAmount: number;
+    contractNumber?: string;
+    contractDate?: string;
+    description?: string;
+    status: string;
+  }>> {
+    const result = await db
+      .select({
+        id: clientProjects.id,
+        projectId: clientProjects.projectId,
+        projectName: projects.name,
+        contractAmount: clientProjects.contractAmount,
+        contractNumber: clientProjects.contractNumber,
+        contractDate: clientProjects.contractDate,
+        description: clientProjects.description,
+        status: clientProjects.status,
+      })
+      .from(clientProjects)
+      .innerJoin(projects, eq(clientProjects.projectId, projects.id))
+      .where(eq(clientProjects.clientId, clientId))
+      .orderBy(desc(clientProjects.createdAt));
+
+    return result.map(row => ({
+      id: row.id,
+      projectId: row.projectId,
+      projectName: row.projectName,
+      contractAmount: Number(row.contractAmount || '0'),
+      contractNumber: row.contractNumber || undefined,
+      contractDate: row.contractDate?.toISOString(),
+      description: row.description || undefined,
+      status: row.status || 'active',
+    }));
+  }
+
+  async assignClientToProject(clientProject: InsertClientProject): Promise<ClientProject> {
+    const [result] = await db
+      .insert(clientProjects)
+      .values(clientProject)
+      .returning();
+    return result;
+  }
+
+  async updateClientProject(id: string, clientProject: Partial<InsertClientProject>): Promise<ClientProject> {
+    const [updatedClientProject] = await db
+      .update(clientProjects)
+      .set(clientProject)
+      .where(eq(clientProjects.id, id))
+      .returning();
+    return updatedClientProject;
+  }
+
+  async removeClientFromProject(id: string): Promise<void> {
+    await db.delete(clientProjects).where(eq(clientProjects.id, id));
+  }
+
+  // Client Payments
+  async getClientPayments(clientId: string): Promise<Array<{
+    id: string;
+    amount: number;
+    description?: string;
+    paymentDate: string;
+    paymentMethod?: string;
+    projectId: string;
+    projectName: string;
+  }>> {
+    const result = await db
+      .select({
+        id: clientPayments.id,
+        amount: clientPayments.amount,
+        description: clientPayments.description,
+        paymentDate: clientPayments.paymentDate,
+        paymentMethod: clientPayments.paymentMethod,
+        projectId: clientPayments.projectId,
+        projectName: projects.name,
+      })
+      .from(clientPayments)
+      .innerJoin(projects, eq(clientPayments.projectId, projects.id))
+      .where(eq(clientPayments.clientId, clientId))
+      .orderBy(desc(clientPayments.paymentDate));
+
+    return result.map(row => ({
+      id: row.id,
+      amount: Number(row.amount),
+      description: row.description || undefined,
+      paymentDate: row.paymentDate.toISOString(),
+      paymentMethod: row.paymentMethod || undefined,
+      projectId: row.projectId,
+      projectName: row.projectName,
+    }));
+  }
+
+  async getProjectClientPayments(projectId: string): Promise<Array<{
+    id: string;
+    amount: number;
+    description?: string;
+    paymentDate: string;
+    paymentMethod?: string;
+    clientId: string;
+    clientName: string;
+  }>> {
+    const result = await db
+      .select({
+        id: clientPayments.id,
+        amount: clientPayments.amount,
+        description: clientPayments.description,
+        paymentDate: clientPayments.paymentDate,
+        paymentMethod: clientPayments.paymentMethod,
+        clientId: clientPayments.clientId,
+        clientName: clients.name,
+      })
+      .from(clientPayments)
+      .innerJoin(clients, eq(clientPayments.clientId, clients.id))
+      .where(eq(clientPayments.projectId, projectId))
+      .orderBy(desc(clientPayments.paymentDate));
+
+    return result.map(row => ({
+      id: row.id,
+      amount: Number(row.amount),
+      description: row.description || undefined,
+      paymentDate: row.paymentDate.toISOString(),
+      paymentMethod: row.paymentMethod || undefined,
+      clientId: row.clientId,
+      clientName: row.clientName,
+    }));
+  }
+
+  async createClientPayment(clientPayment: InsertClientPayment): Promise<ClientPayment> {
+    const [result] = await db
+      .insert(clientPayments)
+      .values(clientPayment)
+      .returning();
+    return result;
+  }
+
+  async updateClientPayment(id: string, clientPayment: Partial<InsertClientPayment>): Promise<ClientPayment> {
+    const [updatedClientPayment] = await db
+      .update(clientPayments)
+      .set(clientPayment)
+      .where(eq(clientPayments.id, id))
+      .returning();
+    return updatedClientPayment;
+  }
+
+  async deleteClientPayment(id: string): Promise<void> {
+    await db.delete(clientPayments).where(eq(clientPayments.id, id));
   }
 }
 
