@@ -79,7 +79,7 @@ export interface IStorage {
   getContractorStats(contractorId: string): Promise<{
     totalExpenses: number;
     totalProjects: number;
-    averageExpenseAmount: number;
+    remainingBudget: number;
   }>;
   getContractorExpenses(contractorId: string): Promise<{
     id: string;
@@ -223,7 +223,10 @@ export class DatabaseStorage implements IStorage {
   async createProject(project: InsertProject): Promise<Project> {
     const [newProject] = await db
       .insert(projects)
-      .values(project)
+      .values({
+        ...project,
+        totalCost: project.totalCost.toString()
+      })
       .returning();
     return newProject;
   }
@@ -231,7 +234,11 @@ export class DatabaseStorage implements IStorage {
   async updateProject(id: string, project: Partial<InsertProject>): Promise<Project> {
     const [updatedProject] = await db
       .update(projects)
-      .set({ ...project, updatedAt: new Date() })
+      .set({ 
+        ...project, 
+        totalCost: project.totalCost ? project.totalCost.toString() : undefined,
+        updatedAt: new Date() 
+      })
       .where(eq(projects.id, id))
       .returning();
     return updatedProject;
@@ -287,7 +294,10 @@ export class DatabaseStorage implements IStorage {
   async createExpense(expense: InsertExpense): Promise<Expense> {
     const [newExpense] = await db
       .insert(expenses)
-      .values(expense)
+      .values({
+        ...expense,
+        amount: expense.amount.toString()
+      })
       .returning();
     return newExpense;
   }
@@ -305,7 +315,10 @@ export class DatabaseStorage implements IStorage {
   async createAdvance(advance: InsertAdvance): Promise<Advance> {
     const [newAdvance] = await db
       .insert(advances)
-      .values(advance)
+      .values({
+        ...advance,
+        amount: advance.amount.toString()
+      })
       .returning();
     return newAdvance;
   }
@@ -320,7 +333,10 @@ export class DatabaseStorage implements IStorage {
   async createCustomerAdvance(customerAdvance: InsertCustomerAdvance): Promise<CustomerAdvance> {
     const [newCustomerAdvance] = await db
       .insert(customerAdvances)
-      .values(customerAdvance)
+      .values({
+        ...customerAdvance,
+        amount: customerAdvance.amount.toString()
+      })
       .returning();
     return newCustomerAdvance;
   }
@@ -345,12 +361,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createRevenue(revenue: InsertRevenue): Promise<Revenue> {
-    const [result] = await db.insert(revenues).values(revenue).returning();
+    const [result] = await db.insert(revenues).values({
+      ...revenue,
+      amount: revenue.amount.toString()
+    }).returning();
     return result;
   }
 
   async updateRevenue(id: string, revenue: Partial<InsertRevenue>): Promise<Revenue> {
-    const [result] = await db.update(revenues).set(revenue).where(eq(revenues.id, id)).returning();
+    const [result] = await db.update(revenues).set({
+      ...revenue,
+      amount: revenue.amount ? revenue.amount.toString() : undefined
+    }).where(eq(revenues.id, id)).returning();
     return result;
   }
 
@@ -450,7 +472,10 @@ export class DatabaseStorage implements IStorage {
   async updateAdvance(id: string, advance: Partial<InsertAdvance>): Promise<Advance> {
     const [updatedAdvance] = await db
       .update(advances)
-      .set(advance)
+      .set({
+        ...advance,
+        amount: advance.amount ? advance.amount.toString() : undefined
+      })
       .where(eq(advances.id, id))
       .returning();
     return updatedAdvance;
@@ -459,7 +484,10 @@ export class DatabaseStorage implements IStorage {
   async updateCustomerAdvance(id: string, customerAdvance: Partial<InsertCustomerAdvance>): Promise<CustomerAdvance> {
     const [updatedCustomerAdvance] = await db
       .update(customerAdvances)
-      .set(customerAdvance)
+      .set({
+        ...customerAdvance,
+        amount: customerAdvance.amount ? customerAdvance.amount.toString() : undefined
+      })
       .where(eq(customerAdvances.id, id))
       .returning();
     return updatedCustomerAdvance;
@@ -468,7 +496,10 @@ export class DatabaseStorage implements IStorage {
   async updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense> {
     const [updatedExpense] = await db
       .update(expenses)
-      .set(expense)
+      .set({
+        ...expense,
+        amount: expense.amount ? expense.amount.toString() : undefined
+      })
       .where(eq(expenses.id, id))
       .returning();
     return updatedExpense;
@@ -511,7 +542,10 @@ export class DatabaseStorage implements IStorage {
   async createOwnerInvestment(ownerInvestment: InsertOwnerInvestment): Promise<OwnerInvestment> {
     const [result] = await db
       .insert(ownerInvestments)
-      .values(ownerInvestment)
+      .values({
+        ...ownerInvestment,
+        amount: ownerInvestment.amount.toString()
+      })
       .returning();
     return result;
   }
@@ -519,7 +553,10 @@ export class DatabaseStorage implements IStorage {
   async updateOwnerInvestment(id: string, ownerInvestment: Partial<InsertOwnerInvestment>): Promise<OwnerInvestment> {
     const [updatedOwnerInvestment] = await db
       .update(ownerInvestments)
-      .set(ownerInvestment)
+      .set({
+        ...ownerInvestment,
+        amount: ownerInvestment.amount ? ownerInvestment.amount.toString() : undefined
+      })
       .where(eq(ownerInvestments.id, id))
       .returning();
     return updatedOwnerInvestment;
@@ -774,7 +811,10 @@ export class DatabaseStorage implements IStorage {
   async assignContractorToProject(contractorProject: InsertContractorProject): Promise<ContractorProject> {
     const [result] = await db
       .insert(contractorProjects)
-      .values(contractorProject)
+      .values({
+        ...contractorProject,
+        budget: contractorProject.budget ? contractorProject.budget.toString() : null
+      })
       .returning();
     return result;
   }
@@ -782,7 +822,10 @@ export class DatabaseStorage implements IStorage {
   async updateContractorProject(id: string, contractorProject: Partial<InsertContractorProject>): Promise<ContractorProject> {
     const [updatedContractorProject] = await db
       .update(contractorProjects)
-      .set(contractorProject)
+      .set({
+        ...contractorProject,
+        budget: contractorProject.budget ? contractorProject.budget.toString() : undefined
+      })
       .where(eq(contractorProjects.id, id))
       .returning();
     return updatedContractorProject;
@@ -912,7 +955,10 @@ export class DatabaseStorage implements IStorage {
   async assignClientToProject(clientProject: InsertClientProject): Promise<ClientProject> {
     const [result] = await db
       .insert(clientProjects)
-      .values(clientProject)
+      .values({
+        ...clientProject,
+        contractAmount: clientProject.contractAmount ? clientProject.contractAmount.toString() : null
+      })
       .returning();
     return result;
   }
@@ -920,7 +966,10 @@ export class DatabaseStorage implements IStorage {
   async updateClientProject(id: string, clientProject: Partial<InsertClientProject>): Promise<ClientProject> {
     const [updatedClientProject] = await db
       .update(clientProjects)
-      .set(clientProject)
+      .set({
+        ...clientProject,
+        contractAmount: clientProject.contractAmount ? clientProject.contractAmount.toString() : undefined
+      })
       .where(eq(clientProjects.id, id))
       .returning();
     return updatedClientProject;
@@ -1004,7 +1053,10 @@ export class DatabaseStorage implements IStorage {
   async createClientPayment(clientPayment: InsertClientPayment): Promise<ClientPayment> {
     const [result] = await db
       .insert(clientPayments)
-      .values(clientPayment)
+      .values({
+        ...clientPayment,
+        amount: clientPayment.amount.toString()
+      })
       .returning();
     return result;
   }
@@ -1012,7 +1064,10 @@ export class DatabaseStorage implements IStorage {
   async updateClientPayment(id: string, clientPayment: Partial<InsertClientPayment>): Promise<ClientPayment> {
     const [updatedClientPayment] = await db
       .update(clientPayments)
-      .set(clientPayment)
+      .set({
+        ...clientPayment,
+        amount: clientPayment.amount ? clientPayment.amount.toString() : undefined
+      })
       .where(eq(clientPayments.id, id))
       .returning();
     return updatedClientPayment;
