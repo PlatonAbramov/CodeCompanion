@@ -57,6 +57,7 @@ export default function Tools() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<ToolWithPerson | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   // Form for creating/editing tools
   const form = useForm<z.infer<typeof createToolFormSchema>>({
@@ -751,21 +752,26 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
                     <div className="flex gap-3 items-start">
                       {/* Mini photo */}
                       <div className="flex-shrink-0">
-                        {movement.photoUrl && (
+                        {movement.photoUrl ? (
                           <img
                             src={movement.photoUrl}
                             alt="Фото движения"
-                            className="w-12 h-12 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity border"
+                            className="w-12 h-12 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity border bg-gray-100"
                             onClick={() => setSelectedPhoto(movement.photoUrl)}
                             onError={(e) => {
+                              console.error('Ошибка загрузки изображения:', movement.photoUrl);
                               const target = e.target as HTMLImageElement;
                               target.style.display = 'none';
                               const parent = target.parentElement;
                               if (parent) {
-                                parent.innerHTML = `<div class="w-12 h-12 bg-gray-200 rounded-md flex items-center justify-center text-xs text-gray-500">Фото</div>`;
+                                parent.innerHTML = `<div class="w-12 h-12 bg-red-100 rounded-md flex items-center justify-center text-xs text-red-600 cursor-pointer hover:bg-red-200 transition-colors border" onclick="window.open('${movement.photoUrl}', '_blank')">❌</div>`;
                               }
                             }}
                           />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-200 rounded-md flex items-center justify-center text-xs text-gray-500 border">
+                            Фото
+                          </div>
                         )}
                       </div>
                       
