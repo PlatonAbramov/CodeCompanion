@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreatingClient, setIsCreatingClient] = useState(false);
+  
+  console.log("AssignClientModal props - projectId:", projectId);
 
   const { data: clients } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
@@ -40,7 +42,7 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
     resolver: zodResolver(insertClientProjectSchema),
     mode: "onChange",
     defaultValues: {
-      projectId,
+      projectId: projectId || "",
       clientId: "",
       contractAmount: undefined,
       contractNumber: "",
@@ -100,6 +102,14 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
     },
   });
 
+  // Обновляем projectId в форме при изменении пропа
+  useEffect(() => {
+    if (projectId && isOpen) {
+      form.setValue('projectId', projectId);
+      console.log("Setting projectId in form:", projectId);
+    }
+  }, [projectId, isOpen, form]);
+
   const createClientMutation = useMutation({
     mutationFn: async (data: InsertClient) => {
       const response = await fetch("/api/clients", {
@@ -130,7 +140,14 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
   });
 
   const onSubmit = (data: InsertClientProject) => {
-    assignMutation.mutate(data);
+    console.log("Submitting assignment data:", data);
+    // Убедимся, что projectId установлен
+    const submitData = {
+      ...data,
+      projectId: projectId || data.projectId
+    };
+    console.log("Final submit data:", submitData);
+    assignMutation.mutate(submitData);
   };
 
   const onCreateClient = (data: InsertClient) => {
