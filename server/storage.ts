@@ -11,7 +11,7 @@ import {
   type ClientPayment, type InsertClientPayment
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
@@ -918,17 +918,22 @@ export class DatabaseStorage implements IStorage {
     id: string;
     projectId: string;
     projectName: string;
+    location: string;
+    totalCost: string;
     contractAmount: number;
     contractNumber?: string;
     contractDate?: string;
     description?: string;
     status: string;
+    totalPaid: string;
   }>> {
     const result = await db
       .select({
         id: clientProjects.id,
         projectId: clientProjects.projectId,
         projectName: projects.name,
+        location: projects.location,
+        totalCost: projects.totalCost,
         contractAmount: clientProjects.contractAmount,
         contractNumber: clientProjects.contractNumber,
         contractDate: clientProjects.contractDate,
@@ -940,15 +945,42 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clientProjects.clientId, clientId))
       .orderBy(desc(clientProjects.createdAt));
 
+    // Get payment totals for each project
+    const projectIds = result.map(row => row.projectId);
+    const paymentTotals: Record<string, string> = {};
+
+    if (projectIds.length > 0) {
+      const paymentsSum = await db
+        .select({
+          projectId: clientPayments.projectId,
+          total: sql<string>`COALESCE(SUM(${clientPayments.amount}), 0)`
+        })
+        .from(clientPayments)
+        .where(
+          and(
+            eq(clientPayments.clientId, clientId),
+            inArray(clientPayments.projectId, projectIds)
+          )
+        )
+        .groupBy(clientPayments.projectId);
+
+      paymentsSum.forEach(payment => {
+        paymentTotals[payment.projectId] = payment.total || '0';
+      });
+    }
+
     return result.map(row => ({
       id: row.id,
       projectId: row.projectId,
       projectName: row.projectName,
+      location: row.location || '',
+      totalCost: row.totalCost || '0',
       contractAmount: Number(row.contractAmount || '0'),
       contractNumber: row.contractNumber || undefined,
       contractDate: row.contractDate?.toISOString(),
       description: row.description || undefined,
       status: row.status || 'active',
+      totalPaid: paymentTotals[row.projectId] || '0',
     }));
   }
 

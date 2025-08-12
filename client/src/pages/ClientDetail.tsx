@@ -26,6 +26,8 @@ export default function ClientDetailPage() {
   
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isEditProjectDialogOpen, setIsEditProjectDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
 
   const { data: client, isLoading: clientLoading } = useQuery({
     queryKey: ["/api/clients", clientId],
@@ -86,6 +88,19 @@ export default function ClientDetailPage() {
       description: "",
       paymentDate: new Date(),
       paymentMethod: "",
+    },
+  });
+
+  const editProjectForm = useForm<InsertClientProject>({
+    resolver: zodResolver(insertClientProjectSchema),
+    defaultValues: {
+      clientId: clientId || "",
+      projectId: "",
+      contractAmount: undefined,
+      contractNumber: "",
+      contractDate: undefined,
+      description: "",
+      status: "active",
     },
   });
 
@@ -150,6 +165,33 @@ export default function ClientDetailPage() {
     },
   });
 
+  const updateProjectMutation = useMutation({
+    mutationFn: async (data: { id: string; updates: Partial<InsertClientProject> }) => {
+      const response = await fetch(`/api/clients/${clientId}/projects/${data.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data.updates),
+      });
+      if (!response.ok) throw new Error("Failed to update project");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
+      setIsEditProjectDialogOpen(false);
+      setEditingProject(null);
+      editProjectForm.reset();
+      toast({ title: "Проект обновлен успешно" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Ошибка",
+        description: `Не удалось обновить проект: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const deletePaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
       const response = await fetch(`/api/client-payments/${paymentId}`, {
@@ -204,10 +246,30 @@ export default function ClientDetailPage() {
   };
 
   const onPaymentSubmit = (data: InsertClientPayment) => {
-    createPaymentMutation.mutate({
-      ...data,
-      clientId: clientId!,
+    createPaymentMutation.mutate(data);
+  };
+
+  const onEditProjectSubmit = (data: InsertClientProject) => {
+    if (editingProject) {
+      updateProjectMutation.mutate({
+        id: editingProject.id,
+        updates: data
+      });
+    }
+  };
+
+  const handleEditProject = (project: any) => {
+    setEditingProject(project);
+    editProjectForm.reset({
+      clientId: project.clientId,
+      projectId: project.projectId,
+      contractAmount: project.contractAmount || undefined,
+      contractNumber: project.contractNumber || "",
+      contractDate: project.contractDate ? new Date(project.contractDate) : undefined,
+      description: project.description || "",
+      status: project.status || "active",
     });
+    setIsEditProjectDialogOpen(true);
   };
 
   const handleDeletePayment = (paymentId: string) => {
@@ -478,31 +540,71 @@ export default function ClientDetailPage() {
               <Card key={project.id}>
                 <CardContent className="pt-6">
                   <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <h4 className="font-semibold">{project.projectName}</h4>
-                      {project.contractAmount && (
-                        <p className="text-sm">
-                          <strong>Сумма договора:</strong> {formatCurrency(project.contractAmount)}
-                        </p>
-                      )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Building2 className="w-4 h-4 text-blue-600" />
+                        <h4 className="font-semibold">{project.projectName}</h4>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        <MapPin className="w-4 h-4 inline mr-1" />
+                        {project.location || 'Местоположение не указано'}
+                      </p>
+                      
+                      {/* Financial Information */}
+                      <div className="grid grid-cols-2 gap-4 mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Стоимость проекта</p>
+                          <p className="text-sm font-medium">{formatCurrency(project.totalCost || '0')}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Сумма договора</p>
+                          <p className="text-sm font-medium">
+                            {project.contractAmount ? formatCurrency(project.contractAmount) : 'Не указана'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">К доплате</p>
+                          <p className="text-sm font-medium text-orange-600">
+                            {project.contractAmount ? 
+                              formatCurrency(parseFloat(project.contractAmount.toString()) - parseFloat(project.totalPaid || '0')) 
+                              : 'Не указана'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Оплачено</p>
+                          <p className="text-sm font-medium text-green-600">
+                            {formatCurrency(project.totalPaid || '0')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Contract Details */}
                       {project.contractNumber && (
-                        <p className="text-sm">
+                        <p className="text-xs mb-1">
                           <strong>Номер договора:</strong> {project.contractNumber}
                         </p>
                       )}
                       {project.contractDate && (
-                        <p className="text-sm">
+                        <p className="text-xs mb-1">
                           <strong>Дата договора:</strong> {new Date(project.contractDate).toLocaleDateString('ru-RU')}
                         </p>
                       )}
                       {project.description && (
-                        <p className="text-sm text-muted-foreground">{project.description}</p>
+                        <p className="text-xs text-muted-foreground">{project.description}</p>
                       )}
                     </div>
                     <div className="flex space-x-2">
                       <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
                         {project.status === 'active' ? 'Активный' : 'Завершен'}
                       </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditProject(project)}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -692,6 +794,119 @@ export default function ClientDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditProjectDialogOpen} onOpenChange={setIsEditProjectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Редактировать информацию о проекте</DialogTitle>
+          </DialogHeader>
+          <Form {...editProjectForm}>
+            <form onSubmit={editProjectForm.handleSubmit(onEditProjectSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editProjectForm.control}
+                  name="contractAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Сумма договора (د.إ)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editProjectForm.control}
+                  name="contractNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Номер договора</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Введите номер договора" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <FormField
+                control={editProjectForm.control}
+                name="contractDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Дата договора</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        {...field}
+                        value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                        onChange={(e) => field.onChange(new Date(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editProjectForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Описание</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Дополнительная информация" rows={3} {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editProjectForm.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Статус</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите статус" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="active">Активный</SelectItem>
+                        <SelectItem value="completed">Завершен</SelectItem>
+                        <SelectItem value="paused">Приостановлен</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditProjectDialogOpen(false)}>
+                  Отмена
+                </Button>
+                <Button type="submit" disabled={updateProjectMutation.isPending}>
+                  {updateProjectMutation.isPending ? "Сохранение..." : "Сохранить"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

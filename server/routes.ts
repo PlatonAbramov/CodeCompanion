@@ -902,6 +902,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/clients/:clientId/projects/:id", requireAuth, async (req, res) => {
+    try {
+      const project = await storage.updateClientProject(req.params.id, req.body);
+      res.json(project);
+    } catch (error) {
+      console.error("Failed to update client project:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.put("/api/client-projects/:id", requireAuth, async (req, res) => {
     try {
       const clientProject = await storage.updateClientProject(req.params.id, req.body);
