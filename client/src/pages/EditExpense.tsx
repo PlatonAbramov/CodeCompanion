@@ -28,7 +28,8 @@ export default function EditExpense() {
     amount: '',
     category: '',
     description: '',
-    receiptUrl: ''
+    receiptUrl: '',
+    contractorId: ''
   });
 
   // Fetch expense details
@@ -37,15 +38,22 @@ export default function EditExpense() {
     enabled: !!projectId
   });
 
+  // Fetch contractors for contractor payment category
+  const { data: contractors } = useQuery({
+    queryKey: ['/api/contractors'],
+    enabled: !!projectId
+  });
+
   useEffect(() => {
     if (expenses && expenseId) {
-      const expense = expenses.find((e: any) => e.id === expenseId);
+      const expense = (expenses as any[]).find((e: any) => e.id === expenseId);
       if (expense) {
         setFormData({
           amount: expense.amount,
           category: expense.category || '',
           description: expense.description || '',
-          receiptUrl: expense.receiptUrl || ''
+          receiptUrl: expense.receiptUrl || '',
+          contractorId: expense.contractorId || ''
         });
       }
     }
@@ -100,12 +108,28 @@ export default function EditExpense() {
       return;
     }
 
-    updateExpense({
+    if (formData.category === 'contractor_payments' && !formData.contractorId) {
+      toast({
+        title: "Ошибка",
+        description: "Для категории 'Оплата подрядчикам' необходимо выбрать подрядчика",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updateData: any = {
       amount: parseFloat(formData.amount),
       category: formData.category,
       description: formData.description,
       receiptUrl: formData.receiptUrl,
-    });
+    };
+
+    // Include contractorId if category is contractor_payments
+    if (formData.category === 'contractor_payments' && formData.contractorId) {
+      updateData.contractorId = formData.contractorId;
+    }
+
+    updateExpense(updateData);
   };
 
   const formatCurrency = (amount: string) => {
@@ -191,6 +215,31 @@ export default function EditExpense() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Contractor selection - only show for contractor payments */}
+              {formData.category === 'contractor_payments' && (
+                <div>
+                  <Label htmlFor="contractor">Подрядчик *</Label>
+                  <Select 
+                    value={formData.contractorId} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, contractorId: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите подрядчика" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(contractors as any[])?.map((contractor: any) => (
+                        <SelectItem key={contractor.id} value={contractor.id}>
+                          {contractor.company ? `${contractor.company} (${contractor.name})` : contractor.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Изменить подрядчика для данного расхода
+                  </p>
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="description">Описание *</Label>
