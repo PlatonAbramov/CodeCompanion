@@ -37,6 +37,10 @@ interface FinancialSummary {
   totalExpenses: string;
   currentProfit: string;
   projectedProfit: string;
+  vladAdvances: string;
+  platonAdvances: string;
+  vladEarnings: string;
+  platonEarnings: string;
 }
 
 // Component for individual project card with financial summary
@@ -159,6 +163,21 @@ function ProjectCard({
                   <p className="text-green-700 font-medium">Прогноз прибыли</p>
                   <p className={`font-bold ${parseFloat(financialSummary.projectedProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatCurrency(financialSummary.projectedProfit)}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <div>
+                  <p className="text-purple-700 font-medium">Заработок Влада</p>
+                  <p className={`font-bold ${parseFloat(financialSummary.vladEarnings) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(financialSummary.vladEarnings)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-purple-700 font-medium">Заработок Платона</p>
+                  <p className={`font-bold ${parseFloat(financialSummary.platonEarnings) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(financialSummary.platonEarnings)}
                   </p>
                 </div>
               </div>

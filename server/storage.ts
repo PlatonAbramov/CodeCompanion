@@ -445,6 +445,10 @@ export class DatabaseStorage implements IStorage {
     totalOwnerInvestments: string;
     currentProfit: string;
     projectedProfit: string;
+    vladAdvances: string;
+    platonAdvances: string;
+    vladEarnings: string;
+    platonEarnings: string;
   }> {
     const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
     if (!project) {
@@ -493,6 +497,31 @@ export class DatabaseStorage implements IStorage {
       .from(ownerInvestments)
       .where(eq(ownerInvestments.projectId, projectId));
 
+    // Получаем авансы Влада и Платона отдельно
+    const [vladAdvancesSum] = await db
+      .select({ 
+        total: sql<string>`COALESCE(SUM(${advances.amount}), 0)` 
+      })
+      .from(advances)
+      .where(
+        and(
+          eq(advances.projectId, projectId),
+          sql`LOWER(${advances.recipient}) = 'влад'`
+        )
+      );
+
+    const [platonAdvancesSum] = await db
+      .select({ 
+        total: sql<string>`COALESCE(SUM(${advances.amount}), 0)` 
+      })
+      .from(advances)
+      .where(
+        and(
+          eq(advances.projectId, projectId),
+          sql`LOWER(${advances.recipient}) = 'платон'`
+        )
+      );
+
     const totalCost = project.totalCost;
     const totalAdvances = advancesSum?.total || "0";
     const totalCustomerAdvances = customerAdvancesSum?.total || "0";
@@ -500,6 +529,8 @@ export class DatabaseStorage implements IStorage {
     const totalRevenues = revenuesSum?.total || "0";
     const totalExpenses = expensesSum?.total || "0";
     const totalOwnerInvestments = ownerInvestmentsSum?.total || "0";
+    const vladAdvances = vladAdvancesSum?.total || "0";
+    const platonAdvances = platonAdvancesSum?.total || "0";
     
     // Используем clientPayments как основной источник платежей от заказчиков
     const totalFromClients = Math.max(parseFloat(totalClientPayments), parseFloat(totalCustomerAdvances));
@@ -518,6 +549,19 @@ export class DatabaseStorage implements IStorage {
       parseFloat(totalAdvances)
     ).toString();
 
+    // Расчет заработка по формуле:
+    // Выплата_участнику = (Текущая Прибыль + Сумма Всех Авансов Влад+Платон) / 2 - Аванс_каждого_Участника)
+    const currentProfitNum = parseFloat(currentProfit);
+    const vladAdvancesNum = parseFloat(vladAdvances);
+    const platonAdvancesNum = parseFloat(platonAdvances);
+    
+    const totalParticipantAdvances = vladAdvancesNum + platonAdvancesNum;
+    const totalForDistribution = currentProfitNum + totalParticipantAdvances;
+    const sharePerParticipant = totalForDistribution / 2;
+    
+    const vladEarnings = (sharePerParticipant - vladAdvancesNum).toString();
+    const platonEarnings = (sharePerParticipant - platonAdvancesNum).toString();
+
     return {
       totalCost,
       totalAdvances,
@@ -527,7 +571,11 @@ export class DatabaseStorage implements IStorage {
       totalExpenses,
       totalOwnerInvestments,
       currentProfit,
-      projectedProfit
+      projectedProfit,
+      vladAdvances,
+      platonAdvances,
+      vladEarnings,
+      platonEarnings
     };
   }
 
