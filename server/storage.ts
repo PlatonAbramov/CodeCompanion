@@ -349,6 +349,29 @@ export class DatabaseStorage implements IStorage {
         amount: customerAdvance.amount.toString()
       })
       .returning();
+
+    // Проверяем, есть ли заказчик, связанный с этим проектом
+    const clientProject = await db
+      .select()
+      .from(clientProjects)
+      .where(eq(clientProjects.projectId, customerAdvance.projectId))
+      .limit(1);
+
+    // Если есть связанный заказчик, создаем соответствующий платеж
+    if (clientProject.length > 0) {
+      await db
+        .insert(clientPayments)
+        .values({
+          clientId: clientProject[0].clientId,
+          projectId: customerAdvance.projectId,
+          amount: customerAdvance.amount.toString(),
+          description: customerAdvance.description || "Аванс от заказчика",
+          paymentDate: customerAdvance.date,
+          paymentMethod: "advance",
+          createdBy: customerAdvance.createdBy,
+        });
+    }
+
     return newCustomerAdvance;
   }
 
@@ -1021,6 +1044,43 @@ export class DatabaseStorage implements IStorage {
         contractAmount: contractAmount.toString()
       })
       .returning();
+
+    // Синхронизируем существующие авансы от заказчиков для этого проекта
+    const existingAdvances = await db
+      .select()
+      .from(customerAdvances)
+      .where(eq(customerAdvances.projectId, clientProject.projectId));
+
+    // Создаем платежи для существующих авансов
+    for (const advance of existingAdvances) {
+      // Проверяем, не существует ли уже такой платеж
+      const existingPayment = await db
+        .select()
+        .from(clientPayments)
+        .where(
+          and(
+            eq(clientPayments.clientId, clientProject.clientId),
+            eq(clientPayments.projectId, clientProject.projectId),
+            eq(clientPayments.amount, advance.amount),
+            eq(clientPayments.paymentDate, advance.date)
+          )
+        );
+
+      if (existingPayment.length === 0) {
+        await db
+          .insert(clientPayments)
+          .values({
+            clientId: clientProject.clientId,
+            projectId: clientProject.projectId,
+            amount: advance.amount,
+            description: advance.description || "Аванс от заказчика",
+            paymentDate: advance.date,
+            paymentMethod: "advance",
+            createdBy: advance.createdBy,
+          });
+      }
+    }
+
     return result;
   }
 
