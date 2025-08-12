@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, CreditCard, FileText, Calendar, DollarSign } from "lucide-react";
+import { ArrowLeft, Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, CreditCard, FileText, Calendar, DollarSign, User, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -546,8 +546,8 @@ export default function ClientDetailPage() {
                         <h4 className="font-semibold">{project.projectName}</h4>
                       </div>
                       <p className="text-sm text-muted-foreground mb-3">
-                        <MapPin className="w-4 h-4 inline mr-1" />
-                        {project.location || 'Местоположение не указано'}
+                        <User className="w-4 h-4 inline mr-1" />
+                        {client?.name || 'Заказчик не указан'}
                       </p>
                       
                       {/* Financial Information */}
