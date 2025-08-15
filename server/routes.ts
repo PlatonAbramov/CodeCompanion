@@ -16,8 +16,9 @@ import {
   insertRevenueSchema, insertOwnerInvestmentSchema, insertContractorSchema,
   insertContractorProjectSchema, insertClientSchema, insertClientProjectSchema,
   insertClientPaymentSchema, insertToolSchema, insertToolMovementSchema,
+  createUserSchema,
   type InsertContractorProject, type InsertClientProject, type InsertClientPayment,
-  type InsertTool, type InsertToolMovement
+  type InsertTool, type InsertToolMovement, type CreateUser
 } from "@shared/schema";
 
 // Extend session data type
@@ -1145,6 +1146,215 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.sendStatus(404);
       }
       return res.sendStatus(500);
+    }
+  });
+
+  // Admin middleware - только для platonabramov90@gmail.com
+  const requireAdmin = async (req: any, res: any, next: any) => {
+    if (!req.session?.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    const user = await storage.getUserById(req.session.user.id);
+    if (!user || user.email !== 'platonabramov90@gmail.com') {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    
+    next();
+  };
+
+  // Админ-панель: статистика
+  app.get("/api/admin/stats", requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const activeSessions = await storage.getActiveSessions();
+      const failedLoginsToday = await storage.getFailedLoginsToday();
+      
+      const stats = {
+        totalUsers: users.length,
+        activeUsers: users.filter(u => u.isActive && !u.isBlocked).length,
+        blockedUsers: users.filter(u => u.isBlocked).length,
+        activeSessions: activeSessions.length,
+        failedLoginsToday: failedLoginsToday.length,
+      };
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to get admin stats:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Админ-панель: список пользователей
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const { search, status } = req.query;
+      let users = await storage.getAllUsers();
+      
+      if (search) {
+        const searchLower = (search as string).toLowerCase();
+        users = users.filter(user => 
+          user.username.toLowerCase().includes(searchLower) ||
+          user.name.toLowerCase().includes(searchLower) ||
+          (user.email && user.email.toLowerCase().includes(searchLower))
+        );
+      }
+      
+      if (status && status !== 'all') {
+        if (status === 'active') {
+          users = users.filter(user => user.isActive && !user.isBlocked);
+        } else if (status === 'blocked') {
+          users = users.filter(user => user.isBlocked);
+        }
+      }
+      
+      res.json(users);
+    } catch (error) {
+      console.error("Failed to get users:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Админ-панель: создание пользователя
+  app.post("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const validatedData = createUserSchema.parse(req.body);
+      
+      // Проверяем, что пользователь с таким логином не существует
+      const existingUser = await storage.getUserByUsername(validatedData.username);
+      if (existingUser) {
+        return res.status(400).json({ error: "Пользователь с таким логином уже существует" });
+      }
+      
+      // Хешируем пароль
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      
+      const user = await storage.createUser({
+        username: validatedData.username,
+        email: validatedData.email || null,
+        name: validatedData.name,
+        password: hashedPassword,
+        role: validatedData.role,
+        isActive: true,
+        isBlocked: false,
+        tempPassword: null,
+        mustChangePassword: false,
+        createdBy: req.session.user!.id,
+      });
+      
+      // Логируем действие админа
+      await storage.logAdminAction({
+        adminUserId: req.session.user!.id,
+        action: 'create_user',
+        targetUserId: user.id,
+        details: { username: validatedData.username, role: validatedData.role },
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+      
+      res.status(201).json(user);
+    } catch (error) {
+      console.error("Failed to create user:", error);
+      res.status(400).json({ error: "Validation error" });
+    }
+  });
+
+  // Админ-панель: блокировка/разблокировка пользователя
+  app.patch("/api/admin/users/:userId/block", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { blocked } = req.body;
+      
+      await storage.updateUserBlockStatus(userId, blocked);
+      
+      // Логируем действие админа
+      await storage.logAdminAction({
+        adminUserId: req.session.user!.id,
+        action: blocked ? 'block_user' : 'unblock_user',
+        targetUserId: userId,
+        details: { blocked },
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to update user block status:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Админ-панель: сброс пароля
+  app.post("/api/admin/users/:userId/reset-password", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Генерируем временный пароль
+      const tempPassword = Math.random().toString(36).slice(-8);
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      
+      await storage.updateUserPassword(userId, hashedPassword, true); // mustChangePassword = true
+      
+      // Логируем действие админа
+      await storage.logAdminAction({
+        adminUserId: req.session.user!.id,
+        action: 'reset_password',
+        targetUserId: userId,
+        details: { tempPassword: 'generated' },
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+      
+      res.json({ tempPassword });
+    } catch (error) {
+      console.error("Failed to reset password:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Админ-панель: принудительный выход
+  app.post("/api/admin/users/:userId/force-logout", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      await storage.deactivateUserSessions(userId);
+      
+      // Логируем действие админа
+      await storage.logAdminAction({
+        adminUserId: req.session.user!.id,
+        action: 'force_logout',
+        targetUserId: userId,
+        details: {},
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to force logout:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Админ-панель: журнал действий
+  app.get("/api/admin/actions", requireAdmin, async (req, res) => {
+    try {
+      const actions = await storage.getAdminActions();
+      res.json(actions);
+    } catch (error) {
+      console.error("Failed to get admin actions:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Админ-панель: логи входов
+  app.get("/api/admin/login-attempts", requireAdmin, async (req, res) => {
+    try {
+      const attempts = await storage.getLoginAttempts();
+      res.json(attempts);
+    } catch (error) {
+      console.error("Failed to get login attempts:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 

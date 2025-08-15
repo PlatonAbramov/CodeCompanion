@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Bus, Bell, LogOut, Plus, Home, Folder, Users, BarChart3,
   ProjectorIcon, TrendingUp, TrendingDown, Calendar, Edit2, ChevronDown, ChevronUp,
-  Building2, Wrench
+  Building2, Wrench, Settings
 } from "lucide-react";
 import { AssignClientModal } from '@/components/AssignClientModal';
 import { BottomNavigation } from "@/components/BottomNavigation";
@@ -380,6 +380,17 @@ export default function DirectorDashboard() {
               <Button variant="ghost" size="sm">
                 <Bell size={20} />
               </Button>
+              {user?.email === 'platonabramov90@gmail.com' && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setLocation('/admin')}
+                  data-testid="button-admin-panel"
+                  title="Админ-панель"
+                >
+                  <Settings size={20} />
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={() => logout()}>
                 <LogOut size={20} />
               </Button>

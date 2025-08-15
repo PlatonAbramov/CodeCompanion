@@ -7,12 +7,17 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
+  email: text("email").unique(), // Добавляем email для админки
   password: text("password").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull(), // 'director' | 'master'
   isActive: boolean("is_active").default(true),
+  isBlocked: boolean("is_blocked").default(false), // Для блокировки пользователей
+  tempPassword: text("temp_password"), // Временный пароль
+  mustChangePassword: boolean("must_change_password").default(false), // Принудительная смена пароля
   createdAt: timestamp("created_at").defaultNow(),
   lastLogin: timestamp("last_login"),
+  createdBy: varchar("created_by").references(() => users.id), // Кто создал пользователя
 });
 
 export const projects = pgTable("projects", {
@@ -202,6 +207,41 @@ export const toolPersons = pgTable("tool_persons", {
   name: text("name").notNull(),
   phone: text("phone").notNull().unique(),
   lastUsedAt: timestamp("last_used_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Таблицы для админ-панели
+export const userSessions = pgTable("user_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  sessionId: text("session_id").notNull().unique(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  isActive: boolean("is_active").default(true),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const loginAttempts = pgTable("login_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username"),
+  email: text("email"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  success: boolean("success").notNull(),
+  failureReason: text("failure_reason"), // неверный пароль, заблокирован и т.д.
+  userId: varchar("user_id").references(() => users.id), // если успешный вход
+  attemptTime: timestamp("attempt_time").defaultNow(),
+});
+
+export const adminActions = pgTable("admin_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminUserId: varchar("admin_user_id").references(() => users.id).notNull(),
+  action: text("action").notNull(), // 'create_user', 'block_user', 'reset_password', etc.
+  targetUserId: varchar("target_user_id").references(() => users.id),
+  details: jsonb("details"), // дополнительные данные о действии
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -630,3 +670,36 @@ export type ToolMovement = typeof toolMovements.$inferSelect;
 export type InsertToolMovement = z.infer<typeof insertToolMovementSchema>;
 export type ToolPerson = typeof toolPersons.$inferSelect;
 export type InsertToolPerson = z.infer<typeof insertToolPersonSchema>;
+
+// Админ-панель схемы
+export const createUserSchema = z.object({
+  username: z.string().min(3, "Логин должен содержать минимум 3 символа"),
+  email: z.string().email("Некорректный email").optional(),
+  name: z.string().min(2, "Имя должно содержать минимум 2 символа"),
+  password: z.string().min(6, "Пароль должен содержать минимум 6 символов"),
+  role: z.enum(["director", "master"], { required_error: "Выберите роль" }),
+});
+
+export const insertUserSessionSchema = createInsertSchema(userSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLoginAttemptSchema = createInsertSchema(loginAttempts).omit({
+  id: true,
+  attemptTime: true,
+});
+
+export const insertAdminActionSchema = createInsertSchema(adminActions).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Админ-панель типы
+export type CreateUser = z.infer<typeof createUserSchema>;
+export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
+export type InsertLoginAttempt = z.infer<typeof insertLoginAttemptSchema>;
+export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;
+export type UserSession = typeof userSessions.$inferSelect;
+export type LoginAttempt = typeof loginAttempts.$inferSelect;
+export type AdminAction = typeof adminActions.$inferSelect;

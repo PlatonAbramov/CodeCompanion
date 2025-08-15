@@ -1,7 +1,7 @@
 import { 
   users, projects, expenses, documents, advances, customerAdvances, userProjects, revenues, ownerInvestments,
   contractors, contractorProjects, clients, clientProjects, clientPayments,
-  tools, toolMovements, toolPersons,
+  tools, toolMovements, toolPersons, userSessions, loginAttempts, adminActions,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
   type Advance, type InsertAdvance, type CustomerAdvance, type InsertCustomerAdvance,
@@ -11,7 +11,9 @@ import {
   type Client, type InsertClient, type ClientProject, type InsertClientProject,
   type ClientPayment, type InsertClientPayment,
   type Tool, type InsertTool, type ToolMovement, type InsertToolMovement,
-  type ToolPerson, type InsertToolPerson
+  type ToolPerson, type InsertToolPerson,
+  type UserSession, type InsertUserSession, type LoginAttempt, type InsertLoginAttempt,
+  type AdminAction, type InsertAdminAction
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -20,9 +22,12 @@ import bcrypt from "bcrypt";
 export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserLastLogin(id: string): Promise<void>;
+  updateUserBlockStatus(id: string, blocked: boolean): Promise<void>;
+  updateUserPassword(id: string, password: string, mustChangePassword?: boolean): Promise<void>;
   getAllUsers(): Promise<User[]>;
   
   // Projects
@@ -202,6 +207,17 @@ export interface IStorage {
   // Tool Persons
   getRecentToolPersons(limit?: number): Promise<ToolPerson[]>;
   createOrUpdateToolPerson(person: InsertToolPerson): Promise<ToolPerson>;
+
+  // Admin panel methods
+  getUserById(id: string): Promise<User | undefined>;
+  getActiveSessions(): Promise<UserSession[]>;
+  getFailedLoginsToday(): Promise<LoginAttempt[]>;
+  logAdminAction(action: InsertAdminAction): Promise<AdminAction>;
+  getAdminActions(): Promise<AdminAction[]>;
+  getLoginAttempts(): Promise<LoginAttempt[]>;
+  deactivateUserSessions(userId: string): Promise<void>;
+  updateUserBlockStatus(id: string, blocked: boolean): Promise<void>;
+  updateUserPassword(id: string, password: string, mustChangePassword?: boolean): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1580,6 +1596,85 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Admin panel implementations
+  async getUserById(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getActiveSessions(): Promise<UserSession[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(userSessions)
+      .where(and(
+        eq(userSessions.isActive, true),
+        sql`${userSessions.expiresAt} > ${now}`
+      ));
+  }
+
+  async getFailedLoginsToday(): Promise<LoginAttempt[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return await db
+      .select()
+      .from(loginAttempts)
+      .where(and(
+        eq(loginAttempts.success, false),
+        sql`${loginAttempts.attemptTime} >= ${today}`
+      ));
+  }
+
+  async logAdminAction(action: InsertAdminAction): Promise<AdminAction> {
+    const [result] = await db
+      .insert(adminActions)
+      .values(action)
+      .returning();
+    return result;
+  }
+
+  async getAdminActions(): Promise<AdminAction[]> {
+    return await db
+      .select()
+      .from(adminActions)
+      .orderBy(desc(adminActions.createdAt))
+      .limit(100);
+  }
+
+  async getLoginAttempts(): Promise<LoginAttempt[]> {
+    return await db
+      .select()
+      .from(loginAttempts)
+      .orderBy(desc(loginAttempts.attemptTime))
+      .limit(100);
+  }
+
+  async deactivateUserSessions(userId: string): Promise<void> {
+    await db
+      .update(userSessions)
+      .set({ isActive: false })
+      .where(eq(userSessions.userId, userId));
+  }
+
+  async updateUserBlockStatus(id: string, blocked: boolean): Promise<void> {
+    await db
+      .update(users)
+      .set({ isBlocked: blocked })
+      .where(eq(users.id, id));
+  }
+
+  async updateUserPassword(id: string, password: string, mustChangePassword = false): Promise<void> {
+    await db
+      .update(users)
+      .set({ 
+        password,
+        mustChangePassword,
+        tempPassword: mustChangePassword ? password : null
+      })
+      .where(eq(users.id, id));
   }
 }
 

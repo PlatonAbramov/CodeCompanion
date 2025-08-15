@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 interface User {
   id: string;
   username: string;
+  email?: string;
   name: string;
   role: 'director' | 'master';
 }
