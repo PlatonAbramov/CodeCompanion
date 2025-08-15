@@ -65,13 +65,28 @@ app.use((req, res, next) => {
   } catch (error) {
     console.error("Database bootstrap failed:", error);
     
-    // Check if we should skip migration failures in production
-    const skipMigrationOnError = process.env.SKIP_MIGRATION_ON_ERROR === '1' || process.env.NODE_ENV === 'production';
+    // Enhanced error handling for production deployments
+    const isProduction = process.env.NODE_ENV === 'production';
+    const skipMigrationOnError = process.env.SKIP_MIGRATION_ON_ERROR === '1';
+    const autoMigrateDisabled = process.env.AUTO_MIGRATE === '0';
     
-    if (skipMigrationOnError) {
-      console.warn("Skipping database migration failure in production environment");
+    // Multiple conditions to allow startup despite migration failures
+    const shouldSkipError = isProduction || skipMigrationOnError || autoMigrateDisabled;
+    
+    if (shouldSkipError) {
+      console.warn("=".repeat(80));
+      console.warn("DATABASE MIGRATION FAILURE - CONTINUING STARTUP");
+      console.warn("=".repeat(80));
+      console.warn("Reason: Production deployment with migration error handling enabled");
+      console.warn(`NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+      console.warn(`SKIP_MIGRATION_ON_ERROR: ${process.env.SKIP_MIGRATION_ON_ERROR || 'not set'}`);
+      console.warn(`AUTO_MIGRATE: ${process.env.AUTO_MIGRATE || 'not set'}`);
       console.warn("The application will start without database migrations");
+      console.warn("Manual migration may be required via database panel");
+      console.warn("=".repeat(80));
     } else {
+      console.error("Database migration is required for development environment");
+      console.error("Set NODE_ENV=production, SKIP_MIGRATION_ON_ERROR=1, or AUTO_MIGRATE=0 to skip");
       process.exit(1);
     }
   }

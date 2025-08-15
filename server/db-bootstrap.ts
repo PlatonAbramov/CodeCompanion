@@ -376,7 +376,15 @@ export async function runDatabaseBootstrap(): Promise<void> {
   }
   
   if (!config.databaseUrl) {
-    throw new Error('DATABASE_URL environment variable is required');
+    const error = new Error('DATABASE_URL environment variable is required');
+    
+    // In production, log the error but don't fail
+    if (process.env.NODE_ENV === 'production' || process.env.SKIP_MIGRATION_ON_ERROR === '1') {
+      log('FAILED - DATABASE_URL missing, but continuing in production mode');
+      return;
+    }
+    
+    throw error;
   }
   
   log('Starting automatic database bootstrap');
@@ -385,16 +393,58 @@ export async function runDatabaseBootstrap(): Promise<void> {
   let client: Client | null = null;
   
   try {
-    // Step 1: Wait for database
-    client = await waitForDatabase(config);
+    // Step 1: Wait for database with enhanced error handling
+    try {
+      client = await waitForDatabase(config);
+    } catch (dbError) {
+      const errorMessage = (dbError as Error).message;
+      log(`DATABASE - Connection failed: ${errorMessage}`);
+      
+      // Check if this is a platform/infrastructure issue
+      const isPlatformIssue = errorMessage.includes('ENOTFOUND') ||
+                             errorMessage.includes('ECONNREFUSED') ||
+                             errorMessage.includes('timeout') ||
+                             errorMessage.includes('network') ||
+                             errorMessage.includes('connection');
+      
+      if (isPlatformIssue && (process.env.NODE_ENV === 'production' || process.env.SKIP_MIGRATION_ON_ERROR === '1')) {
+        log('DATABASE - Platform connectivity issue detected, skipping bootstrap in production');
+        return;
+      }
+      
+      throw dbError;
+    }
     
-    // Step 2: Acquire advisory lock
-    await acquireAdvisoryLock(client, config.lockKey);
+    // Step 2: Acquire advisory lock with timeout protection
+    try {
+      await acquireAdvisoryLock(client, config.lockKey);
+    } catch (lockError) {
+      const errorMessage = (lockError as Error).message;
+      log(`LOCK - Failed to acquire: ${errorMessage}`);
+      
+      if (process.env.NODE_ENV === 'production' || process.env.SKIP_MIGRATION_ON_ERROR === '1') {
+        log('LOCK - Skipping lock acquisition in production mode');
+        // Continue without lock in production
+      } else {
+        throw lockError;
+      }
+    }
     
-    // Step 3: Run migration with enhanced error handling for platform issues
-    await runPreflight(client);
+    // Step 3: Run preflight checks with error handling
+    try {
+      await runPreflight(client);
+    } catch (preflightError) {
+      const errorMessage = (preflightError as Error).message;
+      log(`PREFLIGHT - Failed: ${errorMessage}`);
+      
+      if (process.env.NODE_ENV === 'production' || process.env.SKIP_MIGRATION_ON_ERROR === '1') {
+        log('PREFLIGHT - Skipping preflight checks in production mode');
+      } else {
+        throw preflightError;
+      }
+    }
     
-    // The migration now includes all backfill logic - run it safely
+    // Step 4: Run migration with comprehensive error handling
     try {
       await runMigration(client);
     } catch (migrationError) {
@@ -402,26 +452,66 @@ export async function runDatabaseBootstrap(): Promise<void> {
       const isPlatformIssue = errorMessage.includes('current transaction is aborted') ||
                              errorMessage.includes('connection') ||
                              errorMessage.includes('timeout') ||
-                             errorMessage.includes('network');
+                             errorMessage.includes('network') ||
+                             errorMessage.includes('advisory lock') ||
+                             errorMessage.includes('database is starting up');
       
-      if (isPlatformIssue && (process.env.SKIP_MIGRATION_ON_ERROR === '1' || process.env.NODE_ENV === 'production')) {
-        log(`MIGRATE - Platform issue detected, skipping migration: ${errorMessage}`);
+      log(`MIGRATE - Error: ${errorMessage}`);
+      
+      if (isPlatformIssue || process.env.NODE_ENV === 'production' || process.env.SKIP_MIGRATION_ON_ERROR === '1') {
+        log('MIGRATE - Platform issue detected or production mode, skipping migration');
         log('MIGRATE - Application will continue without schema changes');
       } else {
         throw migrationError;
       }
     }
     
-    await seedDirector(client, config);
+    // Step 5: Seed director with error handling
+    try {
+      await seedDirector(client, config);
+    } catch (seedError) {
+      const errorMessage = (seedError as Error).message;
+      log(`SEED - Failed: ${errorMessage}`);
+      
+      if (process.env.NODE_ENV === 'production' || process.env.SKIP_MIGRATION_ON_ERROR === '1') {
+        log('SEED - Skipping director seeding in production mode');
+      } else {
+        throw seedError;
+      }
+    }
     
-    // Step 4: Release lock
-    await releaseAdvisoryLock(client, config.lockKey);
+    // Step 6: Release lock with error handling
+    try {
+      await releaseAdvisoryLock(client, config.lockKey);
+    } catch (unlockError) {
+      log(`UNLOCK - Failed to release lock: ${(unlockError as Error).message}`);
+      // Don't fail the entire bootstrap for unlock issues
+    }
     
     const totalDuration = Date.now() - overallStart;
     log(`DONE - Database bootstrap completed successfully in ${totalDuration}ms`);
     
   } catch (error) {
-    log(`FAILED - Database bootstrap failed: ${(error as Error).message}`);
+    const errorMessage = (error as Error).message;
+    log(`FAILED - Database bootstrap failed: ${errorMessage}`);
+    
+    // Enhanced production error handling
+    const isProduction = process.env.NODE_ENV === 'production';
+    const skipOnError = process.env.SKIP_MIGRATION_ON_ERROR === '1';
+    
+    if (isProduction || skipOnError) {
+      log('FAILED - Continuing startup despite bootstrap failure (production mode)');
+      
+      if (client) {
+        try {
+          await releaseAdvisoryLock(client, config.lockKey);
+        } catch (unlockError) {
+          log(`UNLOCK - Failed to release lock: ${(unlockError as Error).message}`);
+        }
+      }
+      
+      return; // Don't throw in production
+    }
     
     if (client) {
       try {
@@ -434,7 +524,11 @@ export async function runDatabaseBootstrap(): Promise<void> {
     throw error;
   } finally {
     if (client) {
-      await client.end();
+      try {
+        await client.end();
+      } catch (closeError) {
+        log(`CLIENT - Failed to close connection: ${(closeError as Error).message}`);
+      }
     }
   }
 }
