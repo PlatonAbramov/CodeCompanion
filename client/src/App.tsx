@@ -107,7 +107,7 @@ function AuthenticatedApp() {
       <Route path="/clients" component={user.role === 'director' ? Clients : () => { setLocation('/director'); return null; }} />
       <Route path="/clients/:id" component={user.role === 'director' ? ClientDetail : () => { setLocation('/director'); return null; }} />
       <Route path="/tools" component={user.role === 'director' ? Tools : () => { setLocation('/director'); return null; }} />
-      <Route path="/admin" component={user?.email === 'platonabramov90@gmail.com' ? AdminPanel : () => { setLocation('/director'); return null; }} />
+      <Route path="/admin" component={(user?.email === 'platonabramov90@gmail.com' || user?.username === 'platonabramov90') ? AdminPanel : () => { setLocation('/director'); return null; }} />
       <Route component={NotFound} />
     </Switch>
   );
