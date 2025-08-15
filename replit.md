@@ -13,6 +13,7 @@ This is a construction and HVAC services management mobile application designed 
 - **Production-Ready Deployments**: Eliminated deployment failures with idempotent database migrations and preflight checks
 - **Deployment Error Handling**: Added production deployment safeguards with `AUTO_MIGRATE=0`, `SKIP_MIGRATION_ON_ERROR=1`, and platform error detection
 - **Migration Resilience**: Enhanced migration system to handle platform issues gracefully without blocking deployment
+- **Safe Idempotent Migrations**: Implemented bulletproof SQL migration script that can run repeatedly without errors, includes comprehensive backfill, orphan cleanup, and constraint management
 - **File Serving**: Fixed uploads directory structure to ensure thumbnails and photos are properly served
 - **Backward Compatibility**: Created thumbnails for existing photo records and updated database entries
 - **Authentication Security**: Enhanced JWT/session compatibility with robust error handling

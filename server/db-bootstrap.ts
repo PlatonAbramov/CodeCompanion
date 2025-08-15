@@ -179,140 +179,138 @@ async function runBackfill(client: Client): Promise<void> {
 }
 
 async function runMigration(client: Client): Promise<void> {
-  log('MIGRATE - Starting schema migration');
+  log('MIGRATE - Starting safe idempotent schema migration');
   const start = Date.now();
   
   try {
-    await client.query('BEGIN');
-    
-    // A) Relaxing constraints and adding columns (one statement at a time)
-    try {
-      await client.query(`ALTER TABLE tool_movements ALTER COLUMN photo_url DROP NOT NULL`);
-    } catch (e) {
-      // Column might already allow NULL
-    }
-    
-    try {
-      await client.query(`ALTER TABLE tool_movements ADD COLUMN IF NOT EXISTS photo_thumbnail_url text`);
-    } catch (e) {
-      // Column might already exist
-    }
-    
-    try {
-      await client.query(`ALTER TABLE users ALTER COLUMN username DROP NOT NULL`);
-    } catch (e) {
-      // Column might already allow NULL
-    }
-    
-    try {
-      await client.query(`ALTER TABLE users ALTER COLUMN password DROP NOT NULL`);
-    } catch (e) {
-      // Column might already allow NULL or not exist
-    }
-    
-    try {
-      await client.query(`ALTER TABLE users ALTER COLUMN name DROP NOT NULL`);
-    } catch (e) {
-      // Column might already allow NULL
-    }
-    
-    // B) Tightening constraints (only if columns exist and have data)
-    try {
-      await client.query(`ALTER TABLE users ALTER COLUMN created_at SET NOT NULL`);
-    } catch (e) {
-      log(`MIGRATE - Warning: Could not set created_at NOT NULL: ${e.message}`);
-    }
-    
-    try {
-      await client.query(`ALTER TABLE users ALTER COLUMN updated_at SET NOT NULL`);
-    } catch (e) {
-      log(`MIGRATE - Warning: Could not set updated_at NOT NULL: ${e.message}`);
-    }
-    
-    try {
-      await client.query(`ALTER TABLE users ALTER COLUMN login SET NOT NULL`);
-    } catch (e) {
-      log(`MIGRATE - Warning: Could not set login NOT NULL: ${e.message}`);
-    }
-    
-    try {
-      await client.query(`ALTER TABLE users ALTER COLUMN password_hash SET NOT NULL`);
-    } catch (e) {
-      log(`MIGRATE - Warning: Could not set password_hash NOT NULL: ${e.message}`);
-    }
-    
-    try {
-      await client.query(`ALTER TABLE users ALTER COLUMN password_algo SET NOT NULL`);
-    } catch (e) {
-      log(`MIGRATE - Warning: Could not set password_algo NOT NULL: ${e.message}`);
-    }
-    
-    try {
-      await client.query(`ALTER TABLE users ALTER COLUMN is_blocked SET NOT NULL`);
-    } catch (e) {
-      log(`MIGRATE - Warning: Could not set is_blocked NOT NULL: ${e.message}`);
-    }
-    
-    try {
-      await client.query(`ALTER TABLE users ALTER COLUMN mfa_enabled SET NOT NULL`);
-    } catch (e) {
-      log(`MIGRATE - Warning: Could not set mfa_enabled NOT NULL: ${e.message}`);
-    }
-    
-    // C) Foreign key constraints (safely drop and recreate)
-    try {
-      await client.query(`ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_user_id_fkey`);
-      await client.query(`ALTER TABLE login_attempts DROP CONSTRAINT IF EXISTS login_attempts_user_id_fkey`);
-      await client.query(`ALTER TABLE mfa_totp DROP CONSTRAINT IF EXISTS mfa_totp_user_id_fkey`);
-    } catch (e) {
-      log(`MIGRATE - Note: Some old constraints may not exist: ${e.message}`);
-    }
-    
-    try {
-      await client.query(`
-        ALTER TABLE sessions
-          ADD CONSTRAINT sessions_user_id_users_id_fk
-          FOREIGN KEY (user_id) REFERENCES public.users(id)
-          ON DELETE CASCADE ON UPDATE NO ACTION
-      `);
-    } catch (e) {
-      if (!e.message.includes('already exists')) {
-        log(`MIGRATE - Warning: Could not add sessions FK: ${e.message}`);
-      }
-    }
-    
-    try {
-      await client.query(`
-        ALTER TABLE login_attempts
-          ADD CONSTRAINT login_attempts_user_id_users_id_fk
-          FOREIGN KEY (user_id) REFERENCES public.users(id)
-          ON DELETE NO ACTION ON UPDATE NO ACTION
-      `);
-    } catch (e) {
-      if (!e.message.includes('already exists')) {
-        log(`MIGRATE - Warning: Could not add login_attempts FK: ${e.message}`);
-      }
-    }
-    
-    try {
-      await client.query(`
-        ALTER TABLE mfa_totp
-          ADD CONSTRAINT mfa_totp_user_id_users_id_fk
-          FOREIGN KEY (user_id) REFERENCES public.users(id)
-          ON DELETE CASCADE ON UPDATE NO ACTION
-      `);
-    } catch (e) {
-      if (!e.message.includes('already exists')) {
-        log(`MIGRATE - Warning: Could not add mfa_totp FK: ${e.message}`);
-      }
-    }
-    
-    await client.query('COMMIT');
+    // Execute the safe, idempotent migration script
+    await client.query(`
+      -- SAFE / IDEMPOTENT MIGRATION
+      -- Делает backfill, чистит "сирот", мягко меняет схему и только потом ужесточает + вешает FK.
+      -- Можно запускать повторно: операции защищены проверками.
+
+      BEGIN;
+
+      -- 0) На всякий случай ждём эксклюзив (advisory lock), чтобы миграцию выполнял один инстанс
+      -- Не критично для одиночного деплоя, но безопасно при параллельном старте
+      SELECT pg_advisory_lock(748392);
+
+      -- 1) ДЕФОЛТЫ, ЧТОБЫ НОВЫЕ ЗАПИСИ НЕ БЫЛИ NULL
+      ALTER TABLE users ALTER COLUMN created_at  SET DEFAULT now();
+      ALTER TABLE users ALTER COLUMN updated_at  SET DEFAULT now();
+      ALTER TABLE users ALTER COLUMN is_blocked  SET DEFAULT false;
+      ALTER TABLE users ALTER COLUMN mfa_enabled SET DEFAULT false;
+      ALTER TABLE users ALTER COLUMN role        SET DEFAULT 'user';
+
+      -- 2) BACKFILL: ЗАПОЛНИТЬ ТЕКУЩИЕ NULL (БЕЗОПАСНО)
+      UPDATE users SET created_at  = COALESCE(created_at, NOW());
+      UPDATE users SET updated_at  = COALESCE(updated_at, NOW());
+      UPDATE users SET is_blocked  = COALESCE(is_blocked, FALSE);
+      UPDATE users SET mfa_enabled = COALESCE(mfa_enabled, FALSE);
+      -- если login пустой, подставим username (если колонка есть)
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='username')
+        THEN
+          UPDATE users SET login = COALESCE(login, username);
+        END IF;
+      END $$;
+
+      -- если нет хэша пароля/алгоритма — временно «заглушим» и заблокируем (чтобы не рушить NOT NULL)
+      UPDATE users
+      SET password_hash = COALESCE(password_hash, 'disabled'),
+          password_algo = COALESCE(password_algo, 'none'),
+          is_blocked    = CASE WHEN password_hash IS NULL OR password_algo IS NULL THEN TRUE ELSE is_blocked END
+      WHERE password_hash IS NULL OR password_algo IS NULL;
+
+      -- 3) УДАЛИТЬ «СИРОТ» ПЕРЕД ДОБАВЛЕНИЕМ ВНЕШНИХ КЛЮЧЕЙ
+      DELETE FROM sessions s
+      WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = s.user_id);
+
+      DELETE FROM login_attempts l
+      WHERE l.user_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = l.user_id);
+
+      DELETE FROM mfa_totp m
+      WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = m.user_id);
+
+      -- 4) МЯГКИЕ ИЗМЕНЕНИЯ СХЕМЫ (НЕ ЛОМАЕМ ИМЕЮЩИЕСЯ ДАННЫЕ)
+
+      -- tool_movements.photo_url: убрать NOT NULL, если колонка существует
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tool_movements' AND column_name='photo_url')
+        THEN
+          EXECUTE 'ALTER TABLE tool_movements ALTER COLUMN photo_url DROP NOT NULL';
+        END IF;
+      END $$;
+
+      -- Добавить миниатюру, если ещё нет
+      ALTER TABLE tool_movements ADD COLUMN IF NOT EXISTS photo_thumbnail_url text;
+
+      -- users: снять NOT NULL с «устаревших» колонок, но только если они вообще есть
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='username')
+        THEN
+          EXECUTE 'ALTER TABLE users ALTER COLUMN username DROP NOT NULL';
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='password')
+        THEN
+          EXECUTE 'ALTER TABLE users ALTER COLUMN password DROP NOT NULL';
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='name')
+        THEN
+          EXECUTE 'ALTER TABLE users ALTER COLUMN name DROP NOT NULL';
+        END IF;
+      END $$;
+
+      -- 5) УЖЕСТОЧЕНИЕ (ПОСЛЕ BACKFILL): СДЕЛАТЬ ПОЛЯ ОБЯЗАТЕЛЬНЫМИ
+      ALTER TABLE users ALTER COLUMN created_at    SET NOT NULL;
+      ALTER TABLE users ALTER COLUMN updated_at    SET NOT NULL;
+      ALTER TABLE users ALTER COLUMN login         SET NOT NULL;
+      ALTER TABLE users ALTER COLUMN password_hash SET NOT NULL;
+      ALTER TABLE users ALTER COLUMN password_algo SET NOT NULL;
+      ALTER TABLE users ALTER COLUMN is_blocked    SET NOT NULL;
+      ALTER TABLE users ALTER COLUMN mfa_enabled   SET NOT NULL;
+
+      -- 6) СНЯТЬ СТАРЫЕ FK, ЕСЛИ ОНИ ЕСТЬ, И ПОВЕСИТЬ НОВЫЕ ТОЛЬКО ЕСЛИ ИХ ЕЩЁ НЕТ
+      ALTER TABLE sessions       DROP CONSTRAINT IF EXISTS sessions_user_id_fkey;
+      ALTER TABLE login_attempts DROP CONSTRAINT IF EXISTS login_attempts_user_id_fkey;
+      ALTER TABLE mfa_totp       DROP CONSTRAINT IF EXISTS mfa_totp_user_id_fkey;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='sessions_user_id_users_id_fk') THEN
+          EXECUTE 'ALTER TABLE sessions
+            ADD CONSTRAINT sessions_user_id_users_id_fk
+            FOREIGN KEY (user_id) REFERENCES public.users(id)
+            ON DELETE CASCADE ON UPDATE NO ACTION';
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='login_attempts_user_id_users_id_fk') THEN
+          EXECUTE 'ALTER TABLE login_attempts
+            ADD CONSTRAINT login_attempts_user_id_users_id_fk
+            FOREIGN KEY (user_id) REFERENCES public.users(id)
+            ON DELETE NO ACTION ON UPDATE NO ACTION';
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='mfa_totp_user_id_users_id_fk') THEN
+          EXECUTE 'ALTER TABLE mfa_totp
+            ADD CONSTRAINT mfa_totp_user_id_users_id_fk
+            FOREIGN KEY (user_id) REFERENCES public.users(id)
+            ON DELETE CASCADE ON UPDATE NO ACTION';
+        END IF;
+      END $$;
+
+      -- 7) Снять advisory-lock и завершить
+      SELECT pg_advisory_unlock(748392);
+      COMMIT;
+    `);
     
     const duration = Date.now() - start;
     log(`MIGRATE - Completed successfully in ${duration}ms`);
   } catch (error) {
-    await client.query('ROLLBACK');
     log(`MIGRATE - Failed: ${(error as Error).message}`);
     throw error;
   }
@@ -393,11 +391,10 @@ export async function runDatabaseBootstrap(): Promise<void> {
     // Step 2: Acquire advisory lock
     await acquireAdvisoryLock(client, config.lockKey);
     
-    // Step 3: Run migration steps with platform error handling
+    // Step 3: Run migration with enhanced error handling for platform issues
     await runPreflight(client);
-    await runBackfill(client);
     
-    // Try migration with enhanced error handling for platform issues
+    // The migration now includes all backfill logic - run it safely
     try {
       await runMigration(client);
     } catch (migrationError) {
