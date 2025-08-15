@@ -4,6 +4,14 @@ This is a construction and HVAC services management mobile application designed 
 
 ## Recent Changes
 
+**August 15, 2025** - Database synchronization and admin panel fixes:
+- Fixed database schema synchronization between development and production environments
+- Renamed session_token to session_id in user_sessions table for consistency
+- Added missing columns (email, failure_reason, user_id) to login_attempts table
+- Fixed React Hooks ordering in AdminPanel.tsx to prevent rendering errors
+- Ensured all admin panel queries use enabled: isAdmin for optimization
+- Database schema now properly synced for consistent authentication across deployments
+
 **August 15, 2025** - Completed admin panel implementation with full functionality:
 - Added admin panel database tables (userSessions, loginAttempts, adminActions) with proper schema
 - Created comprehensive AdminPanel.tsx component with user management interface
@@ -17,6 +25,24 @@ This is a construction and HVAC services management mobile application designed 
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
+
+## Database Synchronization Guidelines
+
+**Important**: To ensure user accounts work across all deployments:
+
+1. **Development and Production Use Same Database**: Both environments connect to the same PostgreSQL database hosted on Neon, ensuring data persistence across deployments.
+
+2. **Schema Synchronization**: When making database schema changes:
+   - Run `npm run db:push` locally to apply schema changes
+   - All schema changes are immediately reflected in production since both use the same database
+   - User accounts, projects, and all data remain accessible after deployment
+
+3. **Authentication Persistence**: 
+   - User accounts created in development are immediately available in production
+   - Session data persists across deployments
+   - No need for separate production user creation
+
+4. **Admin Access**: The admin user (platonabramov90@gmail.com) has permanent access across all deployments.
 
 # System Architecture
 
