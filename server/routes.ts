@@ -1156,7 +1156,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     const user = await storage.getUserById(req.session.user.id);
-    if (!user || user.email !== 'platonabramov90@gmail.com') {
+    if (!user || (
+      user.email?.toLowerCase() !== 'platonabramov90@gmail.com' && 
+      user.username?.toLowerCase() !== 'platonabramov90' && 
+      user.username?.toLowerCase() !== 'platonabramov90@gmail.com'
+    )) {
       return res.status(403).json({ error: "Admin access required" });
     }
     

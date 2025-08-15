@@ -49,7 +49,7 @@ export default function AdminPanel() {
   const queryClient = useQueryClient();
 
   // Проверяем, что пользователь - администратор
-  const isAdmin = user?.email?.toLowerCase() === "platonabramov90@gmail.com" || user?.username?.toLowerCase() === "platonabramov90";
+  const isAdmin = user?.email?.toLowerCase() === "platonabramov90@gmail.com" || user?.username?.toLowerCase() === "platonabramov90" || user?.username?.toLowerCase() === "platonabramov90@gmail.com";
 
   // Статистика
   const { data: stats } = useQuery<AdminStats>({
