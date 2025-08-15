@@ -5,44 +5,10 @@ export default {
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
-      fontFamily: {
-        sans: ["var(--font-family-base)"],
-        jost: ["Jost", "system-ui", "sans-serif"],
-      },
-      fontSize: {
-        xs: "var(--font-size-xs)",
-        sm: "var(--font-size-sm)",
-        base: "var(--font-size-base)",
-        lg: "var(--font-size-lg)",
-        xl: "var(--font-size-xl)",
-        "2xl": "var(--font-size-2xl)",
-        "3xl": "var(--font-size-3xl)",
-      },
-      fontWeight: {
-        normal: "var(--font-weight-normal)",
-        medium: "var(--font-weight-medium)",
-        semibold: "var(--font-weight-semibold)",
-        bold: "var(--font-weight-bold)",
-      },
-      lineHeight: {
-        tight: "var(--line-height-tight)",
-        normal: "var(--line-height-normal)",
-        relaxed: "var(--line-height-relaxed)",
-      },
       borderRadius: {
-        lg: "var(--radius-lg)",
-        md: "var(--radius-md)",
-        sm: "var(--radius-sm)",
-        DEFAULT: "var(--radius)",
-      },
-      boxShadow: {
-        card: "var(--shadow-card)",
-        dropdown: "var(--shadow-dropdown)",
-        modal: "var(--shadow-modal)",
-      },
-      transitionDuration: {
-        fast: "var(--transition-fast)",
-        normal: "var(--transition-normal)",
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       colors: {
         background: "var(--background)",
