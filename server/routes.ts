@@ -137,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Initialize admin user (public endpoint for deployment setup)
-  app.post("/api/init-admin", async (req, res) => {
+  app.get("/api/init-admin", async (req, res) => {
     try {
       // Check if the specific admin user already exists
       const users = await storage.getAllUsers();
@@ -147,7 +147,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ 
           message: "Admin user already exists",
           username: "platonabramov90@gmail.com",
-          password: "123456"
+          password: "123456",
+          status: "exists"
         });
       }
 
@@ -162,11 +163,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         message: "Admin user created successfully",
         username: "platonabramov90@gmail.com",
-        password: "123456"
+        password: "123456",
+        status: "created"
       });
     } catch (error) {
       console.error("Init admin error:", error);
-      res.status(500).json({ error: "Failed to create admin user" });
+      res.status(500).json({ 
+        error: "Failed to create admin user",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/init-admin", async (req, res) => {
+    try {
+      // Force create admin user even if others exist
+      const users = await storage.getAllUsers();
+      const existingAdmin = users.find(u => u.username === "platonabramov90@gmail.com");
+      
+      if (existingAdmin) {
+        return res.json({ 
+          message: "Admin user already exists",
+          username: "platonabramov90@gmail.com",
+          password: "123456",
+          status: "exists"
+        });
+      }
+
+      // Create specific admin user
+      const adminUser = await storage.createUser({
+        username: "platonabramov90@gmail.com",
+        password: "123456",
+        name: "Platon Abramov",
+        role: "director"
+      });
+
+      res.json({ 
+        message: "Admin user created successfully",
+        username: "platonabramov90@gmail.com",
+        password: "123456",
+        status: "created"
+      });
+    } catch (error) {
+      console.error("Init admin error:", error);
+      res.status(500).json({ 
+        error: "Failed to create admin user",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
