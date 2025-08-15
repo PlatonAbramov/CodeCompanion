@@ -380,7 +380,9 @@ export default function DirectorDashboard() {
               <Button variant="ghost" size="sm">
                 <Bell size={20} />
               </Button>
-              {(user?.email?.toLowerCase() === 'platonabramov90@gmail.com' || user?.username?.toLowerCase() === 'platonabramov90') && (
+              {/* Debug: показываем данные пользователя */}
+              {console.log('User data for admin check:', { email: user?.email, username: user?.username, emailLower: user?.email?.toLowerCase(), usernameLower: user?.username?.toLowerCase() })}
+              {(user?.email?.toLowerCase() === 'platonabramov90@gmail.com' || user?.username?.toLowerCase() === 'platonabramov90' || user?.username?.toLowerCase() === 'platonabramov90@gmail.com') && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
