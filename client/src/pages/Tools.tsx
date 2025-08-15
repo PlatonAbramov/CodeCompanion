@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -684,6 +684,20 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
     enabled: !!tool?.id,
   });
 
+  // Handle Escape key to close photo modal
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedPhoto) {
+        setSelectedPhoto(null);
+      }
+    };
+
+    if (selectedPhoto) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [selectedPhoto]);
+
   if (!tool) return null;
 
   const formatCurrency = (amount: string | number) => {
@@ -753,24 +767,34 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
                       {/* Mini photo */}
                       <div className="flex-shrink-0">
                         {movement.photoUrl ? (
-                          <img
-                            src={movement.photoUrl}
-                            alt="Фото движения"
-                            className="w-12 h-12 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity border bg-gray-100"
-                            onClick={() => setSelectedPhoto(movement.photoUrl)}
-                            onError={(e) => {
-                              console.error('Ошибка загрузки изображения:', movement.photoUrl);
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.innerHTML = `<div class="w-12 h-12 bg-red-100 rounded-md flex items-center justify-center text-xs text-red-600 cursor-pointer hover:bg-red-200 transition-colors border" onclick="window.open('${movement.photoUrl}', '_blank')">❌</div>`;
-                              }
-                            }}
-                          />
+                          <div className="relative group">
+                            <img
+                              src={movement.photoUrl}
+                              alt="Фото движения"
+                              className="w-16 h-16 object-cover rounded-lg cursor-pointer transition-all duration-200 border-2 border-gray-200 hover:border-blue-400 hover:scale-105 hover:shadow-lg"
+                              onClick={() => setSelectedPhoto(movement.photoUrl)}
+                              data-testid={`img-thumbnail-${movement.id}`}
+                              onError={(e) => {
+                                console.error('Ошибка загрузки изображения:', movement.photoUrl);
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `<div class="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center text-xs text-red-600 cursor-pointer hover:bg-red-200 transition-colors border-2 border-red-300" data-testid="img-error-${movement.id}">❌<br/>Ошибка</div>`;
+                                }
+                              }}
+                            />
+                            {/* Hover overlay */}
+                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg flex items-center justify-center">
+                              <div className="text-white text-xs font-medium">Увеличить</div>
+                            </div>
+                          </div>
                         ) : (
-                          <div className="w-12 h-12 bg-gray-200 rounded-md flex items-center justify-center text-xs text-gray-500 border">
-                            Фото
+                          <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-500 border-2 border-gray-300">
+                            <div className="text-center">
+                              <div>📷</div>
+                              <div>Нет фото</div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -803,22 +827,43 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
         </div>
       </DialogContent>
 
-      {/* Photo Viewer Dialog */}
+      {/* Photo Viewer Modal */}
       {selectedPhoto && (
-        <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>Фото движения инструмента</DialogTitle>
-            </DialogHeader>
-            <div className="flex justify-center">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in-0 duration-200"
+          onClick={() => setSelectedPhoto(null)}
+          data-testid="photo-modal-overlay"
+        >
+          <div className="relative max-w-[95vw] max-h-[95vh] p-4 animate-in zoom-in-95 duration-200">
+            {/* Close button */}
+            <button
+              onClick={() => setSelectedPhoto(null)}
+              className="absolute -top-2 -right-2 z-10 w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-100 rounded-full text-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-110"
+              data-testid="button-close-photo"
+              title="Закрыть (ESC)"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            {/* Image container */}
+            <div className="relative bg-white rounded-lg p-2 shadow-2xl">
               <img
                 src={selectedPhoto}
-                alt="Полное фото"
-                className="max-w-full max-h-[70vh] object-contain rounded-md"
+                alt="Полное фото движения инструмента"
+                className="max-w-full max-h-[85vh] object-contain rounded-md"
+                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking on image
+                data-testid="img-full-photo"
               />
             </div>
-          </DialogContent>
-        </Dialog>
+            
+            {/* Instructions */}
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+              Нажмите за пределы изображения или ESC для закрытия
+            </div>
+          </div>
+        </div>
       )}
     </Dialog>
   );
