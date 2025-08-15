@@ -28,6 +28,7 @@ export interface IStorage {
   updateUserLastLogin(id: string): Promise<void>;
   updateUserBlockStatus(id: string, blocked: boolean): Promise<void>;
   updateUserPassword(id: string, password: string, mustChangePassword?: boolean): Promise<void>;
+  deleteUser(id: string): Promise<void>;
   getAllUsers(): Promise<User[]>;
   
   // Projects
@@ -249,6 +250,16 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users).orderBy(users.name);
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    // Удаляем связанные данные пользователя
+    await db.delete(userProjects).where(eq(userProjects.userId, id));
+    await db.delete(userSessions).where(eq(userSessions.userId, id));
+    await db.delete(loginAttempts).where(eq(loginAttempts.userId, id));
+    
+    // Удаляем самого пользователя
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async getAllProjects(): Promise<Project[]> {

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +30,10 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  ArrowLeft,
+  Edit,
+  Trash2
 } from "lucide-react";
 
 interface AdminStats {
@@ -42,9 +46,12 @@ interface AdminStats {
 
 export default function AdminPanel() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "blocked">("all");
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -189,11 +196,36 @@ export default function AdminPanel() {
         description: "Пользователь принудительно вышел из всех сессий",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+      setIsEditUserOpen(false);
     },
     onError: (error: any) => {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось завершить сессии",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Мутация удаления пользователя
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiRequest('DELETE', `/api/admin/users/${userId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Успешно",
+        description: "Пользователь удален",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+      setIsEditUserOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось удалить пользователя",
         variant: "destructive",
       });
     },
@@ -237,9 +269,21 @@ export default function AdminPanel() {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Заголовок */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Админ-панель</h1>
-            <p className="text-gray-600">Управление пользователями и системой</p>
+          <div className="flex items-center space-x-4">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setLocation('/director')}
+              className="text-gray-600 hover:text-gray-900"
+              data-testid="button-back-admin"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Назад
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Админ-панель</h1>
+              <p className="text-gray-600">Управление пользователями и системой</p>
+            </div>
           </div>
           <Badge variant="secondary" className="px-3 py-1">
             <Shield className="h-4 w-4 mr-1" />
@@ -536,52 +580,18 @@ export default function AdminPanel() {
                               )}
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant={user.isBlocked ? "default" : "destructive"}
-                                  onClick={() => toggleUserBlockMutation.mutate({ 
-                                    userId: user.id, 
-                                    blocked: !user.isBlocked 
-                                  })}
-                                  disabled={toggleUserBlockMutation.isPending}
-                                  data-testid={`button-toggle-block-${user.id}`}
-                                >
-                                  {user.isBlocked ? (
-                                    <>
-                                      <Shield className="h-3 w-3 mr-1" />
-                                      Разблокировать
-                                    </>
-                                  ) : (
-                                    <>
-                                      <ShieldOff className="h-3 w-3 mr-1" />
-                                      Заблокировать
-                                    </>
-                                  )}
-                                </Button>
-                                
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => resetPasswordMutation.mutate(user.id)}
-                                  disabled={resetPasswordMutation.isPending}
-                                  data-testid={`button-reset-password-${user.id}`}
-                                >
-                                  <RotateCcw className="h-3 w-3 mr-1" />
-                                  Сбросить пароль
-                                </Button>
-                                
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => forceLogoutMutation.mutate(user.id)}
-                                  disabled={forceLogoutMutation.isPending}
-                                  data-testid={`button-force-logout-${user.id}`}
-                                >
-                                  <LogOut className="h-3 w-3 mr-1" />
-                                  Вывести везде
-                                </Button>
-                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingUser(user);
+                                  setIsEditUserOpen(true);
+                                }}
+                                data-testid={`button-edit-user-${user.id}`}
+                              >
+                                <Edit className="h-3 w-3 mr-1" />
+                                Редактировать
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))
@@ -742,6 +752,218 @@ export default function AdminPanel() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Модальное окно редактирования пользователя */}
+        <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Редактирование пользователя</DialogTitle>
+              <DialogDescription>
+                Управление учетной записью: {editingUser?.name} (@{editingUser?.username})
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={editingUser?.isBlocked ? "default" : "destructive"}
+                  onClick={() => {
+                    if (editingUser) {
+                      toggleUserBlockMutation.mutate({ 
+                        userId: editingUser.id, 
+                        blocked: !editingUser.isBlocked 
+                      });
+                    }
+                  }}
+                  disabled={toggleUserBlockMutation.isPending}
+                  data-testid="button-edit-toggle-block"
+                  className="w-full"
+                >
+                  {editingUser?.isBlocked ? (
+                    <>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Разблокировать
+                    </>
+                  ) : (
+                    <>
+                      <ShieldOff className="h-4 w-4 mr-2" />
+                      Заблокировать
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (editingUser) {
+                      resetPasswordMutation.mutate(editingUser.id);
+                    }
+                  }}
+                  disabled={resetPasswordMutation.isPending}
+                  data-testid="button-edit-reset-password"
+                  className="w-full"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Сбросить пароль
+                </Button>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (editingUser) {
+                    forceLogoutMutation.mutate(editingUser.id);
+                  }
+                }}
+                disabled={forceLogoutMutation.isPending}
+                data-testid="button-edit-force-logout"
+                className="w-full"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Выйти везде
+              </Button>
+
+              <div className="border-t pt-4">
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (editingUser && confirm(`Вы уверены, что хотите удалить пользователя ${editingUser.name}? Это действие нельзя отменить.`)) {
+                      deleteUserMutation.mutate(editingUser.id);
+                    }
+                  }}
+                  disabled={deleteUserMutation.isPending}
+                  data-testid="button-edit-delete-user"
+                  className="w-full"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Удалить пользователя
+                </Button>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsEditUserOpen(false)}
+                data-testid="button-cancel-edit"
+              >
+                Отмена
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Модальное окно создания пользователя */}
+        <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Создать нового пользователя</DialogTitle>
+              <DialogDescription>
+                Добавление нового пользователя в систему
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Form {...createUserForm}>
+              <form onSubmit={createUserForm.handleSubmit(onCreateUser)} className="space-y-4">
+                <FormField
+                  control={createUserForm.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Логин</FormLabel>
+                      <FormControl>
+                        <Input placeholder="username" {...field} data-testid="input-create-username" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={createUserForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email (необязательно)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="email@example.com" {...field} data-testid="input-create-email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={createUserForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Имя</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Имя пользователя" {...field} data-testid="input-create-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={createUserForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Пароль</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} data-testid="input-create-password" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={createUserForm.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Роль</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-create-role">
+                            <SelectValue placeholder="Выберите роль" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="master">Мастер</SelectItem>
+                          <SelectItem value="director">Директор</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <DialogFooter>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsCreateUserOpen(false)}
+                    data-testid="button-cancel-create"
+                  >
+                    Отмена
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={createUserMutation.isPending}
+                    data-testid="button-submit-create"
+                  >
+                    {createUserMutation.isPending ? "Создание..." : "Создать"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

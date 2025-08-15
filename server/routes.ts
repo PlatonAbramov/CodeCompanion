@@ -1362,6 +1362,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Удаление пользователя
+  app.delete("/api/admin/users/:userId", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Проверяем, что пользователь не удаляет сам себя
+      if (userId === req.session.user!.id) {
+        return res.status(400).json({ error: "Нельзя удалить собственную учетную запись" });
+      }
+      
+      await storage.deleteUser(userId);
+      
+      // Логируем действие админа
+      await storage.logAdminAction({
+        adminUserId: req.session.user!.id,
+        action: 'delete_user',
+        targetUserId: userId,
+        details: {},
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
