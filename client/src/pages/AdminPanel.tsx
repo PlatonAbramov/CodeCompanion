@@ -107,22 +107,6 @@ export default function AdminPanel() {
     },
   });
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold mb-2">Нет доступа</h2>
-              <p className="text-gray-600">У вас нет прав для доступа к админ-панели.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // Мутация создания пользователя
   const createUserMutation = useMutation({
     mutationFn: async (data: CreateUser) => {
@@ -218,6 +202,22 @@ export default function AdminPanel() {
   const onCreateUser = (data: CreateUser) => {
     createUserMutation.mutate(data);
   };
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold mb-2">Нет доступа</h2>
+              <p className="text-gray-600">У вас нет прав для доступа к админ-панели.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const filteredUsers = users?.filter(user => {
     const matchesSearch = !searchTerm || 
