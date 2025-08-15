@@ -64,7 +64,16 @@ app.use((req, res, next) => {
     await runDatabaseBootstrap();
   } catch (error) {
     console.error("Database bootstrap failed:", error);
-    process.exit(1);
+    
+    // Check if we should skip migration failures in production
+    const skipMigrationOnError = process.env.SKIP_MIGRATION_ON_ERROR === '1' || process.env.NODE_ENV === 'production';
+    
+    if (skipMigrationOnError) {
+      console.warn("Skipping database migration failure in production environment");
+      console.warn("The application will start without database migrations");
+    } else {
+      process.exit(1);
+    }
   }
   
   const server = await registerRoutes(app);

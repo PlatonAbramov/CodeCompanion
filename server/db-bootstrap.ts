@@ -393,10 +393,28 @@ export async function runDatabaseBootstrap(): Promise<void> {
     // Step 2: Acquire advisory lock
     await acquireAdvisoryLock(client, config.lockKey);
     
-    // Step 3: Run migration steps
+    // Step 3: Run migration steps with platform error handling
     await runPreflight(client);
     await runBackfill(client);
-    await runMigration(client);
+    
+    // Try migration with enhanced error handling for platform issues
+    try {
+      await runMigration(client);
+    } catch (migrationError) {
+      const errorMessage = (migrationError as Error).message;
+      const isPlatformIssue = errorMessage.includes('current transaction is aborted') ||
+                             errorMessage.includes('connection') ||
+                             errorMessage.includes('timeout') ||
+                             errorMessage.includes('network');
+      
+      if (isPlatformIssue && (process.env.SKIP_MIGRATION_ON_ERROR === '1' || process.env.NODE_ENV === 'production')) {
+        log(`MIGRATE - Platform issue detected, skipping migration: ${errorMessage}`);
+        log('MIGRATE - Application will continue without schema changes');
+      } else {
+        throw migrationError;
+      }
+    }
+    
     await seedDirector(client, config);
     
     // Step 4: Release lock

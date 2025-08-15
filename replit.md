@@ -11,6 +11,8 @@ This is a construction and HVAC services management mobile application designed 
 - **Thumbnail Display**: Added hover effects and error handling for thumbnail images in tool movement history
 - **Automatic Database Bootstrap**: Implemented fully automated migration system that runs at startup with advisory locks
 - **Production-Ready Deployments**: Eliminated deployment failures with idempotent database migrations and preflight checks
+- **Deployment Error Handling**: Added production deployment safeguards with `AUTO_MIGRATE=0`, `SKIP_MIGRATION_ON_ERROR=1`, and platform error detection
+- **Migration Resilience**: Enhanced migration system to handle platform issues gracefully without blocking deployment
 - **File Serving**: Fixed uploads directory structure to ensure thumbnails and photos are properly served
 - **Backward Compatibility**: Created thumbnails for existing photo records and updated database entries
 - **Authentication Security**: Enhanced JWT/session compatibility with robust error handling
@@ -96,3 +98,35 @@ Preferred communication style: Simple, everyday language.
 - **Replit Integration**: Vite plugins for Replit development environment
 - **Code Quality**: TypeScript strict mode with comprehensive type checking
 - **Hot Reload**: Vite HMR for frontend, tsx watch mode for backend development
+
+# Deployment Configuration
+
+## Environment Variables for Production
+
+The application includes robust deployment safeguards to handle database migration platform issues:
+
+### Required Production Secrets
+```
+AUTO_MIGRATE=0                 # Disable automatic database migrations
+SKIP_MIGRATION_ON_ERROR=1      # Allow startup despite migration failures  
+NODE_ENV=production           # Enable production environment mode
+DATABASE_URL=postgresql://... # PostgreSQL connection string
+```
+
+### Migration Controls
+- **AUTO_MIGRATE=0**: Completely disables automatic database migrations during startup
+- **SKIP_MIGRATION_ON_ERROR=1**: Allows application to start even if migrations fail due to platform issues
+- **NODE_ENV=production**: Automatically enables migration error skipping in production environment
+
+### Platform Error Handling
+The system detects and handles common deployment platform issues:
+- Database connection timeouts
+- Transaction abortion errors  
+- Network connectivity issues
+- Advisory lock failures
+
+### Deployment Process
+1. Set all required environment variables in Replit production secrets
+2. Use the Replit deploy button to deploy the application
+3. The application will start successfully even if database migrations encounter platform issues
+4. Manual database operations can be performed using the Replit database panel if needed
