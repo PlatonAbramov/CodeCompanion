@@ -1372,9 +1372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Нельзя удалить собственную учетную запись" });
       }
       
-      await storage.deleteUser(userId);
-      
-      // Логируем действие админа
+      // Логируем действие админа ПЕРЕД удалением пользователя
       await storage.logAdminAction({
         adminUserId: req.session.user!.id,
         action: 'delete_user',
@@ -1383,6 +1381,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipAddress: req.ip || 'unknown',
         userAgent: req.get('User-Agent') || 'unknown',
       });
+      
+      await storage.deleteUser(userId);
       
       res.json({ success: true });
     } catch (error) {

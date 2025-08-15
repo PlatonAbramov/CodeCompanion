@@ -258,6 +258,9 @@ export class DatabaseStorage implements IStorage {
     await db.delete(userSessions).where(eq(userSessions.userId, id));
     await db.delete(loginAttempts).where(eq(loginAttempts.userId, id));
     
+    // Удаляем админ-действия где этот пользователь был целью
+    await db.delete(adminActions).where(eq(adminActions.targetUserId, id));
+    
     // Удаляем самого пользователя
     await db.delete(users).where(eq(users.id, id));
   }
