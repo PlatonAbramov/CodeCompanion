@@ -51,9 +51,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(cookieParser());
   
   // Create uploads directory if it doesn't exist
-  const uploadsDir = path.join(__dirname, 'uploads');
+  const uploadsDir = path.join(process.cwd(), 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  
+  // Also ensure server/uploads exists for backward compatibility
+  const serverUploadsDir = path.join(__dirname, '..', 'uploads');
+  if (!fs.existsSync(serverUploadsDir)) {
+    fs.mkdirSync(serverUploadsDir, { recursive: true });
   }
 
   // Configure multer for file uploads
@@ -1198,16 +1204,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const thumbnailPath = path.join(uploadsDir, thumbnailFilename);
         
         try {
-          // Create 100x100 thumbnail using sharp
-          await sharp(originalPath)
-            .resize(100, 100, {
-              fit: 'cover',
-              position: 'center'
-            })
-            .jpeg({ quality: 80 })
-            .toFile(thumbnailPath);
+          console.log(`Creating thumbnail: ${originalPath} -> ${thumbnailPath}`);
           
-          photoThumbnailUrl = `/uploads/${thumbnailFilename}`;
+          // Check if original file exists
+          if (!fs.existsSync(originalPath)) {
+            console.error(`Original file not found: ${originalPath}`);
+            photoThumbnailUrl = photoUrl;
+          } else {
+            // Create 100x100 thumbnail using sharp
+            await sharp(originalPath)
+              .resize(100, 100, {
+                fit: 'cover',
+                position: 'center'
+              })
+              .jpeg({ quality: 80 })
+              .toFile(thumbnailPath);
+            
+            photoThumbnailUrl = `/uploads/${thumbnailFilename}`;
+            console.log(`Thumbnail created successfully: ${thumbnailFilename}`);
+          }
         } catch (thumbnailError) {
           console.error("Error creating thumbnail:", thumbnailError);
           // If thumbnail fails, use original as fallback
