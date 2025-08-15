@@ -846,15 +846,18 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
       {/* Photo Viewer Modal */}
       {selectedPhoto && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in-0 duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in-0 duration-200"
           onClick={() => setSelectedPhoto(null)}
           data-testid="photo-modal-overlay"
         >
           <div className="relative max-w-[95vw] max-h-[95vh] p-4 animate-in zoom-in-95 duration-200">
             {/* Close button */}
             <button
-              onClick={() => setSelectedPhoto(null)}
-              className="absolute -top-2 -right-2 z-10 w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-100 rounded-full text-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-110"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPhoto(null);
+              }}
+              className="absolute -top-2 -right-2 z-[110] w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-100 rounded-full text-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-110"
               data-testid="button-close-photo"
               title="Закрыть (ESC)"
             >
@@ -875,7 +878,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
             </div>
             
             {/* Instructions */}
-            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm z-[105]">
               Нажмите за пределы изображения или ESC для закрытия
             </div>
           </div>
