@@ -380,13 +380,14 @@ export default function DirectorDashboard() {
               <Button variant="ghost" size="sm">
                 <Bell size={20} />
               </Button>
-              {user?.email === 'platonabramov90@gmail.com' && (
+              {(user?.email === 'platonabramov90@gmail.com' || user?.username === 'platonabramov90') && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={() => setLocation('/admin')}
                   data-testid="button-admin-panel"
                   title="Админ-панель"
+                  className="text-blue-600 hover:text-blue-800"
                 >
                   <Settings size={20} />
                 </Button>
