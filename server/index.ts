@@ -59,14 +59,17 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // DEPLOYMENT SAFETY: Check for platform deployment mode first
-  const isReplit = !!process.env.REPLIT_DEPLOYMENT;
+  // DEPLOYMENT SAFETY: Aggressive bypass for platform deployment issues
+  const isReplit = !!process.env.REPLIT_DEPLOYMENT || !!process.env.REPL_ID;
   const isProduction = process.env.NODE_ENV === 'production';
   const skipMigrationOnError = process.env.SKIP_MIGRATION_ON_ERROR === '1';
   const autoMigrateDisabled = process.env.AUTO_MIGRATE === '0';
+  const isDeployment = !!process.env.DEPLOYMENT_ENV;
   
-  // Multiple safety conditions for deployment
-  const shouldSkipMigrations = isReplit || isProduction || skipMigrationOnError || autoMigrateDisabled;
+  // ULTRA-AGGRESSIVE: Skip migrations if ANY deployment indicator is present
+  const shouldSkipMigrations = isReplit || isProduction || skipMigrationOnError || autoMigrateDisabled || isDeployment || 
+                              // Additional platform detection
+                              !!process.env.REPLIT_DB_URL || !!process.env.REPLIT_ENVIRONMENT;
   
   if (shouldSkipMigrations) {
     console.log("=".repeat(80));
