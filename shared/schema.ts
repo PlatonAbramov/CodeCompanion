@@ -232,7 +232,8 @@ export const toolMovements = pgTable("tool_movements", {
   type: text("type").notNull(), // 'ISSUE' | 'RETURN'
   personName: text("person_name").notNull(),
   personPhone: text("person_phone").notNull(),
-  photoUrl: text("photo_url").notNull(),
+  photoUrl: text("photo_url"), // Made optional for movements without photos
+  photoThumbnailUrl: text("photo_thumbnail_url"), // Thumbnail version of the photo
   comment: text("comment"),
   eventTime: timestamp("event_time").notNull().defaultNow(),
   createdBy: varchar("created_by").references(() => users.id),

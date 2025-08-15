@@ -8,6 +8,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
+import sharp from 'sharp';
 
 // Import new auth routes
 import authRoutes from './routes/auth';
@@ -141,7 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      const isValid = await bcrypt.compare(password, user.password);
+      const isValid = await bcrypt.compare(password, user.password || '');
       if (!isValid) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -151,8 +152,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store user in session (excluding password)
       req.session.user = {
         id: user.id,
-        username: user.username,
-        name: user.name,
+        username: user.username || '',
+        name: user.name || '',
         role: user.role
       };
 
@@ -1179,15 +1180,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tools/:id/movements", requireAuth, upload.single('photo'), async (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: "Photo is required" });
+      let photoUrl = null;
+      let photoThumbnailUrl = null;
+
+      // Handle photo if uploaded
+      if (req.file) {
+        const filename = req.file.filename;
+        const filenameWithoutExt = path.parse(filename).name;
+        const fileExt = path.extname(filename);
+        
+        // Original photo URL
+        photoUrl = `/uploads/${filename}`;
+        
+        // Generate thumbnail
+        const thumbnailFilename = `${filenameWithoutExt}_thumb${fileExt}`;
+        const originalPath = path.join(uploadsDir, filename);
+        const thumbnailPath = path.join(uploadsDir, thumbnailFilename);
+        
+        try {
+          // Create 100x100 thumbnail using sharp
+          await sharp(originalPath)
+            .resize(100, 100, {
+              fit: 'cover',
+              position: 'center'
+            })
+            .jpeg({ quality: 80 })
+            .toFile(thumbnailPath);
+          
+          photoThumbnailUrl = `/uploads/${thumbnailFilename}`;
+        } catch (thumbnailError) {
+          console.error("Error creating thumbnail:", thumbnailError);
+          // If thumbnail fails, use original as fallback
+          photoThumbnailUrl = photoUrl;
+        }
       }
 
+      const user = req.user || req.session.user;
       const validatedData = insertToolMovementSchema.parse({
         ...req.body,
         toolId: req.params.id,
-        photoUrl: `/uploads/${req.file.filename}`,
-        createdBy: req.session.user!.id,
+        photoUrl,
+        photoThumbnailUrl,
+        createdBy: user!.id,
       });
 
       const movement = await storage.createToolMovement(validatedData);
