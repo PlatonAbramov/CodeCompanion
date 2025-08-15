@@ -4,14 +4,16 @@ This is a construction and HVAC services management mobile application designed 
 
 ## Recent Changes
 
-**August 15, 2025** - Fixed deployment issues and authentication problems:
-- Added error handling to prevent startup crashes when object storage environment variables are missing
-- Implemented automatic default configuration for object storage based on REPL_ID
-- Added graceful fallbacks for object storage functionality when credentials are unavailable
-- Enhanced `ObjectStorageService` methods to handle missing environment variables without throwing errors
-- **Added automatic admin user creation**: When database is empty, creates admin with username `platonabramov90@gmail.com` and password `123456`
-- **Added password visibility toggle**: Users can now show/hide password in login form with eye icon
-- **Added manual admin initialization endpoint**: `/api/init-admin` endpoint for creating admin user in production
+**August 15, 2025** - Implemented comprehensive photo functionality and deployment stability:
+- **Photo Thumbnails**: Added `photoThumbnailUrl` field to tool movements with automatic 100x100px thumbnail generation using Sharp
+- **Optional Photos**: Made photo uploads optional for tool movements while maintaining full functionality
+- **Enhanced Photo Viewer**: Improved modal viewer with professional dark theme and zoom-out click functionality
+- **Thumbnail Display**: Added hover effects and error handling for thumbnail images in tool movement history
+- **Database Migration Stability**: Implemented idempotent migrations following production deployment best practices
+- **File Serving**: Fixed uploads directory structure to ensure thumbnails and photos are properly served
+- **Backward Compatibility**: Created thumbnails for existing photo records and updated database entries
+- **Authentication Security**: Enhanced JWT/session compatibility with robust error handling
+- **Auto Admin Creation**: System creates admin user `platonabramov90@gmail.com` with password `123456` when database is empty
 
 # User Preferences
 

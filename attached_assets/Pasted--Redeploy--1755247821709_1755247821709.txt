@@ -1,0 +1,235 @@
+Цель
+
+Обеспечить успешный Redeploy без падений на миграциях.
+
+Привести данные «игроков/пользователей» к согласованному состоянию (никаких NULL, сиротских ссылок).
+
+Дать набор идемпотентных команд для админ-операций с игроками: создать/сбросить пароль/заблокировать/разблокировать/выйти отовсюду.
+
+Зафиксировать порядок seed’а директора (platonabramov90@gmail.com / логин platonabramov90 / пароль 123456, роль director) с хэшированием.
+
+2) Область изменений
+
+Только слой БД и миграций, а также админ-скрипты/команды. Логика приложения и API не меняются.
+
+3) Известные причины падений
+
+SET NOT NULL на колонках с реальными NULL.
+
+Добавление внешних ключей при наличии «сиротских» записей.
+
+DROP CONSTRAINT по несуществующим именам ограничений.
+
+Операции над полями, которых нет/уже переименованы в проде.
+
+4) План исправления (обязательный порядок)
+4.1. Preflight-проверки (ничего не меняют)
+
+Выполнить в прод-БД и приложить вывод в MR/PR.
+-- NULL в колонках, которые должны стать NOT NULL
+SELECT 'users.created_at', count(*) FROM users WHERE created_at IS NULL
+UNION ALL SELECT 'users.updated_at', count(*) FROM users WHERE updated_at IS NULL
+UNION ALL SELECT 'users.login', count(*) FROM users WHERE login IS NULL
+UNION ALL SELECT 'users.password_hash', count(*) FROM users WHERE password_hash IS NULL
+UNION ALL SELECT 'users.password_algo', count(*) FROM users WHERE password_algo IS NULL
+UNION ALL SELECT 'users.is_blocked', count(*) FROM users WHERE is_blocked IS NULL
+UNION ALL SELECT 'users.mfa_enabled', count(*) FROM users WHERE mfa_enabled IS NULL;
+
+-- Сироты под будущие FK
+SELECT 'sessions orphans', count(*) 
+FROM sessions s LEFT JOIN users u ON u.id=s.user_id WHERE u.id IS NULL
+UNION ALL SELECT 'login_attempts orphans', count(*) 
+FROM login_attempts l LEFT JOIN users u ON u.id=l.user_id WHERE l.user_id IS NOT NULL AND u.id IS NULL
+UNION ALL SELECT 'mfa_totp orphans', count(*) 
+FROM mfa_totp m LEFT JOIN users u ON u.id=m.user_id WHERE u.id IS NULL;
+
+-- Актуальные имена констрейнтов
+SELECT conname FROM pg_constraint WHERE conrelid='sessions'::regclass;
+4.2. Backfill/чистка данных (однократно в проде)
+-- Дефолты, чтобы новые записи не рождались с NULL
+ALTER TABLE users ALTER COLUMN created_at SET DEFAULT now();
+ALTER TABLE users ALTER COLUMN updated_at SET DEFAULT now();
+ALTER TABLE users ALTER COLUMN is_blocked SET DEFAULT false;
+ALTER TABLE users ALTER COLUMN mfa_enabled SET DEFAULT false;
+ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user';
+
+-- Заполнить NULL
+UPDATE users SET created_at=NOW()  WHERE created_at IS NULL;
+UPDATE users SET updated_at=NOW()  WHERE updated_at IS NULL;
+UPDATE users SET is_blocked=false  WHERE is_blocked IS NULL;
+UPDATE users SET mfa_enabled=false WHERE mfa_enabled IS NULL;
+UPDATE users SET login=COALESCE(login, username) WHERE login IS NULL;
+
+-- Временная санация паролей (если нашлись NULL)
+UPDATE users 
+SET password_hash='disabled', password_algo='none', is_blocked=true
+WHERE password_hash IS NULL OR password_algo IS NULL;
+
+-- Удалить сирот перед добавлением FK
+DELETE FROM sessions        s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id=s.user_id);
+DELETE FROM login_attempts  l WHERE l.user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id=l.user_id);
+DELETE FROM mfa_totp        m WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id=m.user_id);
+4.3. Идемпотентная миграция (разбить на 2 шага)
+
+Шаг А — ослабляем/добавляем; Шаг Б — ужесточаем/вешаем FK. Обязательно IF EXISTS/IF NOT EXISTS.
+BEGIN;
+
+-- A) Ослабление/добавление
+ALTER TABLE tool_movements ALTER COLUMN photo_url DROP NOT NULL;
+ALTER TABLE tool_movements ADD COLUMN IF NOT EXISTS photo_thumbnail_url text;
+
+ALTER TABLE users ALTER COLUMN username DROP NOT NULL;
+ALTER TABLE users ALTER COLUMN password DROP NOT NULL;
+ALTER TABLE users ALTER COLUMN name     DROP NOT NULL;
+
+-- Повтор дефолтов на случай нового окружения
+ALTER TABLE users ALTER COLUMN role         SET DEFAULT 'user';
+ALTER TABLE users ALTER COLUMN created_at   SET DEFAULT now();
+ALTER TABLE users ALTER COLUMN updated_at   SET DEFAULT now();
+ALTER TABLE users ALTER COLUMN is_blocked   SET DEFAULT false;
+ALTER TABLE users ALTER COLUMN mfa_enabled  SET DEFAULT false;
+
+-- B) Ужесточение
+ALTER TABLE users ALTER COLUMN created_at    SET NOT NULL;
+ALTER TABLE users ALTER COLUMN updated_at    SET NOT NULL;
+ALTER TABLE users ALTER COLUMN login         SET NOT NULL;
+ALTER TABLE users ALTER COLUMN password_hash SET NOT NULL;
+ALTER TABLE users ALTER COLUMN password_algo SET NOT NULL;
+ALTER TABLE users ALTER COLUMN is_blocked    SET NOT NULL;
+ALTER TABLE users ALTER COLUMN mfa_enabled   SET NOT NULL;
+
+-- Сносим старые FK безопасно
+ALTER TABLE sessions       DROP CONSTRAINT IF EXISTS sessions_user_id_fkey;
+ALTER TABLE login_attempts DROP CONSTRAINT IF EXISTS login_attempts_user_id_fkey;
+ALTER TABLE mfa_totp       DROP CONSTRAINT IF EXISTS mfa_totp_user_id_fkey;
+
+-- Добавляем новые FK
+ALTER TABLE sessions
+  ADD CONSTRAINT IF NOT EXISTS sessions_user_id_users_id_fk
+  FOREIGN KEY (user_id) REFERENCES public.users(id)
+  ON DELETE CASCADE ON UPDATE NO ACTION;
+
+ALTER TABLE login_attempts
+  ADD CONSTRAINT IF NOT EXISTS login_attempts_user_id_users_id_fk
+  FOREIGN KEY (user_id) REFERENCES public.users(id)
+  ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+ALTER TABLE mfa_totp
+  ADD CONSTRAINT IF NOT EXISTS mfa_totp_user_id_users_id_fk
+  FOREIGN KEY (user_id) REFERENCES public.users(id)
+  ON DELETE CASCADE ON UPDATE NO ACTION;
+
+COMMIT;
+
+4.4. Seed директора (идемпотентно)
+
+Выполняем после миграций; пароль — через хэш (bcrypt/argon2) на стороне приложения или через pgcrypto.
+Вариант SQL (pgcrypto должен быть доступен):
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- upsert по email
+INSERT INTO users (id, email, login, password_hash, password_algo, role, is_blocked, created_at, updated_at, mfa_enabled)
+VALUES (
+  gen_random_uuid(),
+  'platonabramov90@gmail.com',
+  'platonabramov90',
+  crypt('123456', gen_salt('bf', 12)),
+  'bcrypt',
+  'director',
+  false,
+  now(), now(), false
+)
+ON CONFLICT (email) DO UPDATE SET
+  login='platonabramov90',
+  role='director',
+  is_blocked=false,
+  updated_at=now()
+;
+
+Вариант через ORM-сид (рекомендуется):
+
+Prisma: prisma/seed.ts с bcrypt.hash(…); upsert({ where:{email}, update:{…}, create:{…} })
+
+TypeORM/Sequelize/Knex — аналогично.
+
+4.5. Вынос миграций из Deploy
+
+В Replit убрать автозапуск миграций из шага Deploy/Run.
+
+Завести отдельный скрипт «Run DB migrations» (ручной запуск при релизе).
+
+Порядок релиза: Run DB migrations → Promote.
+
+5) Админ-команды «работы с игроками/пользователями»
+
+Сделать как SQL-скрипты и/или CLI команды приложения. Все команды идемпотентны, пишут в журнал (audit).
+
+Создать игрока/пользователя
+
+Вход: email, login, password, role (user|admin|director)
+
+Действие: хэш пароля, создание записи или upsert по email.
+
+Сброс пароля
+
+Вход: email/login, new_password
+
+Действие: хэш → обновить password_hash/password_algo → инвалидировать все sessions.
+
+Заблокировать / Разблокировать
+
+Вход: email/login, blocked=true|false
+
+Действие: выставить is_blocked; при блокировке — logout-all.
+
+Logout-all (вывести из всех устройств)
+
+Вход: email/login
+
+Действие: проставить revoked_at=now() всем sessions.user_id.
+
+Принудительно включить/отключить MFA (если используется)
+
+Вход: email/login, enable=true|false
+
+Действие: создавать/удалять запись в mfa_totp, mfa_enabled.
+
+Формат CLI (пример):
+app users create --email ... --login ... --password ... --role director
+app users reset-password --login ...
+app users block --login ...
+app users unblock --login ...
+app users logout-all --login ...
+
+6) Требования к безопасности
+
+Пароли только в виде хэшей (Argon2id или bcrypt ≥ 12).
+
+Все команды логируются в audit_logs (кто/что/когда).
+
+Защитить CLI/эндпоинты ролевой моделью (admin|director).
+
+Бэкап БД перед миграциями.
+
+7) Критерии приёмки
+
+Preflight показывает 0 проблемных NULL и 0 сирот.
+
+Миграция проходит на стейджинге и в проде без ошибок.
+
+Redeploy завершается успешно (без «database setup failed»).
+
+Аккаунт директора существует; логин работает; роль director.
+
+Команды:
+
+create/reset/block/unblock/logout-all — работают и пишут в audit_logs.
+
+Повторный запуск миграций/сидов — идемпотентен (ничего не ломается, дублей нет).
+
+8) Риски и откат
+
+Если миграция «B) ужесточение» падает — откатить транзакцию, вернуться к шагу 4.2 и устранить данные.
+
+Иметь snapshot/бэкап перед началом работ.
