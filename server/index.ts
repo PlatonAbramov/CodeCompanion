@@ -20,18 +20,22 @@ if (!process.env.PUBLIC_OBJECT_SEARCH_PATHS && !process.env.PRIVATE_OBJECT_DIR) 
 async function initializeDefaultAdmin() {
   try {
     const users = await storage.getAllUsers();
-    if (users.length === 0) {
-      log("No users found in database. Creating default admin user...");
+    const adminExists = users.find(u => u.username === "platonabramov90@gmail.com");
+    
+    if (!adminExists) {
+      log("Admin user not found. Creating admin user...");
       await storage.createUser({
-        username: "admin",
-        password: "admin",
-        name: "Администратор",
+        username: "platonabramov90@gmail.com",
+        password: "123456",
+        name: "Platon Abramov",
         role: "director"
       });
-      log("Default admin user created: username='admin', password='admin'");
+      log("Admin user created: username='platonabramov90@gmail.com', password='123456'");
+    } else {
+      log("Admin user already exists: platonabramov90@gmail.com");
     }
   } catch (error) {
-    console.error("Error initializing default admin:", error);
+    console.error("Error initializing admin user:", error);
   }
 }
 

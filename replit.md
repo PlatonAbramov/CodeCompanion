@@ -9,8 +9,9 @@ This is a construction and HVAC services management mobile application designed 
 - Implemented automatic default configuration for object storage based on REPL_ID
 - Added graceful fallbacks for object storage functionality when credentials are unavailable
 - Enhanced `ObjectStorageService` methods to handle missing environment variables without throwing errors
-- **Added automatic admin user creation**: When database is empty, creates default admin with username `admin` and password `admin`
+- **Added automatic admin user creation**: When database is empty, creates admin with username `platonabramov90@gmail.com` and password `123456`
 - **Added password visibility toggle**: Users can now show/hide password in login form with eye icon
+- **Added manual admin initialization endpoint**: `/api/init-admin` endpoint for creating admin user in production
 
 # User Preferences
 
