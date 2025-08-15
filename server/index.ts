@@ -1,8 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { storage } from "./storage";
-import bcrypt from "bcrypt";
+import { runDatabaseBootstrap } from "./db-bootstrap";
 
 // Set default object storage environment variables if not already set
 // These are the standard values when object storage is configured in Replit
@@ -16,59 +15,7 @@ if (!process.env.PUBLIC_OBJECT_SEARCH_PATHS && !process.env.PRIVATE_OBJECT_DIR) 
   }
 }
 
-// Initialize default admin user if no users exist
-async function initializeDefaultAdmin() {
-  try {
-    const users = await storage.getAllUsers();
-    const adminExists = users.find(u => 
-      u.username === "platonabramov90@gmail.com" || 
-      u.login === "platonabramov90@gmail.com"
-    );
-    
-    if (!adminExists) {
-      log("Admin user not found. Creating admin user...");
-      
-      // Import AuthService for secure user creation
-      const { AuthService } = await import('./auth');
-      
-      // Create admin user with new secure system
-      const passwordHash = await AuthService.hashPassword("123456");
-      
-      await storage.createSecureUser({
-        login: "platonabramov90@gmail.com",
-        password_hash: passwordHash,
-        password_algo: "argon2id",
-        name: "Директор",
-        role: "director",
-        mfa_enabled: false,
-        is_blocked: false,
-      });
-      
-      log("Admin user created: login='platonabramov90@gmail.com', password='123456'");
-    } else {
-      log("Admin user already exists: platonabramov90@gmail.com");
-      
-      // Ensure admin has new auth fields populated
-      if (adminExists && !adminExists.password_hash && adminExists.password) {
-        const { AuthService } = await import('./auth');
-        const passwordHash = await AuthService.hashPassword("123456");
-        
-        await storage.updateUserPassword(adminExists.id, passwordHash);
-        
-        // Update login field if missing
-        if (!adminExists.login && adminExists.username) {
-          await storage.updateUserDetails(adminExists.id, {
-            login: adminExists.username
-          });
-        }
-        
-        log("Admin user migrated to new authentication system");
-      }
-    }
-  } catch (error) {
-    console.error("Error initializing admin user:", error);
-  }
-}
+// Database bootstrap will handle admin user creation automatically
 
 const app = express();
 
@@ -112,8 +59,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize default admin user if database is empty
-  await initializeDefaultAdmin();
+  try {
+    // Run automatic database bootstrap before starting the application
+    await runDatabaseBootstrap();
+  } catch (error) {
+    console.error("Database bootstrap failed:", error);
+    process.exit(1);
+  }
   
   const server = await registerRoutes(app);
 

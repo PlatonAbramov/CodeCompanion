@@ -9,11 +9,12 @@ This is a construction and HVAC services management mobile application designed 
 - **Optional Photos**: Made photo uploads optional for tool movements while maintaining full functionality
 - **Enhanced Photo Viewer**: Improved modal viewer with professional dark theme and zoom-out click functionality
 - **Thumbnail Display**: Added hover effects and error handling for thumbnail images in tool movement history
-- **Database Migration Stability**: Implemented idempotent migrations following production deployment best practices
+- **Automatic Database Bootstrap**: Implemented fully automated migration system that runs at startup with advisory locks
+- **Production-Ready Deployments**: Eliminated deployment failures with idempotent database migrations and preflight checks
 - **File Serving**: Fixed uploads directory structure to ensure thumbnails and photos are properly served
 - **Backward Compatibility**: Created thumbnails for existing photo records and updated database entries
 - **Authentication Security**: Enhanced JWT/session compatibility with robust error handling
-- **Auto Admin Creation**: System creates admin user `platonabramov90@gmail.com` with password `123456` when database is empty
+- **Auto Director Seeding**: System automatically creates/updates director account `platonabramov90` with password `123456` at startup
 
 # User Preferences
 
