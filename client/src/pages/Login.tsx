@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { HardHat, Globe, Eye, EyeOff } from "lucide-react";
+import { HardHat, Globe } from "lucide-react";
 
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const { user, login, isLoggingIn } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [, setLocation] = useLocation();
@@ -63,31 +62,14 @@ export default function Login() {
                 <Label className="block text-sm font-medium text-slate-700 mb-2">
                   {t('password')}
                 </Label>
-                <div className="relative">
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={t('password')}
-                    required
-                    className="w-full px-4 py-3 pr-12"
-                    data-testid="input-password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                    data-testid="button-toggle-password"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-slate-500" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-slate-500" />
-                    )}
-                  </Button>
-                </div>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t('password')}
+                  required
+                  className="w-full px-4 py-3"
+                />
               </div>
               
               <Button

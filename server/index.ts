@@ -1,8 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { storage } from "./storage";
-import bcrypt from "bcrypt";
 
 // Set default object storage environment variables if not already set
 // These are the standard values when object storage is configured in Replit
@@ -13,29 +11,6 @@ if (!process.env.PUBLIC_OBJECT_SEARCH_PATHS && !process.env.PRIVATE_OBJECT_DIR) 
     process.env.PUBLIC_OBJECT_SEARCH_PATHS = `/${defaultBucketId}/public`;
     process.env.PRIVATE_OBJECT_DIR = `/${defaultBucketId}/.private`;
     log("Object storage environment variables not found. Using default configuration based on REPL_ID.");
-  }
-}
-
-// Initialize default admin user if no users exist
-async function initializeDefaultAdmin() {
-  try {
-    const users = await storage.getAllUsers();
-    const adminExists = users.find(u => u.username === "platonabramov90@gmail.com");
-    
-    if (!adminExists) {
-      log("Admin user not found. Creating admin user...");
-      await storage.createUser({
-        username: "platonabramov90@gmail.com",
-        password: "123456",
-        name: "Platon Abramov",
-        role: "director"
-      });
-      log("Admin user created: username='platonabramov90@gmail.com', password='123456'");
-    } else {
-      log("Admin user already exists: platonabramov90@gmail.com");
-    }
-  } catch (error) {
-    console.error("Error initializing admin user:", error);
   }
 }
 
@@ -77,9 +52,6 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize default admin user if database is empty
-  await initializeDefaultAdmin();
-  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

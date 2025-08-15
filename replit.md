@@ -4,14 +4,11 @@ This is a construction and HVAC services management mobile application designed 
 
 ## Recent Changes
 
-**August 15, 2025** - Fixed deployment issues and authentication problems:
+**August 15, 2025** - Fixed deployment issues related to object storage environment variables:
 - Added error handling to prevent startup crashes when object storage environment variables are missing
 - Implemented automatic default configuration for object storage based on REPL_ID
 - Added graceful fallbacks for object storage functionality when credentials are unavailable
 - Enhanced `ObjectStorageService` methods to handle missing environment variables without throwing errors
-- **Added automatic admin user creation**: When database is empty, creates admin with username `platonabramov90@gmail.com` and password `123456`
-- **Added password visibility toggle**: Users can now show/hide password in login form with eye icon
-- **Added manual admin initialization endpoint**: `/api/init-admin` endpoint for creating admin user in production
 
 # User Preferences
 
