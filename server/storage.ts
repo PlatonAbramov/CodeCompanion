@@ -1,7 +1,7 @@
 import { 
   users, projects, expenses, documents, advances, customerAdvances, userProjects, revenues, ownerInvestments,
   contractors, contractorProjects, clients, clientProjects, clientPayments,
-  tools, toolMovements, toolPersons, sessions, login_attempts, mfa_totp,
+  tools, toolMovements, toolPersons,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
   type Advance, type InsertAdvance, type CustomerAdvance, type InsertCustomerAdvance,
@@ -11,8 +11,7 @@ import {
   type Client, type InsertClient, type ClientProject, type InsertClientProject,
   type ClientPayment, type InsertClientPayment,
   type Tool, type InsertTool, type ToolMovement, type InsertToolMovement,
-  type ToolPerson, type InsertToolPerson,
-  type InsertSession, type InsertLoginAttempt, type InsertMfaTotp
+  type ToolPerson, type InsertToolPerson
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -22,28 +21,9 @@ export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  getUserByLogin(login: string): Promise<User | undefined>;
-  getUserById(id: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  createSecureUser(user: any): Promise<User>;
   updateUserLastLogin(id: string): Promise<void>;
   getAllUsers(): Promise<User[]>;
-  
-  // Sessions
-  createSession(session: InsertSession): Promise<any>;
-  getSessionByToken(tokenHash: string): Promise<any>;
-  updateSessionLastUsed(sessionId: string): Promise<void>;
-  revokeSession(tokenHash: string): Promise<void>;
-  revokeAllUserSessions(userId: string): Promise<void>;
-  
-  // Login attempts
-  createLoginAttempt(attempt: InsertLoginAttempt): Promise<any>;
-  getRecentLoginAttempts(login: string, cutoffTime: Date): Promise<any[]>;
-  
-  // User management
-  updateUserPassword(id: string, passwordHash: string): Promise<void>;
-  updateUserBlockStatus(id: string, isBlocked: boolean): Promise<void>;
-  updateUserDetails(id: string, updates: any): Promise<void>;
   
   // Projects
   getAllProjects(): Promise<Project[]>;
@@ -253,108 +233,6 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users).orderBy(users.name);
-  }
-
-  async getUserByLogin(login: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.login, login));
-    return user || undefined;
-  }
-
-  async getUserById(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
-  }
-
-  async createSecureUser(user: any): Promise<User> {
-    const [newUser] = await db.insert(users).values(user).returning();
-    return newUser;
-  }
-
-  // Session management
-  async createSession(session: InsertSession): Promise<any> {
-    const [newSession] = await db.insert(sessions).values(session).returning();
-    return newSession;
-  }
-
-  async getSessionByToken(tokenHash: string): Promise<any> {
-    const [session] = await db
-      .select()
-      .from(sessions)
-      .where(eq(sessions.refresh_token_hash, tokenHash))
-      .limit(1);
-    return session;
-  }
-
-  async updateSessionLastUsed(sessionId: string): Promise<void> {
-    await db
-      .update(sessions)
-      .set({ last_used_at: new Date() })
-      .where(eq(sessions.id, sessionId));
-  }
-
-  async revokeSession(tokenHash: string): Promise<void> {
-    await db
-      .update(sessions)
-      .set({ revoked_at: new Date() })
-      .where(eq(sessions.refresh_token_hash, tokenHash));
-  }
-
-  async revokeAllUserSessions(userId: string): Promise<void> {
-    await db
-      .update(sessions)
-      .set({ revoked_at: new Date() })
-      .where(eq(sessions.user_id, userId));
-  }
-
-  // Login attempts tracking
-  async createLoginAttempt(attempt: InsertLoginAttempt): Promise<any> {
-    const [newAttempt] = await db.insert(login_attempts).values(attempt).returning();
-    return newAttempt;
-  }
-
-  async getRecentLoginAttempts(login: string, cutoffTime: Date): Promise<any[]> {
-    const attempts = await db
-      .select()
-      .from(login_attempts)
-      .where(
-        and(
-          eq(login_attempts.login_attempted, login),
-          sql`${login_attempts.created_at} >= ${cutoffTime}`
-        )
-      )
-      .orderBy(desc(login_attempts.created_at));
-    return attempts;
-  }
-
-  // User management methods
-  async updateUserPassword(id: string, passwordHash: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ 
-        password_hash: passwordHash,
-        updated_at: new Date()
-      })
-      .where(eq(users.id, id));
-  }
-
-  async updateUserBlockStatus(id: string, isBlocked: boolean): Promise<void> {
-    await db
-      .update(users)
-      .set({ 
-        is_blocked: isBlocked,
-        updated_at: new Date()
-      })
-      .where(eq(users.id, id));
-  }
-
-  async updateUserDetails(id: string, updates: any): Promise<void> {
-    await db
-      .update(users)
-      .set({ 
-        ...updates,
-        updated_at: new Date()
-      })
-      .where(eq(users.id, id));
   }
 
   async getAllProjects(): Promise<Project[]> {

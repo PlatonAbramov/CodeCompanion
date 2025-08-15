@@ -30,28 +30,15 @@ export function useAuth() {
     
     const checkAuth = async () => {
       try {
-        // Check if we have a token in localStorage
-        const token = localStorage.getItem('access_token');
-        if (!token) {
-          if (isMounted) {
-            setIsLoading(false);
-          }
-          return;
-        }
-
         const res = await apiRequest('GET', '/api/auth/me');
         if (res.ok) {
           const userData = await res.json();
           if (isMounted) {
             setUser(userData.user);
           }
-        } else {
-          // Token is invalid, remove it
-          localStorage.removeItem('access_token');
         }
       } catch (error) {
-        // User not authenticated or token expired
-        localStorage.removeItem('access_token');
+        // User not authenticated
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -73,11 +60,6 @@ export function useAuth() {
       return res.json();
     },
     onSuccess: (data) => {
-      // Store JWT token in localStorage
-      if (data.access_token) {
-        localStorage.setItem('access_token', data.access_token);
-      }
-      
       setUser(data.user);
       setIsLoading(false);
       setForceUpdate(prev => prev + 1);
@@ -111,9 +93,6 @@ export function useAuth() {
       return res.json();
     },
     onSuccess: () => {
-      // Remove JWT token from localStorage
-      localStorage.removeItem('access_token');
-      
       setUser(null);
       setIsLoading(false);
       setForceUpdate(prev => prev + 1);
@@ -126,13 +105,6 @@ export function useAuth() {
       setTimeout(() => {
         window.location.href = '/login';
       }, 500);
-    },
-    onError: () => {
-      // Even if logout fails, clear local state
-      localStorage.removeItem('access_token');
-      setUser(null);
-      setIsLoading(false);
-      window.location.href = '/login';
     },
   });
 

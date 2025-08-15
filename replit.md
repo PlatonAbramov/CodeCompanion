@@ -4,20 +4,14 @@ This is a construction and HVAC services management mobile application designed 
 
 ## Recent Changes
 
-**August 15, 2025** - Implemented comprehensive photo functionality and deployment stability:
-- **Photo Thumbnails**: Added `photoThumbnailUrl` field to tool movements with automatic 100x100px thumbnail generation using Sharp
-- **Optional Photos**: Made photo uploads optional for tool movements while maintaining full functionality
-- **Enhanced Photo Viewer**: Improved modal viewer with professional dark theme and zoom-out click functionality
-- **Thumbnail Display**: Added hover effects and error handling for thumbnail images in tool movement history
-- **Automatic Database Bootstrap**: Implemented fully automated migration system that runs at startup with advisory locks
-- **Production-Ready Deployments**: Eliminated deployment failures with idempotent database migrations and preflight checks
-- **Deployment Error Handling**: Added production deployment safeguards with `AUTO_MIGRATE=0`, `SKIP_MIGRATION_ON_ERROR=1`, and platform error detection
-- **Migration Resilience**: Enhanced migration system to handle platform issues gracefully without blocking deployment
-- **Safe Idempotent Migrations**: Implemented bulletproof SQL migration script that can run repeatedly without errors, includes comprehensive backfill, orphan cleanup, and constraint management
-- **File Serving**: Fixed uploads directory structure to ensure thumbnails and photos are properly served
-- **Backward Compatibility**: Created thumbnails for existing photo records and updated database entries
-- **Authentication Security**: Enhanced JWT/session compatibility with robust error handling
-- **Auto Director Seeding**: System automatically creates/updates director account `platonabramov90` with password `123456` at startup
+**August 15, 2025** - Fixed deployment issues and authentication problems:
+- Added error handling to prevent startup crashes when object storage environment variables are missing
+- Implemented automatic default configuration for object storage based on REPL_ID
+- Added graceful fallbacks for object storage functionality when credentials are unavailable
+- Enhanced `ObjectStorageService` methods to handle missing environment variables without throwing errors
+- **Added automatic admin user creation**: When database is empty, creates admin with username `platonabramov90@gmail.com` and password `123456`
+- **Added password visibility toggle**: Users can now show/hide password in login form with eye icon
+- **Added manual admin initialization endpoint**: `/api/init-admin` endpoint for creating admin user in production
 
 # User Preferences
 
@@ -99,65 +93,3 @@ Preferred communication style: Simple, everyday language.
 - **Replit Integration**: Vite plugins for Replit development environment
 - **Code Quality**: TypeScript strict mode with comprehensive type checking
 - **Hot Reload**: Vite HMR for frontend, tsx watch mode for backend development
-
-# Deployment Configuration
-
-## Environment Variables for Production
-
-The application includes robust deployment safeguards to handle database migration platform issues:
-
-### Required Production Secrets
-```
-AUTO_MIGRATE=0                 # Disable automatic database migrations
-SKIP_MIGRATION_ON_ERROR=1      # Allow startup despite migration failures  
-NODE_ENV=production           # Enable production environment mode
-DATABASE_URL=postgresql://... # PostgreSQL connection string
-```
-
-### Migration Controls
-- **AUTO_MIGRATE=0**: Completely disables automatic database migrations during startup
-- **SKIP_MIGRATION_ON_ERROR=1**: Allows application to start even if migrations fail due to platform issues
-- **NODE_ENV=production**: Automatically enables migration error skipping in production environment
-
-### Platform Error Handling
-The system detects and handles comprehensive deployment platform issues:
-- Database connection timeouts and network failures
-- Transaction abortion errors and deadlocks
-- Advisory lock acquisition failures
-- Platform connectivity and startup delays
-- Missing environment variables in production
-- Infrastructure-level database issues
-
-### Deployment Strategies
-**Strategy 1 - Zero Migration (Safest):**
-```
-AUTO_MIGRATE=0
-NODE_ENV=production
-```
-
-**Strategy 2 - Safe Migration with Fallback:**
-```
-NODE_ENV=production
-SKIP_MIGRATION_ON_ERROR=1
-```
-
-**Strategy 3 - Maximum Resilience:**
-```
-AUTO_MIGRATE=0
-SKIP_MIGRATION_ON_ERROR=1
-NODE_ENV=production
-```
-
-### Deployment Process
-1. Set required environment variables in Replit production secrets
-2. Use the Replit deploy button to deploy the application
-3. The application will start successfully regardless of database migration issues
-4. Manual database operations can be performed using the Replit database panel if needed
-5. Comprehensive error logging provides guidance for manual remediation
-
-### Bulletproof Features
-- **Graceful Degradation**: Application continues startup despite any migration failures
-- **Platform Detection**: Automatically identifies infrastructure vs application issues
-- **Production Safety**: Never exits due to database problems in production environment
-- **Comprehensive Logging**: Detailed error information for troubleshooting
-- **Multiple Safeguards**: Redundant protection mechanisms ensure deployment success

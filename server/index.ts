@@ -1,7 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { runDatabaseBootstrap } from "./db-bootstrap";
+import { storage } from "./storage";
+import bcrypt from "bcrypt";
 
 // Set default object storage environment variables if not already set
 // These are the standard values when object storage is configured in Replit
@@ -15,13 +16,30 @@ if (!process.env.PUBLIC_OBJECT_SEARCH_PATHS && !process.env.PRIVATE_OBJECT_DIR) 
   }
 }
 
-// Database bootstrap will handle admin user creation automatically
+// Initialize default admin user if no users exist
+async function initializeDefaultAdmin() {
+  try {
+    const users = await storage.getAllUsers();
+    const adminExists = users.find(u => u.username === "platonabramov90@gmail.com");
+    
+    if (!adminExists) {
+      log("Admin user not found. Creating admin user...");
+      await storage.createUser({
+        username: "platonabramov90@gmail.com",
+        password: "123456",
+        name: "Platon Abramov",
+        role: "director"
+      });
+      log("Admin user created: username='platonabramov90@gmail.com', password='123456'");
+    } else {
+      log("Admin user already exists: platonabramov90@gmail.com");
+    }
+  } catch (error) {
+    console.error("Error initializing admin user:", error);
+  }
+}
 
 const app = express();
-
-// Trust proxy for rate limiting to work correctly in Replit
-app.set('trust proxy', true);
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -59,47 +77,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // DEPLOYMENT SAFETY: Aggressive bypass for platform deployment issues
-  const isReplit = !!process.env.REPLIT_DEPLOYMENT || !!process.env.REPL_ID;
-  const isProduction = process.env.NODE_ENV === 'production';
-  const skipMigrationOnError = process.env.SKIP_MIGRATION_ON_ERROR === '1';
-  const autoMigrateDisabled = process.env.AUTO_MIGRATE === '0';
-  const isDeployment = !!process.env.DEPLOYMENT_ENV;
-  
-  // ULTRA-AGGRESSIVE: Skip migrations if ANY deployment indicator is present
-  const shouldSkipMigrations = isReplit || isProduction || skipMigrationOnError || autoMigrateDisabled || isDeployment || 
-                              // Additional platform detection
-                              !!process.env.REPLIT_DB_URL || !!process.env.REPLIT_ENVIRONMENT;
-  
-  if (shouldSkipMigrations) {
-    console.log("=".repeat(80));
-    console.log("DEPLOYMENT MODE - SKIPPING DATABASE MIGRATIONS");
-    console.log("=".repeat(80));
-    console.log("Platform deployment detected - bypassing all database operations");
-    console.log(`REPLIT_DEPLOYMENT: ${process.env.REPLIT_DEPLOYMENT || 'not set'}`);
-    console.log(`NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
-    console.log(`SKIP_MIGRATION_ON_ERROR: ${process.env.SKIP_MIGRATION_ON_ERROR || 'not set'}`);
-    console.log(`AUTO_MIGRATE: ${process.env.AUTO_MIGRATE || 'not set'}`);
-    console.log("Application starting without database bootstrap");
-    console.log("=".repeat(80));
-  } else {
-    try {
-      // Only run database bootstrap in development environment
-      console.log("Development mode - running database bootstrap");
-      await runDatabaseBootstrap();
-    } catch (error) {
-      console.error("Database bootstrap failed:", error);
-      console.error("=".repeat(80));
-      console.error("DEVELOPMENT MIGRATION FAILURE");
-      console.error("=".repeat(80));
-      console.error("For deployment, set any of these environment variables:");
-      console.error("- NODE_ENV=production");
-      console.error("- SKIP_MIGRATION_ON_ERROR=1");
-      console.error("- AUTO_MIGRATE=0");
-      console.error("=".repeat(80));
-      process.exit(1);
-    }
-  }
+  // Initialize default admin user if database is empty
+  await initializeDefaultAdmin();
   
   const server = await registerRoutes(app);
 

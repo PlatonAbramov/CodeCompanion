@@ -107,8 +107,8 @@ export default function Tools() {
   // Create tool movement mutation
   const createMovementMutation = useMutation({
     mutationFn: async (data: z.infer<typeof toolMovementFormSchema>) => {
-      if (!movementTool) {
-        throw new Error("Инструмент не выбран");
+      if (!movementTool || !selectedFile) {
+        throw new Error("Инструмент или фото не выбраны");
       }
       
       const formData = new FormData();
@@ -117,11 +117,7 @@ export default function Tools() {
       formData.append('personPhone', data.personPhone);
       if (data.eventTime) formData.append('eventTime', new Date(data.eventTime).toISOString());
       if (data.comment) formData.append('comment', data.comment);
-      
-      // Add photo only if selected
-      if (selectedFile) {
-        formData.append('photo', selectedFile);
-      }
+      formData.append('photo', selectedFile);
 
       const res = await fetch(`/api/tools/${movementTool.id}/movements`, {
         method: 'POST',
@@ -616,15 +612,16 @@ export default function Tools() {
               />
 
               <div>
-                <Label htmlFor="photo">Фото (опционально)</Label>
+                <Label htmlFor="photo">Фото *</Label>
                 <Input
                   id="photo"
                   type="file"
-                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  accept="image/*"
                   onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  required
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Рекомендуется сделать фото инструмента и человека. Форматы: JPG, PNG, WEBP (макс. 5 МБ)
+                  Сделайте фото инструмента и человека
                 </p>
               </div>
 
@@ -645,7 +642,7 @@ export default function Tools() {
               <div className="flex gap-2 pt-4">
                 <Button 
                   type="submit" 
-                  disabled={createMovementMutation.isPending}
+                  disabled={createMovementMutation.isPending || !selectedFile}
                 >
                   {createMovementMutation.isPending ? "Сохранение..." : "Сохранить"}
                 </Button>
@@ -753,38 +750,27 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
                 {movements.map((movement) => (
                   <Card key={movement.id} className="p-3">
                     <div className="flex gap-3 items-start">
-                      {/* Thumbnail photo */}
+                      {/* Mini photo */}
                       <div className="flex-shrink-0">
-                        {movement.photoUrl || movement.photoThumbnailUrl ? (
-                          <div className="relative group">
-                            <img
-                              src={movement.photoThumbnailUrl || movement.photoUrl}
-                              alt="Фото движения"
-                              className="w-16 h-16 object-cover rounded-md cursor-pointer hover:scale-105 transition-all duration-200 border shadow-sm"
-                              onClick={() => setSelectedPhoto(movement.photoUrl || movement.photoThumbnailUrl)}
-                              onError={(e) => {
-                                console.error('Ошибка загрузки миниатюры:', movement.photoThumbnailUrl || movement.photoUrl);
-                                const target = e.target as HTMLImageElement;
-                                // Try to load original if thumbnail fails
-                                if (movement.photoThumbnailUrl && movement.photoUrl && target.src !== movement.photoUrl) {
-                                  target.src = movement.photoUrl;
-                                } else {
-                                  // Hide image and show placeholder
-                                  target.style.display = 'none';
-                                }
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-md transition-opacity pointer-events-none">
-                              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <svg className="w-6 h-6 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
+                        {movement.photoUrl ? (
+                          <img
+                            src={movement.photoUrl}
+                            alt="Фото движения"
+                            className="w-12 h-12 object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity border bg-gray-100"
+                            onClick={() => setSelectedPhoto(movement.photoUrl)}
+                            onError={(e) => {
+                              console.error('Ошибка загрузки изображения:', movement.photoUrl);
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `<div class="w-12 h-12 bg-red-100 rounded-md flex items-center justify-center text-xs text-red-600 cursor-pointer hover:bg-red-200 transition-colors border" onclick="window.open('${movement.photoUrl}', '_blank')">❌</div>`;
+                              }
+                            }}
+                          />
                         ) : (
-                          <div className="w-16 h-16 bg-gray-100 rounded-md flex items-center justify-center text-xs text-gray-400 border">
-                            Нет фото
+                          <div className="w-12 h-12 bg-gray-200 rounded-md flex items-center justify-center text-xs text-gray-500 border">
+                            Фото
                           </div>
                         )}
                       </div>
@@ -817,32 +803,19 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
         </div>
       </DialogContent>
 
-      {/* Photo Viewer Modal */}
+      {/* Photo Viewer Dialog */}
       {selectedPhoto && (
         <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
-          <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden bg-black/95">
-            <div className="relative">
-              {/* Close button */}
-              <button 
-                onClick={() => setSelectedPhoto(null)}
-                className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
-                aria-label="Закрыть"
-              >
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              
-              {/* Image container */}
-              <div className="flex items-center justify-center p-4 min-h-[400px]">
-                <img
-                  src={selectedPhoto}
-                  alt="Фото движения инструмента"
-                  className="max-w-full max-h-[85vh] object-contain"
-                  style={{ cursor: 'zoom-out' }}
-                  onClick={() => setSelectedPhoto(null)}
-                />
-              </div>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Фото движения инструмента</DialogTitle>
+            </DialogHeader>
+            <div className="flex justify-center">
+              <img
+                src={selectedPhoto}
+                alt="Полное фото"
+                className="max-w-full max-h-[70vh] object-contain rounded-md"
+              />
             </div>
           </DialogContent>
         </Dialog>

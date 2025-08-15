@@ -4,59 +4,15 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Enhanced users table for secure authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  login: text("login").notNull().unique(), // Primary login field
-  password_hash: text("password_hash").notNull(),
-  password_algo: text("password_algo").notNull().default("argon2id"),
-  name: text("name"),
-  role: text("role").notNull().default("user"), // 'user' | 'admin' | 'director' | 'master'
-  is_blocked: boolean("is_blocked").notNull().default(false),
-  mfa_enabled: boolean("mfa_enabled").notNull().default(false),
-  created_at: timestamp("created_at").notNull().defaultNow(),
-  updated_at: timestamp("updated_at").notNull().defaultNow(),
-  deleted_at: timestamp("deleted_at"), // Soft delete
-  last_login_at: timestamp("last_login_at"),
-  // Legacy fields for compatibility
-  username: text("username").unique(), // Keep for migration
-  password: text("password"), // Keep for migration
-  isActive: boolean("is_active").default(true), // Keep for migration
-  lastLogin: timestamp("last_login"), // Keep for migration
-});
-
-// User sessions for JWT refresh tokens
-export const sessions = pgTable("sessions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  refresh_token_hash: text("refresh_token_hash").notNull(),
-  user_agent: text("user_agent"),
-  device_label: text("device_label"),
-  ip_hash: text("ip_hash"),
-  created_at: timestamp("created_at").notNull().defaultNow(),
-  last_used_at: timestamp("last_used_at").notNull().defaultNow(),
-  expires_at: timestamp("expires_at").notNull(),
-  revoked_at: timestamp("revoked_at"),
-});
-
-// Login attempts tracking for rate limiting and security
-export const login_attempts = pgTable("login_attempts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").references(() => users.id), // nullable for failed login attempts
-  ip_hash: text("ip_hash").notNull(),
-  login_attempted: text("login_attempted"),
-  result: text("result").notNull(), // 'success' | 'failed' | 'locked' | 'blocked'
-  user_agent: text("user_agent"),
-  created_at: timestamp("created_at").notNull().defaultNow(),
-});
-
-// MFA TOTP secrets (optional)
-export const mfa_totp = pgTable("mfa_totp", {
-  user_id: varchar("user_id").primaryKey().references(() => users.id, { onDelete: 'cascade' }),
-  secret_encrypted: text("secret_encrypted").notNull(),
-  recovery_codes: jsonb("recovery_codes"), // Array of encrypted recovery codes
-  created_at: timestamp("created_at").notNull().defaultNow(),
-  updated_at: timestamp("updated_at").notNull().defaultNow(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  role: text("role").notNull(), // 'director' | 'master'
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastLogin: timestamp("last_login"),
 });
 
 export const projects = pgTable("projects", {
@@ -232,8 +188,7 @@ export const toolMovements = pgTable("tool_movements", {
   type: text("type").notNull(), // 'ISSUE' | 'RETURN'
   personName: text("person_name").notNull(),
   personPhone: text("person_phone").notNull(),
-  photoUrl: text("photo_url"), // Made optional for movements without photos
-  photoThumbnailUrl: text("photo_thumbnail_url"), // Thumbnail version of the photo
+  photoUrl: text("photo_url").notNull(),
   comment: text("comment"),
   eventTime: timestamp("event_time").notNull().defaultNow(),
   createdBy: varchar("created_by").references(() => users.id),
@@ -264,30 +219,6 @@ export const usersRelations = relations(users, ({ many }) => ({
   clients: many(clients),
   clientProjects: many(clientProjects),
   clientPayments: many(clientPayments),
-  sessions: many(sessions),
-  loginAttempts: many(login_attempts),
-  mfaTotp: many(mfa_totp),
-}));
-
-export const sessionsRelations = relations(sessions, ({ one }) => ({
-  user: one(users, {
-    fields: [sessions.user_id],
-    references: [users.id],
-  }),
-}));
-
-export const loginAttemptsRelations = relations(login_attempts, ({ one }) => ({
-  user: one(users, {
-    fields: [login_attempts.user_id],
-    references: [users.id],
-  }),
-}));
-
-export const mfaTotpRelations = relations(mfa_totp, ({ one }) => ({
-  user: one(users, {
-    fields: [mfa_totp.user_id],
-    references: [users.id],
-  }),
 }));
 
 export const contractorsRelations = relations(contractors, ({ one, many }) => ({
@@ -697,65 +628,5 @@ export type Tool = typeof tools.$inferSelect;
 export type InsertTool = z.infer<typeof insertToolSchema>;
 export type ToolMovement = typeof toolMovements.$inferSelect;
 export type InsertToolMovement = z.infer<typeof insertToolMovementSchema>;
-
-// New authentication schemas
-export const insertSessionSchema = createInsertSchema(sessions).omit({
-  id: true,
-  created_at: true,
-  last_used_at: true,
-});
-
-export const insertLoginAttemptSchema = createInsertSchema(login_attempts).omit({
-  id: true,
-  created_at: true,
-});
-
-export const insertMfaTotpSchema = createInsertSchema(mfa_totp).omit({
-  created_at: true,
-  updated_at: true,
-});
-
-// Enhanced login schema for new auth system (supports both username and login)
-export const loginSchema = z.object({
-  login: z.string().min(1, "Login is required").optional(),
-  username: z.string().min(1, "Username is required").optional(),
-  password: z.string().min(1, "Password is required"),
-  mfa_code: z.string().optional(),
-  remember_device: z.boolean().optional().default(false),
-}).refine(data => data.login || data.username, {
-  message: "Either login or username is required",
-});
-
-// User creation schema for admin
-export const createUserSchema = z.object({
-  login: z.string().min(3, "Login must be at least 3 characters").max(50),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  name: z.string().optional(),
-  role: z.enum(["user", "admin", "director", "master"]).default("user"),
-  mfa_enabled: z.boolean().default(false),
-});
-
-// Password reset schema
-export const resetPasswordSchema = z.object({
-  user_id: z.string(),
-  new_password: z.string().min(8, "Password must be at least 8 characters"),
-});
-
-// Admin user management schemas
-export const updateUserSchema = z.object({
-  name: z.string().optional(),
-  role: z.enum(["user", "admin", "director", "master"]).optional(),
-  mfa_enabled: z.boolean().optional(),
-  is_blocked: z.boolean().optional(),
-});
-
-// Types for new schemas
-export type InsertSession = z.infer<typeof insertSessionSchema>;
-export type InsertLoginAttempt = z.infer<typeof insertLoginAttemptSchema>;
-export type InsertMfaTotp = z.infer<typeof insertMfaTotpSchema>;
-export type LoginRequest = z.infer<typeof loginSchema>;
-export type CreateUserRequest = z.infer<typeof createUserSchema>;
-export type ResetPasswordRequest = z.infer<typeof resetPasswordSchema>;
-export type UpdateUserRequest = z.infer<typeof updateUserSchema>;
 export type ToolPerson = typeof toolPersons.$inferSelect;
 export type InsertToolPerson = z.infer<typeof insertToolPersonSchema>;

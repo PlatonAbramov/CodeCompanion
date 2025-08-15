@@ -7,15 +7,6 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from 'url';
-import cookieParser from 'cookie-parser';
-import sharp from 'sharp';
-
-// Import new auth routes
-import authRoutes from './routes/auth';
-import adminRoutes from './routes/admin';
-import { legacyAuthRoutes, legacyRequireAuth } from './routes/legacy';
-import { securityHeaders, corsMiddleware } from './middleware/auth';
-import { AuthService } from './auth';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,24 +33,10 @@ declare module 'express-session' {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Security middleware
-  app.use(securityHeaders);
-  app.use(corsMiddleware);
-  // Remove general rate limiting to avoid 429 errors on frontend requests
-  
-  // Cookie parser for refresh tokens
-  app.use(cookieParser());
-  
   // Create uploads directory if it doesn't exist
-  const uploadsDir = path.join(process.cwd(), 'uploads');
+  const uploadsDir = path.join(__dirname, 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-  
-  // Also ensure server/uploads exists for backward compatibility
-  const serverUploadsDir = path.join(__dirname, '..', 'uploads');
-  if (!fs.existsSync(serverUploadsDir)) {
-    fs.mkdirSync(serverUploadsDir, { recursive: true });
   }
 
   // Configure multer for file uploads
@@ -78,7 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Session middleware (for legacy compatibility)
+  // Session middleware
   app.use(session({
     secret: process.env.SESSION_SECRET || 'construction-app-secret',
     resave: false,
@@ -89,37 +66,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  // Register new authentication routes
-  app.use('/api/auth', authRoutes);
-  app.use('/api/admin', adminRoutes);
-  
-  // Register legacy authentication routes for backwards compatibility
-  app.use('/api', legacyAuthRoutes);
-
-  // Unified auth middleware that works with both JWT and session
+  // Auth middleware
   const requireAuth = (req: any, res: any, next: any) => {
-    // Check JWT token first
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
-    
-    if (token) {
-      // Try JWT authentication
-      const decoded = AuthService.verifyAccessToken(token);
-      if (decoded) {
-        req.user = {
-          id: decoded.user_id,
-          login: decoded.login,
-          role: decoded.role,
-          username: decoded.login,
-          name: decoded.login
-        };
-        req.session = req.session || {};
-        req.session.user = req.user;
-        return next();
-      }
-    }
-    
-    // Fallback to session-based auth
     if (!req.session?.user) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -127,8 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   const requireDirector = (req: any, res: any, next: any) => {
-    const user = req.user || req.session?.user;
-    if (!user || user.role !== 'director') {
+    if (!req.session?.user || req.session.user.role !== 'director') {
       return res.status(403).json({ error: "Director access required" });
     }
     next();
@@ -148,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      const isValid = await bcrypt.compare(password, user.password || '');
+      const isValid = await bcrypt.compare(password, user.password);
       if (!isValid) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -158,8 +105,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store user in session (excluding password)
       req.session.user = {
         id: user.id,
-        username: user.username || '',
-        name: user.name || '',
+        username: user.username,
+        name: user.name,
         role: user.role
       };
 
@@ -363,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Expense routes
   app.get("/api/expenses", requireAuth, async (req, res) => {
     try {
-      const user = req.user || req.session.user!;
+      const user = req.session.user!;
       const expenses = await storage.getUserExpenses(user.id);
       res.json(expenses);
     } catch (error) {
@@ -384,10 +331,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/expenses", requireAuth, async (req, res) => {
     try {
-      const user = req.user || req.session.user;
       const expenseData = insertExpenseSchema.parse({
         ...req.body,
-        userId: user!.id
+        userId: req.session.user!.id
       });
       const expense = await storage.createExpense(expenseData);
       res.status(201).json(expense);
@@ -410,10 +356,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/documents", requireAuth, async (req, res) => {
     try {
-      const user = req.user || req.session.user;
       const documentData = insertDocumentSchema.parse({
         ...req.body,
-        uploadedBy: user!.id
+        uploadedBy: req.session.user!.id
       });
       const document = await storage.createDocument(documentData);
       res.status(201).json(document);
@@ -436,10 +381,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/advances", requireAuth, requireDirector, async (req, res) => {
     try {
-      const user = req.user || req.session.user;
       const advanceData = insertAdvanceSchema.parse({
         ...req.body,
-        createdBy: user!.id
+        createdBy: req.session.user!.id
       });
       const advance = await storage.createAdvance(advanceData);
       res.status(201).json(advance);
@@ -462,10 +406,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/customer-advances", requireAuth, requireDirector, async (req, res) => {
     try {
-      const user = req.user || req.session.user;
       const customerAdvanceData = insertCustomerAdvanceSchema.parse({
         ...req.body,
-        createdBy: user!.id
+        createdBy: req.session.user!.id
       });
       const customerAdvance = await storage.createCustomerAdvance(customerAdvanceData);
       res.status(201).json(customerAdvance);
@@ -488,11 +431,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/revenues", requireAuth, requireDirector, async (req, res) => {
     try {
-      const user = req.user || req.session.user;
       const revenueData = insertRevenueSchema.parse({
         ...req.body,
         amount: req.body.amount.toString(),
-        createdBy: user!.id,
+        createdBy: req.session.user!.id,
         date: new Date(req.body.date || Date.now())
       });
       const revenue = await storage.createRevenue(revenueData);
@@ -642,11 +584,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects/:projectId/owner-investments", requireAuth, async (req, res) => {
     try {
-      const user = req.user || req.session.user;
       const validatedData = insertOwnerInvestmentSchema.parse({
         ...req.body,
         projectId: req.params.projectId,
-        createdBy: user!.id
+        createdBy: req.session.user!.id
       });
 
       const ownerInvestment = await storage.createOwnerInvestment(validatedData);
@@ -681,11 +622,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Documents routes
   app.post("/api/projects/:projectId/documents", requireAuth, requireDirector, async (req, res) => {
     try {
-      const user = req.user || req.session.user;
       const documentData = insertDocumentSchema.parse({
         ...req.body,
         projectId: req.params.projectId,
-        uploadedBy: user!.id,
+        uploadedBy: req.session.user!.id,
       });
       const document = await storage.createDocument(documentData);
       res.status(201).json(document);
@@ -1186,57 +1126,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tools/:id/movements", requireAuth, upload.single('photo'), async (req, res) => {
     try {
-      let photoUrl = null;
-      let photoThumbnailUrl = null;
-
-      // Handle photo if uploaded
-      if (req.file) {
-        const filename = req.file.filename;
-        const filenameWithoutExt = path.parse(filename).name;
-        const fileExt = path.extname(filename);
-        
-        // Original photo URL
-        photoUrl = `/uploads/${filename}`;
-        
-        // Generate thumbnail
-        const thumbnailFilename = `${filenameWithoutExt}_thumb${fileExt}`;
-        const originalPath = path.join(uploadsDir, filename);
-        const thumbnailPath = path.join(uploadsDir, thumbnailFilename);
-        
-        try {
-          console.log(`Creating thumbnail: ${originalPath} -> ${thumbnailPath}`);
-          
-          // Check if original file exists
-          if (!fs.existsSync(originalPath)) {
-            console.error(`Original file not found: ${originalPath}`);
-            photoThumbnailUrl = photoUrl;
-          } else {
-            // Create 100x100 thumbnail using sharp
-            await sharp(originalPath)
-              .resize(100, 100, {
-                fit: 'cover',
-                position: 'center'
-              })
-              .jpeg({ quality: 80 })
-              .toFile(thumbnailPath);
-            
-            photoThumbnailUrl = `/uploads/${thumbnailFilename}`;
-            console.log(`Thumbnail created successfully: ${thumbnailFilename}`);
-          }
-        } catch (thumbnailError) {
-          console.error("Error creating thumbnail:", thumbnailError);
-          // If thumbnail fails, use original as fallback
-          photoThumbnailUrl = photoUrl;
-        }
+      if (!req.file) {
+        return res.status(400).json({ error: "Photo is required" });
       }
 
-      const user = req.user || req.session.user;
       const validatedData = insertToolMovementSchema.parse({
         ...req.body,
         toolId: req.params.id,
-        photoUrl,
-        photoThumbnailUrl,
-        createdBy: user!.id,
+        photoUrl: `/uploads/${req.file.filename}`,
+        createdBy: req.session.user!.id,
       });
 
       const movement = await storage.createToolMovement(validatedData);
