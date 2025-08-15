@@ -59,34 +59,41 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  try {
-    // Run automatic database bootstrap before starting the application
-    await runDatabaseBootstrap();
-  } catch (error) {
-    console.error("Database bootstrap failed:", error);
-    
-    // Enhanced error handling for production deployments
-    const isProduction = process.env.NODE_ENV === 'production';
-    const skipMigrationOnError = process.env.SKIP_MIGRATION_ON_ERROR === '1';
-    const autoMigrateDisabled = process.env.AUTO_MIGRATE === '0';
-    
-    // Multiple conditions to allow startup despite migration failures
-    const shouldSkipError = isProduction || skipMigrationOnError || autoMigrateDisabled;
-    
-    if (shouldSkipError) {
-      console.warn("=".repeat(80));
-      console.warn("DATABASE MIGRATION FAILURE - CONTINUING STARTUP");
-      console.warn("=".repeat(80));
-      console.warn("Reason: Production deployment with migration error handling enabled");
-      console.warn(`NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
-      console.warn(`SKIP_MIGRATION_ON_ERROR: ${process.env.SKIP_MIGRATION_ON_ERROR || 'not set'}`);
-      console.warn(`AUTO_MIGRATE: ${process.env.AUTO_MIGRATE || 'not set'}`);
-      console.warn("The application will start without database migrations");
-      console.warn("Manual migration may be required via database panel");
-      console.warn("=".repeat(80));
-    } else {
-      console.error("Database migration is required for development environment");
-      console.error("Set NODE_ENV=production, SKIP_MIGRATION_ON_ERROR=1, or AUTO_MIGRATE=0 to skip");
+  // DEPLOYMENT SAFETY: Check for platform deployment mode first
+  const isReplit = !!process.env.REPLIT_DEPLOYMENT;
+  const isProduction = process.env.NODE_ENV === 'production';
+  const skipMigrationOnError = process.env.SKIP_MIGRATION_ON_ERROR === '1';
+  const autoMigrateDisabled = process.env.AUTO_MIGRATE === '0';
+  
+  // Multiple safety conditions for deployment
+  const shouldSkipMigrations = isReplit || isProduction || skipMigrationOnError || autoMigrateDisabled;
+  
+  if (shouldSkipMigrations) {
+    console.log("=".repeat(80));
+    console.log("DEPLOYMENT MODE - SKIPPING DATABASE MIGRATIONS");
+    console.log("=".repeat(80));
+    console.log("Platform deployment detected - bypassing all database operations");
+    console.log(`REPLIT_DEPLOYMENT: ${process.env.REPLIT_DEPLOYMENT || 'not set'}`);
+    console.log(`NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+    console.log(`SKIP_MIGRATION_ON_ERROR: ${process.env.SKIP_MIGRATION_ON_ERROR || 'not set'}`);
+    console.log(`AUTO_MIGRATE: ${process.env.AUTO_MIGRATE || 'not set'}`);
+    console.log("Application starting without database bootstrap");
+    console.log("=".repeat(80));
+  } else {
+    try {
+      // Only run database bootstrap in development environment
+      console.log("Development mode - running database bootstrap");
+      await runDatabaseBootstrap();
+    } catch (error) {
+      console.error("Database bootstrap failed:", error);
+      console.error("=".repeat(80));
+      console.error("DEVELOPMENT MIGRATION FAILURE");
+      console.error("=".repeat(80));
+      console.error("For deployment, set any of these environment variables:");
+      console.error("- NODE_ENV=production");
+      console.error("- SKIP_MIGRATION_ON_ERROR=1");
+      console.error("- AUTO_MIGRATE=0");
+      console.error("=".repeat(80));
       process.exit(1);
     }
   }

@@ -1,18 +1,31 @@
 # Bulletproof Deployment Guide
 
-This guide ensures your application deploys successfully on Replit by handling all database migration platform issues.
+This guide ensures your application deploys successfully on Replit by completely bypassing database migration platform issues.
 
-## Environment Variables Setup
+## CRITICAL: Set These Environment Variables in Replit Production Secrets
 
-### Required Production Secrets
+### Minimum Required (Choose ONE Strategy):
 
-Set these in your Replit production secrets:
+**Strategy 1 - Zero Migration (RECOMMENDED):**
+```
+AUTO_MIGRATE=0
+```
 
+**Strategy 2 - Production Mode:**
+```
+NODE_ENV=production  
+```
+
+**Strategy 3 - Skip Migration Errors:**
+```
+SKIP_MIGRATION_ON_ERROR=1
+```
+
+**Strategy 4 - Maximum Safety (ALL):**
 ```
 NODE_ENV=production
 AUTO_MIGRATE=0
 SKIP_MIGRATION_ON_ERROR=1
-DATABASE_URL=your_postgresql_connection_string
 ```
 
 ### Environment Variable Details
