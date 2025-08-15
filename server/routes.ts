@@ -1053,10 +1053,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Photo is required" });
       }
 
+      // Upload photo to object storage
+      const { ObjectStorageService } = await import('./objectStorage');
+      const objectStorageService = new ObjectStorageService();
+      
+      let photoUrl = `/uploads/${req.file.filename}`; // fallback for local storage
+      
+      try {
+        // Try to upload to object storage
+        const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+        
+        // Create FormData to upload file
+        const fs = await import('fs');
+        const fileBuffer = fs.readFileSync(req.file.path);
+        
+        // Upload to object storage
+        const uploadResponse = await fetch(uploadURL, {
+          method: 'PUT',
+          body: fileBuffer,
+          headers: {
+            'Content-Type': req.file.mimetype,
+          },
+        });
+        
+        if (uploadResponse.ok) {
+          // Set ACL policy for the uploaded object
+          photoUrl = await objectStorageService.trySetObjectEntityAclPolicy(uploadURL, {
+            owner: req.session.user!.id,
+            visibility: "private",
+          });
+        }
+        
+        // Clean up local file
+        fs.unlinkSync(req.file.path);
+      } catch (storageError) {
+        console.warn("Object storage upload failed, using local storage:", storageError);
+        // Keep the local file as fallback
+      }
+
       const validatedData = insertToolMovementSchema.parse({
         ...req.body,
         toolId: req.params.id,
-        photoUrl: `/uploads/${req.file.filename}`,
+        photoUrl: photoUrl,
         createdBy: req.session.user!.id,
       });
 
@@ -1077,6 +1115,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to get recent tool persons:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Serve objects (photos) from object storage
+  app.get("/objects/:objectPath(*)", requireAuth, async (req, res) => {
+    try {
+      const { ObjectStorageService, ObjectNotFoundError } = await import('./objectStorage');
+      const { ObjectPermission } = await import('./objectAcl');
+      
+      const userId = req.session?.user?.id;
+      const objectStorageService = new ObjectStorageService();
+      
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+      
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error accessing object:", error);
+      if (error instanceof (await import('./objectStorage')).ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
     }
   });
 
