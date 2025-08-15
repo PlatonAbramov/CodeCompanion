@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -784,9 +784,25 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
                                 }
                               }}
                             />
-                            {/* Hover overlay */}
-                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg flex items-center justify-center">
-                              <div className="text-white text-xs font-medium">Увеличить</div>
+                            {/* Hover overlay with magnifying glass icon */}
+                            <div 
+                              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg flex items-center justify-center cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPhoto(movement.photoUrl);
+                              }}
+                              data-testid={`button-enlarge-photo-${movement.id}`}
+                            >
+                              <svg 
+                                className="w-6 h-6 text-white drop-shadow-lg" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24"
+                              >
+                                <circle cx="11" cy="11" r="8" strokeWidth={2}/>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 21-4.35-4.35"/>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 8v6m-3-3h6"/>
+                              </svg>
                             </div>
                           </div>
                         ) : (
