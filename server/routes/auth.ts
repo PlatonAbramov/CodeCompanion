@@ -12,8 +12,14 @@ const router = Router();
  */
 router.post('/login', async (req, res) => {
   try {
+    // Support both 'login' and 'username' fields for backwards compatibility
+    const body = { ...req.body };
+    if (body.username && !body.login) {
+      body.login = body.username;
+    }
+    
     // Validate request body
-    const loginData = loginSchema.parse(req.body);
+    const loginData = loginSchema.parse(body);
     
     // Get client info
     const ipAddress = req.ip || req.connection.remoteAddress;

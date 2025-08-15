@@ -714,12 +714,15 @@ export const insertMfaTotpSchema = createInsertSchema(mfa_totp).omit({
   updated_at: true,
 });
 
-// Enhanced login schema for new auth system
+// Enhanced login schema for new auth system (supports both username and login)
 export const loginSchema = z.object({
-  login: z.string().min(1, "Login is required"),
+  login: z.string().min(1, "Login is required").optional(),
+  username: z.string().min(1, "Username is required").optional(),
   password: z.string().min(1, "Password is required"),
   mfa_code: z.string().optional(),
   remember_device: z.boolean().optional().default(false),
+}).refine(data => data.login || data.username, {
+  message: "Either login or username is required",
 });
 
 // User creation schema for admin
