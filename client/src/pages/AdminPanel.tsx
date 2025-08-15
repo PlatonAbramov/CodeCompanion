@@ -49,7 +49,7 @@ export default function AdminPanel() {
   const queryClient = useQueryClient();
 
   // Проверяем, что пользователь - администратор
-  const isAdmin = user?.email === "platonabramov90@gmail.com";
+  const isAdmin = user?.email === "platonabramov90@gmail.com" || user?.username === "platonabramov90";
 
   if (!isAdmin) {
     return (
@@ -625,7 +625,7 @@ export default function AdminPanel() {
                             <TableCell>
                               <div className="flex items-center">
                                 <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                                {new Date(action.createdAt).toLocaleString('ru-RU')}
+                                {action.createdAt ? new Date(action.createdAt).toLocaleString('ru-RU') : '—'}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -687,7 +687,7 @@ export default function AdminPanel() {
                             <TableCell>
                               <div className="flex items-center">
                                 <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                                {new Date(attempt.attemptTime).toLocaleString('ru-RU')}
+                                {attempt.attemptTime ? new Date(attempt.attemptTime).toLocaleString('ru-RU') : '—'}
                               </div>
                             </TableCell>
                             <TableCell>
