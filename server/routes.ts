@@ -14,6 +14,7 @@ import authRoutes from './routes/auth';
 import adminRoutes from './routes/admin';
 import { legacyAuthRoutes, legacyRequireAuth } from './routes/legacy';
 import { securityHeaders, corsMiddleware } from './middleware/auth';
+import { AuthService } from './auth';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,11 +89,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register legacy authentication routes for backwards compatibility
   app.use('/api', legacyAuthRoutes);
 
-  // Legacy auth middleware (use legacyRequireAuth for consistency)
-  const requireAuth = legacyRequireAuth;
+  // Unified auth middleware that works with both JWT and session
+  const requireAuth = (req: any, res: any, next: any) => {
+    // Check JWT token first
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (token) {
+      // Try JWT authentication
+      const decoded = AuthService.verifyAccessToken(token);
+      if (decoded) {
+        req.user = {
+          id: decoded.user_id,
+          login: decoded.login,
+          role: decoded.role,
+          username: decoded.login,
+          name: decoded.login
+        };
+        req.session = req.session || {};
+        req.session.user = req.user;
+        return next();
+      }
+    }
+    
+    // Fallback to session-based auth
+    if (!req.session?.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    next();
+  };
 
   const requireDirector = (req: any, res: any, next: any) => {
-    if (!req.session?.user || req.session.user.role !== 'director') {
+    const user = req.user || req.session?.user;
+    if (!user || user.role !== 'director') {
       return res.status(403).json({ error: "Director access required" });
     }
     next();
@@ -327,7 +356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Expense routes
   app.get("/api/expenses", requireAuth, async (req, res) => {
     try {
-      const user = req.session.user!;
+      const user = req.user || req.session.user!;
       const expenses = await storage.getUserExpenses(user.id);
       res.json(expenses);
     } catch (error) {
@@ -348,9 +377,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/expenses", requireAuth, async (req, res) => {
     try {
+      const user = req.user || req.session.user;
       const expenseData = insertExpenseSchema.parse({
         ...req.body,
-        userId: req.session.user!.id
+        userId: user!.id
       });
       const expense = await storage.createExpense(expenseData);
       res.status(201).json(expense);
@@ -373,9 +403,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/documents", requireAuth, async (req, res) => {
     try {
+      const user = req.user || req.session.user;
       const documentData = insertDocumentSchema.parse({
         ...req.body,
-        uploadedBy: req.session.user!.id
+        uploadedBy: user!.id
       });
       const document = await storage.createDocument(documentData);
       res.status(201).json(document);
@@ -398,9 +429,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/advances", requireAuth, requireDirector, async (req, res) => {
     try {
+      const user = req.user || req.session.user;
       const advanceData = insertAdvanceSchema.parse({
         ...req.body,
-        createdBy: req.session.user!.id
+        createdBy: user!.id
       });
       const advance = await storage.createAdvance(advanceData);
       res.status(201).json(advance);
@@ -423,9 +455,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/customer-advances", requireAuth, requireDirector, async (req, res) => {
     try {
+      const user = req.user || req.session.user;
       const customerAdvanceData = insertCustomerAdvanceSchema.parse({
         ...req.body,
-        createdBy: req.session.user!.id
+        createdBy: user!.id
       });
       const customerAdvance = await storage.createCustomerAdvance(customerAdvanceData);
       res.status(201).json(customerAdvance);
@@ -448,10 +481,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/revenues", requireAuth, requireDirector, async (req, res) => {
     try {
+      const user = req.user || req.session.user;
       const revenueData = insertRevenueSchema.parse({
         ...req.body,
         amount: req.body.amount.toString(),
-        createdBy: req.session.user!.id,
+        createdBy: user!.id,
         date: new Date(req.body.date || Date.now())
       });
       const revenue = await storage.createRevenue(revenueData);
@@ -601,10 +635,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects/:projectId/owner-investments", requireAuth, async (req, res) => {
     try {
+      const user = req.user || req.session.user;
       const validatedData = insertOwnerInvestmentSchema.parse({
         ...req.body,
         projectId: req.params.projectId,
-        createdBy: req.session.user!.id
+        createdBy: user!.id
       });
 
       const ownerInvestment = await storage.createOwnerInvestment(validatedData);
@@ -639,10 +674,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Documents routes
   app.post("/api/projects/:projectId/documents", requireAuth, requireDirector, async (req, res) => {
     try {
+      const user = req.user || req.session.user;
       const documentData = insertDocumentSchema.parse({
         ...req.body,
         projectId: req.params.projectId,
-        uploadedBy: req.session.user!.id,
+        uploadedBy: user!.id,
       });
       const document = await storage.createDocument(documentData);
       res.status(201).json(document);
