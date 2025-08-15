@@ -35,6 +35,7 @@ import EditContractorProject from "@/pages/EditContractorProject";
 import Clients from "@/pages/Clients";
 import ClientDetail from "@/pages/ClientDetail";
 import Tools from "@/pages/Tools";
+import Styleguide from "@/pages/Styleguide";
 // import AdminSetup from "@/pages/AdminSetup";
 import NotFound from "@/pages/not-found";
 
@@ -66,10 +67,10 @@ function AuthenticatedApp() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg)' }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-slate-500">Загрузка...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--color-primary)' }}></div>
+          <p style={{ color: 'var(--color-text-muted)' }}>Загрузка...</p>
         </div>
       </div>
     );
@@ -107,6 +108,7 @@ function AuthenticatedApp() {
       <Route path="/clients" component={user.role === 'director' ? Clients : () => { setLocation('/director'); return null; }} />
       <Route path="/clients/:id" component={user.role === 'director' ? ClientDetail : () => { setLocation('/director'); return null; }} />
       <Route path="/tools" component={user.role === 'director' ? Tools : () => { setLocation('/director'); return null; }} />
+      <Route path="/styleguide" component={Styleguide} />
       {/* <Route path="/admin-setup" component={AdminSetup} /> */}
       <Route component={NotFound} />
     </Switch>

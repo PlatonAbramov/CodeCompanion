@@ -1,0 +1,18 @@
+<svg width="120" height="32" viewBox="0 0 120 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- PAG Brand Logo - Platon Abramov Group -->
+  <defs>
+    <style>
+      .logo-text { font-family: 'Jost', sans-serif; font-weight: 600; }
+    </style>
+  </defs>
+  
+  <!-- Background shape -->
+  <rect x="0" y="4" width="28" height="24" rx="6" fill="#E7D7C8"/>
+  
+  <!-- PAG Letters -->
+  <text x="4" y="20" class="logo-text" font-size="14" fill="#423731">PAG</text>
+  
+  <!-- Company name -->
+  <text x="36" y="14" class="logo-text" font-size="10" fill="currentColor" opacity="0.9">PLATON</text>
+  <text x="36" y="24" class="logo-text" font-size="10" fill="currentColor" opacity="0.9">ABRAMOV GROUP</text>
+</svg>

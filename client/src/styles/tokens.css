@@ -1,0 +1,122 @@
+/* PAG Design Tokens - Platon Abramov Group Brand System */
+
+:root {
+  /* PAG Brand Colors */
+  --color-bg: #423731;
+  --color-surface: #53453E;
+  --color-surface-muted: #65544B;
+  --color-border: #766258;
+  --color-primary: #E7D7C8;
+  --color-on-primary: #423731;
+  --color-text: #F0E6DD;
+  --color-text-muted: #CFB092;
+  --color-accent: #F0E6DD;
+
+  /* Status Colors */
+  --color-success: #2E7D32;
+  --color-warning: #B26A00;
+  --color-danger: #C62828;
+
+  /* Typography */
+  --font-family-base: "Jost", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 2rem;      /* 32px */
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  --line-height-tight: 1.4;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+
+  /* Spacing & Layout */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* Animation */
+  --transition-fast: 150ms cubic-bezier(0.2, 0, 0, 1);
+  --transition-normal: 200ms cubic-bezier(0.2, 0, 0, 1);
+
+  /* Semantic mappings for Shadcn/UI compatibility */
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-on-primary);
+  --secondary: var(--color-surface-muted);
+  --secondary-foreground: var(--color-text);
+  --muted: var(--color-surface-muted);
+  --muted-foreground: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --accent-foreground: var(--color-on-primary);
+  --destructive: var(--color-danger);
+  --destructive-foreground: var(--color-text);
+  --border: var(--color-border);
+  --input: var(--color-surface);
+  --ring: var(--color-primary);
+  --radius: var(--radius-md);
+
+  /* Chart colors derived from brand palette */
+  --chart-1: var(--color-primary);
+  --chart-2: var(--color-accent);
+  --chart-3: var(--color-text-muted);
+  --chart-4: var(--color-border);
+  --chart-5: var(--color-surface-muted);
+
+  /* Sidebar colors */
+  --sidebar-background: var(--color-bg);
+  --sidebar-foreground: var(--color-text);
+  --sidebar-primary: var(--color-primary);
+  --sidebar-primary-foreground: var(--color-on-primary);
+  --sidebar-accent: var(--color-accent);
+  --sidebar-accent-foreground: var(--color-on-primary);
+  --sidebar-border: var(--color-border);
+  --sidebar-ring: var(--color-primary);
+}
+
+/* Light mode variant (if needed for specific components) */
+.light {
+  --color-bg: #F5F1EC;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F0E6DD;
+  --color-border: #E7D7C8;
+  --color-primary: #423731;
+  --color-on-primary: #F0E6DD;
+  --color-text: #423731;
+  --color-text-muted: #766258;
+  --color-accent: #423731;
+
+  /* Update semantic mappings for light mode */
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-on-primary);
+  --secondary: var(--color-surface-muted);
+  --secondary-foreground: var(--color-text);
+  --muted: var(--color-surface-muted);
+  --muted-foreground: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --accent-foreground: var(--color-on-primary);
+  --border: var(--color-border);
+  --input: var(--color-surface);
+  --ring: var(--color-primary);
+}

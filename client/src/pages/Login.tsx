@@ -28,25 +28,29 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--color-bg)' }}>
       <div className="w-full max-w-md">
-        <Card className="shadow-xl">
+        <Card className="shadow-modal" style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
           <CardContent className="p-8">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                <HardHat className="text-white text-2xl" size={32} />
+              <div className="mb-6">
+                <img 
+                  src="/assets/pag-logo-light.svg" 
+                  alt="PAG - Platon Abramov Group" 
+                  className="h-12 mx-auto"
+                />
               </div>
-              <h1 className="text-2xl font-bold text-slate-900 mb-2">
+              <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--color-text)' }}>
                 {t('loginTitle')}
               </h1>
-              <p className="text-slate-600">
+              <p style={{ color: 'var(--color-text-muted)' }}>
                 {t('loginSubtitle')}
               </p>
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <Label className="block text-sm font-medium text-slate-700 mb-2">
+                <Label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                   {t('username')}
                 </Label>
                 <Input
@@ -55,12 +59,17 @@ export default function Login() {
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder={t('username')}
                   required
-                  className="w-full px-4 py-3"
+                  className="w-full px-4 py-3 input"
+                  style={{ 
+                    backgroundColor: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text)'
+                  }}
                 />
               </div>
               
               <div>
-                <Label className="block text-sm font-medium text-slate-700 mb-2">
+                <Label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
                   {t('password')}
                 </Label>
                 <div className="relative">
@@ -70,7 +79,12 @@ export default function Login() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t('password')}
                     required
-                    className="w-full px-4 py-3 pr-12"
+                    className="w-full px-4 py-3 pr-12 input"
+                    style={{ 
+                      backgroundColor: 'var(--color-surface)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text)'
+                    }}
                     data-testid="input-password"
                   />
                   <Button
@@ -82,9 +96,9 @@ export default function Login() {
                     data-testid="button-toggle-password"
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-slate-500" />
+                      <EyeOff className="h-4 w-4" style={{ color: 'var(--color-text-muted)' }} />
                     ) : (
-                      <Eye className="h-4 w-4 text-slate-500" />
+                      <Eye className="h-4 w-4" style={{ color: 'var(--color-text-muted)' }} />
                     )}
                   </Button>
                 </div>
@@ -93,7 +107,12 @@ export default function Login() {
               <Button
                 type="submit"
                 disabled={isLoggingIn}
-                className="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="w-full py-3 rounded-sm font-medium transition-all btn-primary"
+                style={{
+                  backgroundColor: 'var(--color-primary)',
+                  color: 'var(--color-on-primary)',
+                  border: 'none'
+                }}
               >
                 {isLoggingIn ? t('loading') : t('login')}
               </Button>
@@ -103,7 +122,11 @@ export default function Login() {
               <Button
                 variant="ghost"
                 onClick={toggleLanguage}
-                className="text-sm text-slate-500 hover:text-slate-700"
+                className="text-sm"
+                style={{ 
+                  color: 'var(--color-text-muted)',
+                  backgroundColor: 'transparent'
+                }}
               >
                 <Globe className="mr-1" size={16} />
                 {language === 'ru' ? 'English' : 'Русский'}

@@ -12,12 +12,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Bus, Bell, LogOut, Plus, Home, Folder, Users, BarChart3,
+  Plus, Home, Folder, Users, BarChart3,
   ProjectorIcon, TrendingUp, TrendingDown, Calendar, Edit2, ChevronDown, ChevronUp,
   Building2, Wrench
 } from "lucide-react";
 import { AssignClientModal } from '@/components/AssignClientModal';
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { Header } from "@/components/Header";
 
 interface Project {
   id: string;
@@ -362,62 +363,66 @@ export default function DirectorDashboard() {
   const totalProfit = totalRevenue - totalAdvances - totalExpenses;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center mr-3">
-                <Bus className="text-white" size={20} />
-              </div>
-              <div>
-                <h2 className="font-semibold text-slate-900">{user?.name}</h2>
-                <p className="text-sm text-slate-500">{t('director')}</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="sm">
-                <Bell size={20} />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => logout()}>
-                <LogOut size={20} />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
+      <Header title={t('dashboard')} />
 
       {/* Statistics Cards */}
       <div className="p-4">
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card>
+          <Card 
+            className="card animate-fadeIn"
+            style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-500">{t('activeProjects')}</p>
-                  <p className="text-2xl font-bold text-slate-900">{activeProjectsCount}</p>
+                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                    {t('activeProjects')}
+                  </p>
+                  <p className="text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
+                    {activeProjectsCount}
+                  </p>
                 </div>
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <ProjectorIcon className="text-primary" size={24} />
+                <div 
+                  className="w-12 h-12 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 15%, transparent)' }}
+                >
+                  <ProjectorIcon style={{ color: 'var(--color-primary)' }} size={24} />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card 
+            className="card animate-fadeIn"
+            style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-500">{t('totalProfit')}</p>
-                  <p className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                    {t('totalProfit')}
+                  </p>
+                  <p 
+                    className="text-2xl font-bold"
+                    style={{ 
+                      color: totalProfit >= 0 ? 'var(--color-success)' : 'var(--color-danger)' 
+                    }}
+                  >
                     {formatCurrency(totalProfit.toString())}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <div 
+                  className="w-12 h-12 rounded-lg flex items-center justify-center"
+                  style={{ 
+                    backgroundColor: totalProfit >= 0 
+                      ? 'color-mix(in srgb, var(--color-success) 15%, transparent)' 
+                      : 'color-mix(in srgb, var(--color-danger) 15%, transparent)'
+                  }}
+                >
                   {totalProfit >= 0 ? 
-                    <TrendingUp className="text-green-600" size={24} /> : 
-                    <TrendingDown className="text-red-600" size={24} />
+                    <TrendingUp style={{ color: 'var(--color-success)' }} size={24} /> : 
+                    <TrendingDown style={{ color: 'var(--color-danger)' }} size={24} />
                   }
                 </div>
               </div>
