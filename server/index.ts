@@ -20,19 +20,50 @@ if (!process.env.PUBLIC_OBJECT_SEARCH_PATHS && !process.env.PRIVATE_OBJECT_DIR) 
 async function initializeDefaultAdmin() {
   try {
     const users = await storage.getAllUsers();
-    const adminExists = users.find(u => u.username === "platonabramov90@gmail.com");
+    const adminExists = users.find(u => 
+      u.username === "platonabramov90@gmail.com" || 
+      u.login === "platonabramov90@gmail.com"
+    );
     
     if (!adminExists) {
       log("Admin user not found. Creating admin user...");
-      await storage.createUser({
-        username: "platonabramov90@gmail.com",
-        password: "123456",
-        name: "Platon Abramov",
-        role: "director"
+      
+      // Import AuthService for secure user creation
+      const { AuthService } = await import('./auth');
+      
+      // Create admin user with new secure system
+      const passwordHash = await AuthService.hashPassword("123456");
+      
+      await storage.createSecureUser({
+        login: "platonabramov90@gmail.com",
+        password_hash: passwordHash,
+        password_algo: "argon2id",
+        name: "Директор",
+        role: "director",
+        mfa_enabled: false,
+        is_blocked: false,
       });
-      log("Admin user created: username='platonabramov90@gmail.com', password='123456'");
+      
+      log("Admin user created: login='platonabramov90@gmail.com', password='123456'");
     } else {
       log("Admin user already exists: platonabramov90@gmail.com");
+      
+      // Ensure admin has new auth fields populated
+      if (adminExists && !adminExists.password_hash && adminExists.password) {
+        const { AuthService } = await import('./auth');
+        const passwordHash = await AuthService.hashPassword("123456");
+        
+        await storage.updateUserPassword(adminExists.id, passwordHash);
+        
+        // Update login field if missing
+        if (!adminExists.login && adminExists.username) {
+          await storage.updateUserDetails(adminExists.id, {
+            login: adminExists.username
+          });
+        }
+        
+        log("Admin user migrated to new authentication system");
+      }
     }
   } catch (error) {
     console.error("Error initializing admin user:", error);
@@ -40,6 +71,10 @@ async function initializeDefaultAdmin() {
 }
 
 const app = express();
+
+// Trust proxy for rate limiting to work correctly in Replit
+app.set('trust proxy', true);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

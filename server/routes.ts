@@ -7,6 +7,13 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from 'url';
+import cookieParser from 'cookie-parser';
+
+// Import new auth routes
+import authRoutes from './routes/auth';
+import adminRoutes from './routes/admin';
+import { legacyAuthRoutes, legacyRequireAuth } from './routes/legacy';
+import { securityHeaders, corsMiddleware } from './middleware/auth';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,6 +40,14 @@ declare module 'express-session' {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Security middleware
+  app.use(securityHeaders);
+  app.use(corsMiddleware);
+  // Remove general rate limiting to avoid 429 errors on frontend requests
+  
+  // Cookie parser for refresh tokens
+  app.use(cookieParser());
+  
   // Create uploads directory if it doesn't exist
   const uploadsDir = path.join(__dirname, 'uploads');
   if (!fs.existsSync(uploadsDir)) {
@@ -55,7 +70,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Session middleware
+  // Session middleware (for legacy compatibility)
   app.use(session({
     secret: process.env.SESSION_SECRET || 'construction-app-secret',
     resave: false,
@@ -66,13 +81,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }));
 
-  // Auth middleware
-  const requireAuth = (req: any, res: any, next: any) => {
-    if (!req.session?.user) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-    next();
-  };
+  // Register new authentication routes
+  app.use('/api/auth', authRoutes);
+  app.use('/api/admin', adminRoutes);
+  
+  // Register legacy authentication routes for backwards compatibility
+  app.use('/api', legacyAuthRoutes);
+
+  // Legacy auth middleware (use legacyRequireAuth for consistency)
+  const requireAuth = legacyRequireAuth;
 
   const requireDirector = (req: any, res: any, next: any) => {
     if (!req.session?.user || req.session.user.role !== 'director') {
