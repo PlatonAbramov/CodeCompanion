@@ -51,6 +51,62 @@ export default function AdminPanel() {
   // Проверяем, что пользователь - администратор
   const isAdmin = user?.email === "platonabramov90@gmail.com" || user?.username === "platonabramov90";
 
+  // Статистика
+  const { data: stats } = useQuery<AdminStats>({
+    queryKey: ['/api/admin/stats'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/admin/stats');
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  // Список пользователей
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
+    queryKey: ['/api/admin/users', searchTerm, filterStatus],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('search', searchTerm);
+      if (filterStatus !== 'all') params.append('status', filterStatus);
+      
+      const res = await apiRequest('GET', `/api/admin/users?${params}`);
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  // Журнал действий
+  const { data: adminActions } = useQuery<AdminAction[]>({
+    queryKey: ['/api/admin/actions'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/admin/actions');
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  // Логи входов
+  const { data: loginAttempts } = useQuery<LoginAttempt[]>({
+    queryKey: ['/api/admin/login-attempts'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/admin/login-attempts');
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  // Форма создания пользователя
+  const createUserForm = useForm<CreateUser>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: {
+      username: "",
+      email: "",
+      name: "",
+      password: "",
+      role: "master",
+    },
+  });
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -66,58 +122,6 @@ export default function AdminPanel() {
       </div>
     );
   }
-
-  // Статистика
-  const { data: stats } = useQuery<AdminStats>({
-    queryKey: ['/api/admin/stats'],
-    queryFn: async () => {
-      const res = await apiRequest('GET', '/api/admin/stats');
-      return res.json();
-    },
-  });
-
-  // Список пользователей
-  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
-    queryKey: ['/api/admin/users', searchTerm, filterStatus],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
-      if (filterStatus !== 'all') params.append('status', filterStatus);
-      
-      const res = await apiRequest('GET', `/api/admin/users?${params}`);
-      return res.json();
-    },
-  });
-
-  // Журнал действий
-  const { data: adminActions } = useQuery<AdminAction[]>({
-    queryKey: ['/api/admin/actions'],
-    queryFn: async () => {
-      const res = await apiRequest('GET', '/api/admin/actions');
-      return res.json();
-    },
-  });
-
-  // Логи входов
-  const { data: loginAttempts } = useQuery<LoginAttempt[]>({
-    queryKey: ['/api/admin/login-attempts'],
-    queryFn: async () => {
-      const res = await apiRequest('GET', '/api/admin/login-attempts');
-      return res.json();
-    },
-  });
-
-  // Форма создания пользователя
-  const createUserForm = useForm<CreateUser>({
-    resolver: zodResolver(createUserSchema),
-    defaultValues: {
-      username: "",
-      email: "",
-      name: "",
-      password: "",
-      role: "master",
-    },
-  });
 
   // Мутация создания пользователя
   const createUserMutation = useMutation({
