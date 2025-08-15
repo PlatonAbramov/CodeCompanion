@@ -2,6 +2,18 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Set default object storage environment variables if not already set
+// These are the standard values when object storage is configured in Replit
+if (!process.env.PUBLIC_OBJECT_SEARCH_PATHS && !process.env.PRIVATE_OBJECT_DIR) {
+  // Check if we're in a Replit environment
+  if (process.env.REPL_ID) {
+    const defaultBucketId = `replit-objstore-${process.env.REPL_ID}`;
+    process.env.PUBLIC_OBJECT_SEARCH_PATHS = `/${defaultBucketId}/public`;
+    process.env.PRIVATE_OBJECT_DIR = `/${defaultBucketId}/.private`;
+    log("Object storage environment variables not found. Using default configuration based on REPL_ID.");
+  }
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

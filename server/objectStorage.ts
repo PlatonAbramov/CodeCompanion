@@ -12,23 +12,32 @@ import {
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
 // The object storage client is used to interact with the object storage service.
-export const objectStorageClient = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
+// Initialize with error handling to prevent startup crashes in production
+export const objectStorageClient = (() => {
+  try {
+    return new Storage({
+      credentials: {
+        audience: "replit",
+        subject_token_type: "access_token",
+        token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
+        type: "external_account",
+        credential_source: {
+          url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+          format: {
+            type: "json",
+            subject_token_field_name: "access_token",
+          },
+        },
+        universe_domain: "googleapis.com",
       },
-    },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
+      projectId: "",
+    });
+  } catch (error) {
+    console.warn("Failed to initialize Google Cloud Storage client:", error);
+    // Return a minimal mock client that won't crash the application
+    return null as any;
+  }
+})();
 
 export class ObjectNotFoundError extends Error {
   constructor() {
@@ -54,10 +63,11 @@ export class ObjectStorageService {
       )
     );
     if (paths.length === 0) {
-      throw new Error(
-        "PUBLIC_OBJECT_SEARCH_PATHS not set. Create a bucket in 'Object Storage' " +
-          "tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths)."
+      console.warn(
+        "PUBLIC_OBJECT_SEARCH_PATHS not set. Object storage search functionality will be disabled. " +
+        "Create a bucket in 'Object Storage' tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths)."
       );
+      return [];
     }
     return paths;
   }
@@ -66,28 +76,47 @@ export class ObjectStorageService {
   getPrivateObjectDir(): string {
     const dir = process.env.PRIVATE_OBJECT_DIR || "";
     if (!dir) {
-      throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+      console.warn(
+        "PRIVATE_OBJECT_DIR not set. Private object functionality will be disabled. " +
+        "Create a bucket in 'Object Storage' tool and set PRIVATE_OBJECT_DIR env var."
       );
+      return "";
     }
     return dir;
   }
 
   // Search for a public object from the search paths.
   async searchPublicObject(filePath: string): Promise<File | null> {
-    for (const searchPath of this.getPublicObjectSearchPaths()) {
-      const fullPath = `${searchPath}/${filePath}`;
+    const searchPaths = this.getPublicObjectSearchPaths();
+    
+    // If no search paths are configured, return null
+    if (searchPaths.length === 0) {
+      return null;
+    }
 
-      // Full path format: /<bucket_name>/<object_name>
-      const { bucketName, objectName } = parseObjectPath(fullPath);
-      const bucket = objectStorageClient.bucket(bucketName);
-      const file = bucket.file(objectName);
+    // If object storage client is not available, return null
+    if (!objectStorageClient) {
+      console.warn("Object storage client not available. Public object search disabled.");
+      return null;
+    }
 
-      // Check if file exists
-      const [exists] = await file.exists();
-      if (exists) {
-        return file;
+    for (const searchPath of searchPaths) {
+      try {
+        const fullPath = `${searchPath}/${filePath}`;
+
+        // Full path format: /<bucket_name>/<object_name>
+        const { bucketName, objectName } = parseObjectPath(fullPath);
+        const bucket = objectStorageClient.bucket(bucketName);
+        const file = bucket.file(objectName);
+
+        // Check if file exists
+        const [exists] = await file.exists();
+        if (exists) {
+          return file;
+        }
+      } catch (error) {
+        console.warn(`Error searching for object ${filePath} in ${searchPath}:`, error);
+        continue;
       }
     }
 
@@ -135,8 +164,15 @@ export class ObjectStorageService {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
       throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+        "PRIVATE_OBJECT_DIR not set. Object upload functionality is disabled. " +
+        "Create a bucket in 'Object Storage' tool and set PRIVATE_OBJECT_DIR env var."
+      );
+    }
+
+    // Check if object storage client is available
+    if (!objectStorageClient) {
+      throw new Error(
+        "Object storage client not available. Upload functionality is disabled."
       );
     }
 
@@ -167,6 +203,22 @@ export class ObjectStorageService {
 
     const entityId = parts.slice(1).join("/");
     let entityDir = this.getPrivateObjectDir();
+    
+    // If private object directory is not configured, throw error
+    if (!entityDir) {
+      throw new Error(
+        "PRIVATE_OBJECT_DIR not set. Object access functionality is disabled. " +
+        "Create a bucket in 'Object Storage' tool and set PRIVATE_OBJECT_DIR env var."
+      );
+    }
+
+    // Check if object storage client is available
+    if (!objectStorageClient) {
+      throw new Error(
+        "Object storage client not available. Object access functionality is disabled."
+      );
+    }
+    
     if (!entityDir.endsWith("/")) {
       entityDir = `${entityDir}/`;
     }
@@ -193,6 +245,12 @@ export class ObjectStorageService {
     const rawObjectPath = url.pathname;
   
     let objectEntityDir = this.getPrivateObjectDir();
+    
+    // If private object directory is not configured, return the raw path
+    if (!objectEntityDir) {
+      return rawObjectPath;
+    }
+    
     if (!objectEntityDir.endsWith("/")) {
       objectEntityDir = `${objectEntityDir}/`;
     }

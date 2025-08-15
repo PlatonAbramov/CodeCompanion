@@ -2,6 +2,14 @@
 
 This is a construction and HVAC services management mobile application designed for internal use by company employees. The application serves as a project and expense tracking system with two distinct user roles: Directors (administrators) who have full access to all projects and financial data, and Masters/Workers who can only track their own expenses. The system includes project management, expense tracking with receipt uploads, document management, advance payment tracking, and comprehensive financial reporting capabilities.
 
+## Recent Changes
+
+**August 15, 2025** - Fixed deployment issues related to object storage environment variables:
+- Added error handling to prevent startup crashes when object storage environment variables are missing
+- Implemented automatic default configuration for object storage based on REPL_ID
+- Added graceful fallbacks for object storage functionality when credentials are unavailable
+- Enhanced `ObjectStorageService` methods to handle missing environment variables without throwing errors
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
