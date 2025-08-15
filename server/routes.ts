@@ -136,6 +136,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: req.session.user });
   });
 
+  // Initialize admin user (public endpoint for deployment setup)
+  app.post("/api/init-admin", async (req, res) => {
+    try {
+      // Check if any users exist
+      const users = await storage.getAllUsers();
+      if (users.length > 0) {
+        return res.status(400).json({ error: "Admin already exists or users found in database" });
+      }
+
+      // Create default admin user
+      const adminUser = await storage.createUser({
+        username: "admin",
+        password: "admin",
+        name: "Администратор",
+        role: "director"
+      });
+
+      res.json({ 
+        message: "Admin user created successfully",
+        username: "admin",
+        password: "admin"
+      });
+    } catch (error) {
+      console.error("Init admin error:", error);
+      res.status(500).json({ error: "Failed to create admin user" });
+    }
+  });
+
   // User management routes (Director only)
   app.get("/api/users", requireAuth, requireDirector, async (req, res) => {
     try {
