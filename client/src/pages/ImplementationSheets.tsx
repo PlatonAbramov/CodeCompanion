@@ -108,7 +108,7 @@ export default function ImplementationSheets() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href={`/projects/${projectId}`}>
+          <Link href={`/project/${projectId}`}>
             <Button variant="ghost" size="icon" data-testid="button-back">
               <ArrowLeft className="h-5 w-5" />
             </Button>
