@@ -108,7 +108,9 @@ export class InvoiceParser {
         };
       }
 
-      // Парсинг строк таблицы
+      // Простой и надежный алгоритм: ищем ВСЕ строки, которые заканчиваются тремя числами
+      let itemPosition = 1; // Счетчик позиций для строк без номера в начале
+      
       for (let i = tableStartIndex; i < lines.length; i++) {
         const line = lines[i].trim();
         
@@ -116,21 +118,32 @@ export class InvoiceParser {
         if (line.includes('Subtotal')) {
           break;
         }
-
-        // Ищем строки, которые начинаются с номера и содержат числовые данные в конце
-        const match = line.match(/^(\d+)\s+(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
         
-        if (match) {
-          const [, position, description, quantity, price, totalCost] = match;
+        if (!line) continue;
+        
+        // Ищем ЛЮБУЮ строку с тремя числами в конце (количество цена стоимость)
+        const numbersMatch = line.match(/^(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
+        
+        if (numbersMatch) {
+          const [, text, quantity, price, total] = numbersMatch;
+          let position = itemPosition++;
+          let description = text.trim();
+          
+          // Если строка начинается с номера, используем его
+          const positionMatch = text.match(/^(\d+)\s+(.+)/);
+          if (positionMatch) {
+            position = parseInt(positionMatch[1]);
+            description = positionMatch[2].trim();
+          }
           
           items.push({
-            position: parseInt(position),
-            name: description.trim(),
-            quantity: this.parseNumber(quantity),
+            position,
+            name: description,
+            quantity: this.parseNumber(quantity)!,
             unit: '',
-            price: this.parseNumber(price),
-            totalCost: this.parseNumber(totalCost),
-            description: description.trim()
+            price: this.parseNumber(price)!,
+            totalCost: this.parseNumber(total)!,
+            description: description
           });
         }
       }
@@ -412,6 +425,25 @@ export class InvoiceParser {
   private getCellValue(row: any[], columnIndex: number): string | undefined {
     if (columnIndex === -1 || !row[columnIndex]) return undefined;
     return String(row[columnIndex]).trim();
+  }
+
+
+
+  private addBufferedItem(buffer: { position?: number; description: string[] }, items: ParsedInvoiceItem[]): void {
+    if (buffer.position && buffer.description.length > 0) {
+      const fullDescription = buffer.description.join(' ').trim();
+      
+      // Добавляем элемент без числовых данных (будут заполнены нулями)
+      items.push({
+        position: buffer.position,
+        name: fullDescription,
+        quantity: 0,
+        unit: '',
+        price: 0,
+        totalCost: 0,
+        description: fullDescription
+      });
+    }
   }
 
   /**
