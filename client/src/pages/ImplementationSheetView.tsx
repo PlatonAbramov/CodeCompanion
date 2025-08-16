@@ -182,11 +182,22 @@ export default function ImplementationSheetView() {
   };
 
   const handleGetUploadParameters = async () => {
-    const uploadURL = await objectStorageService.getUploadURL();
-    return {
-      method: 'PUT' as const,
-      url: uploadURL,
-    };
+    try {
+      const uploadURL = await objectStorageService.getUploadURL();
+      console.log('Got upload URL:', uploadURL);
+      return {
+        method: 'PUT' as const,
+        url: uploadURL,
+      };
+    } catch (error) {
+      console.error('Error getting upload parameters:', error);
+      toast({
+        title: language === 'ru' ? "Ошибка" : "Error",
+        description: language === 'ru' ? "Не удалось получить URL для загрузки" : "Failed to get upload URL",
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
 
   const handleUploadComplete = async (result: any) => {
