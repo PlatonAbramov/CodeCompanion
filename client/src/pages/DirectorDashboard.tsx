@@ -234,7 +234,10 @@ export default function DirectorDashboard() {
   // Create project mutation
   const createProjectMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('POST', '/api/projects', data);
+      const res = await apiRequest('/api/projects', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -265,7 +268,10 @@ export default function DirectorDashboard() {
   // Edit project mutation
   const editProjectMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('PATCH', `/api/projects/${editingProject?.id}`, data);
+      const res = await apiRequest(`/api/projects/${editingProject?.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: () => {
