@@ -251,16 +251,29 @@ export default function ProjectDetail() {
           </Button>
           
           {(user?.role === 'admin' || user?.role === 'director') && (
-            <Button 
-              variant="outline"
-              className="px-6 py-3 rounded-full shadow-sm"
-              onClick={() => setIsAssignClientModalOpen(true)}
-            >
-              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                <Plus size={16} className="text-blue-600" />
-              </div>
-              Назначить заказчика
-            </Button>
+            <>
+              <Button 
+                variant="outline"
+                className="px-6 py-3 rounded-full shadow-sm"
+                onClick={() => setIsAssignClientModalOpen(true)}
+              >
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                  <Plus size={16} className="text-blue-600" />
+                </div>
+                Назначить заказчика
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="px-6 py-3 rounded-full shadow-sm"
+                onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
+              >
+                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                  <FileText size={16} className="text-green-600" />
+                </div>
+                Листы реализации
+              </Button>
+            </>
           )}
         </div>
 

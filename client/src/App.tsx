@@ -36,6 +36,8 @@ import Clients from "@/pages/Clients";
 import ClientDetail from "@/pages/ClientDetail";
 import Tools from "@/pages/Tools";
 import AdminPanel from "@/pages/AdminPanel";
+import ImplementationSheets from "@/pages/ImplementationSheets";
+import ImplementationSheetView from "@/pages/ImplementationSheetView";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedApp() {
@@ -110,6 +112,8 @@ function AuthenticatedApp() {
       <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
       <Route path="/tools" component={(user.role === 'admin' || user.role === 'director') ? Tools : NotFound} />
       <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />
+      <Route path="/projects/:projectId/implementation-sheets" component={ImplementationSheets} />
+      <Route path="/implementation-sheets/:sheetId" component={ImplementationSheetView} />
       <Route component={NotFound} />
     </Switch>
   );

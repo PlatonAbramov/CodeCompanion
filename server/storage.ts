@@ -2,6 +2,7 @@ import {
   users, projects, expenses, documents, advances, customerAdvances, userProjects, revenues, ownerInvestments,
   contractors, contractorProjects, clients, clientProjects, clientPayments,
   tools, toolMovements, toolPersons, userSessions, loginAttempts, adminActions,
+  implementationSheets, implementationItems, implementationPhotos, implementationChangeLogs,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
   type Advance, type InsertAdvance, type CustomerAdvance, type InsertCustomerAdvance,
@@ -13,7 +14,9 @@ import {
   type Tool, type InsertTool, type ToolMovement, type InsertToolMovement,
   type ToolPerson, type InsertToolPerson,
   type UserSession, type InsertUserSession, type LoginAttempt, type InsertLoginAttempt,
-  type AdminAction, type InsertAdminAction
+  type AdminAction, type InsertAdminAction,
+  type ImplementationSheet, type InsertImplementationSheet, type ImplementationItem, type InsertImplementationItem,
+  type ImplementationPhoto, type InsertImplementationPhoto, type ImplementationChangeLog, type InsertImplementationChangeLog
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -219,6 +222,29 @@ export interface IStorage {
   deactivateUserSessions(userId: string): Promise<void>;
   updateUserBlockStatus(id: string, blocked: boolean): Promise<void>;
   updateUserPassword(id: string, password: string, mustChangePassword?: boolean): Promise<void>;
+  
+  // Implementation sheet methods
+  getImplementationSheets(projectId: string): Promise<ImplementationSheet[]>;
+  getImplementationSheet(id: string): Promise<ImplementationSheet | undefined>;
+  createImplementationSheet(data: InsertImplementationSheet): Promise<ImplementationSheet>;
+  updateImplementationSheet(id: string, data: Partial<InsertImplementationSheet>): Promise<ImplementationSheet>;
+  deleteImplementationSheet(id: string): Promise<void>;
+  
+  // Implementation items
+  getImplementationItems(sheetId: string): Promise<ImplementationItem[]>;
+  getImplementationItem(id: string): Promise<ImplementationItem | undefined>;
+  createImplementationItem(data: InsertImplementationItem): Promise<ImplementationItem>;
+  updateImplementationItem(id: string, data: Partial<InsertImplementationItem>, userId: string): Promise<ImplementationItem>;
+  deleteImplementationItem(id: string): Promise<void>;
+  
+  // Implementation photos
+  getImplementationPhotos(itemId: string): Promise<ImplementationPhoto[]>;
+  createImplementationPhoto(data: InsertImplementationPhoto): Promise<ImplementationPhoto>;
+  deleteImplementationPhoto(id: string): Promise<void>;
+  
+  // Implementation change logs
+  createImplementationChangeLog(data: InsertImplementationChangeLog): Promise<ImplementationChangeLog>;
+  getImplementationChangeLogs(itemId: string): Promise<ImplementationChangeLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1689,6 +1715,214 @@ export class DatabaseStorage implements IStorage {
         tempPassword: mustChangePassword ? password : null
       })
       .where(eq(users.id, id));
+  }
+
+  // Implementation sheet methods
+  async getImplementationSheets(projectId: string): Promise<ImplementationSheet[]> {
+    return await db
+      .select()
+      .from(implementationSheets)
+      .where(eq(implementationSheets.projectId, projectId))
+      .orderBy(desc(implementationSheets.createdAt));
+  }
+
+  async getImplementationSheet(id: string): Promise<ImplementationSheet | undefined> {
+    const [sheet] = await db
+      .select()
+      .from(implementationSheets)
+      .where(eq(implementationSheets.id, id));
+    return sheet || undefined;
+  }
+
+  async createImplementationSheet(data: InsertImplementationSheet): Promise<ImplementationSheet> {
+    const [sheet] = await db
+      .insert(implementationSheets)
+      .values(data)
+      .returning();
+    return sheet;
+  }
+
+  async updateImplementationSheet(id: string, data: Partial<InsertImplementationSheet>): Promise<ImplementationSheet> {
+    const [sheet] = await db
+      .update(implementationSheets)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(implementationSheets.id, id))
+      .returning();
+    return sheet;
+  }
+
+  async deleteImplementationSheet(id: string): Promise<void> {
+    // Delete all related data first
+    const [sheet] = await db.select().from(implementationSheets).where(eq(implementationSheets.id, id));
+    if (sheet) {
+      const items = await db.select().from(implementationItems).where(eq(implementationItems.sheetId, id));
+      for (const item of items) {
+        await db.delete(implementationPhotos).where(eq(implementationPhotos.itemId, item.id));
+        await db.delete(implementationChangeLogs).where(eq(implementationChangeLogs.itemId, item.id));
+      }
+      await db.delete(implementationItems).where(eq(implementationItems.sheetId, id));
+    }
+    await db.delete(implementationSheets).where(eq(implementationSheets.id, id));
+  }
+
+  // Implementation items
+  async getImplementationItems(sheetId: string): Promise<ImplementationItem[]> {
+    return await db
+      .select()
+      .from(implementationItems)
+      .where(eq(implementationItems.sheetId, sheetId))
+      .orderBy(implementationItems.position);
+  }
+
+  async getImplementationItem(id: string): Promise<ImplementationItem | undefined> {
+    const [item] = await db
+      .select()
+      .from(implementationItems)
+      .where(eq(implementationItems.id, id));
+    return item || undefined;
+  }
+
+  async createImplementationItem(data: InsertImplementationItem): Promise<ImplementationItem> {
+    // Convert numeric values to strings for decimal columns
+    const insertData: any = { ...data };
+    if (insertData.quantity !== undefined) insertData.quantity = insertData.quantity?.toString();
+    if (insertData.price !== undefined) insertData.price = insertData.price?.toString();
+    if (insertData.totalCost !== undefined) insertData.totalCost = insertData.totalCost?.toString();
+    
+    const [item] = await db
+      .insert(implementationItems)
+      .values(insertData)
+      .returning();
+    return item;
+  }
+
+  async updateImplementationItem(id: string, data: Partial<InsertImplementationItem>, userId: string): Promise<ImplementationItem> {
+    // Get old values for change log
+    const [oldItem] = await db.select().from(implementationItems).where(eq(implementationItems.id, id));
+    
+    // Convert numeric values to strings for decimal columns
+    const updateData: any = { ...data };
+    if (updateData.quantity !== undefined) updateData.quantity = updateData.quantity?.toString();
+    if (updateData.price !== undefined) updateData.price = updateData.price?.toString();
+    if (updateData.totalCost !== undefined) updateData.totalCost = updateData.totalCost?.toString();
+    
+    // Update item
+    const [newItem] = await db
+      .update(implementationItems)
+      .set({ 
+        ...updateData, 
+        lastUpdatedBy: userId,
+        lastUpdatedAt: new Date() 
+      })
+      .where(eq(implementationItems.id, id))
+      .returning();
+    
+    // Log changes
+    if (oldItem) {
+      if (data.progress !== undefined && oldItem.progress !== data.progress) {
+        await this.createImplementationChangeLog({
+          itemId: id,
+          changeType: 'progress',
+          oldValue: oldItem.progress?.toString() || '0',
+          newValue: data.progress.toString(),
+          changedBy: userId
+        });
+      }
+      if (data.isCompleted !== undefined && oldItem.isCompleted !== data.isCompleted) {
+        await this.createImplementationChangeLog({
+          itemId: id,
+          changeType: 'status',
+          oldValue: oldItem.isCompleted ? 'completed' : 'in_progress',
+          newValue: data.isCompleted ? 'completed' : 'in_progress',
+          changedBy: userId
+        });
+      }
+    }
+    
+    // Update sheet total progress
+    await this.updateSheetProgress(newItem.sheetId);
+    
+    return newItem;
+  }
+
+  async deleteImplementationItem(id: string): Promise<void> {
+    // Delete related data first
+    await db.delete(implementationPhotos).where(eq(implementationPhotos.itemId, id));
+    await db.delete(implementationChangeLogs).where(eq(implementationChangeLogs.itemId, id));
+    await db.delete(implementationItems).where(eq(implementationItems.id, id));
+  }
+
+  // Implementation photos
+  async getImplementationPhotos(itemId: string): Promise<ImplementationPhoto[]> {
+    return await db
+      .select()
+      .from(implementationPhotos)
+      .where(eq(implementationPhotos.itemId, itemId))
+      .orderBy(desc(implementationPhotos.uploadedAt));
+  }
+
+  async createImplementationPhoto(data: InsertImplementationPhoto): Promise<ImplementationPhoto> {
+    const [photo] = await db
+      .insert(implementationPhotos)
+      .values(data)
+      .returning();
+    
+    // Log photo addition
+    await this.createImplementationChangeLog({
+      itemId: data.itemId,
+      changeType: 'photo_added',
+      newValue: photo.photoUrl,
+      changedBy: data.uploadedBy || ''
+    });
+    
+    return photo;
+  }
+
+  async deleteImplementationPhoto(id: string): Promise<void> {
+    const [photo] = await db.select().from(implementationPhotos).where(eq(implementationPhotos.id, id));
+    if (photo) {
+      await this.createImplementationChangeLog({
+        itemId: photo.itemId,
+        changeType: 'photo_removed',
+        oldValue: photo.photoUrl,
+        changedBy: '' // Will be set from session
+      });
+    }
+    await db.delete(implementationPhotos).where(eq(implementationPhotos.id, id));
+  }
+
+  // Implementation change logs
+  async createImplementationChangeLog(data: InsertImplementationChangeLog): Promise<ImplementationChangeLog> {
+    const [log] = await db
+      .insert(implementationChangeLogs)
+      .values(data)
+      .returning();
+    return log;
+  }
+
+  async getImplementationChangeLogs(itemId: string): Promise<ImplementationChangeLog[]> {
+    return await db
+      .select()
+      .from(implementationChangeLogs)
+      .where(eq(implementationChangeLogs.itemId, itemId))
+      .orderBy(desc(implementationChangeLogs.changedAt));
+  }
+
+  // Helper method to update sheet total progress
+  private async updateSheetProgress(sheetId: string): Promise<void> {
+    const items = await this.getImplementationItems(sheetId);
+    if (items.length === 0) return;
+    
+    const totalProgress = items.reduce((sum, item) => sum + (item.progress || 0), 0);
+    const averageProgress = totalProgress / items.length;
+    
+    await db
+      .update(implementationSheets)
+      .set({ 
+        totalProgress: averageProgress.toFixed(2),
+        updatedAt: new Date()
+      })
+      .where(eq(implementationSheets.id, sheetId));
   }
 }
 

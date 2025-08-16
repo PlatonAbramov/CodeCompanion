@@ -7,6 +7,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from 'url';
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1412,6 +1413,304 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete user:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Object storage endpoints
+  const objectStorageService = new ObjectStorageService();
+  
+  // Get upload URL for objects
+  app.post("/api/objects/upload", requireAuth, async (req, res) => {
+    try {
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Failed to get upload URL:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Serve objects
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  // Set object ACL policy
+  app.post("/api/objects/acl", requireAuth, async (req, res) => {
+    try {
+      const { objectUrl, visibility } = req.body;
+      const objectPath = objectStorageService.normalizeObjectEntityPath(objectUrl);
+      res.json({ objectPath });
+    } catch (error) {
+      console.error("Failed to set object ACL:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Implementation sheets endpoints
+  
+  // Get all implementation sheets for a project
+  app.get("/api/projects/:projectId/implementation-sheets", requireAuth, async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      
+      // Check user access to project
+      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      if (!isAdminOrDirector) {
+        const userProject = await storage.getUserProject(req.session.user!.id, projectId);
+        if (!userProject) {
+          return res.status(403).json({ error: "Доступ запрещен" });
+        }
+      }
+      
+      const sheets = await storage.getImplementationSheets(projectId);
+      res.json(sheets);
+    } catch (error) {
+      console.error("Failed to get implementation sheets:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get single implementation sheet with items
+  app.get("/api/implementation-sheets/:sheetId", requireAuth, async (req, res) => {
+    try {
+      const { sheetId } = req.params;
+      
+      const sheet = await storage.getImplementationSheet(sheetId);
+      if (!sheet) {
+        return res.status(404).json({ error: "Лист реализации не найден" });
+      }
+      
+      // Check user access to project
+      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      if (!isAdminOrDirector) {
+        const userProject = await storage.getUserProject(req.session.user!.id, sheet.projectId);
+        if (!userProject) {
+          return res.status(403).json({ error: "Доступ запрещен" });
+        }
+      }
+      
+      const items = await storage.getImplementationItems(sheetId);
+      res.json({ ...sheet, items });
+    } catch (error) {
+      console.error("Failed to get implementation sheet:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create implementation sheet
+  app.post("/api/projects/:projectId/implementation-sheets", requireAuth, async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      
+      if (!isAdminOrDirector) {
+        return res.status(403).json({ error: "Только администраторы и директора могут создавать листы реализации" });
+      }
+      
+      const sheet = await storage.createImplementationSheet({
+        ...req.body,
+        projectId,
+        createdBy: req.session.user!.id
+      });
+      
+      res.json(sheet);
+    } catch (error) {
+      console.error("Failed to create implementation sheet:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update implementation sheet
+  app.put("/api/implementation-sheets/:sheetId", requireAuth, async (req, res) => {
+    try {
+      const { sheetId } = req.params;
+      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      
+      if (!isAdminOrDirector) {
+        return res.status(403).json({ error: "Только администраторы и директора могут редактировать листы реализации" });
+      }
+      
+      const sheet = await storage.updateImplementationSheet(sheetId, req.body);
+      res.json(sheet);
+    } catch (error) {
+      console.error("Failed to update implementation sheet:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete implementation sheet
+  app.delete("/api/implementation-sheets/:sheetId", requireAuth, async (req, res) => {
+    try {
+      const { sheetId } = req.params;
+      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      
+      if (!isAdminOrDirector) {
+        return res.status(403).json({ error: "Только администраторы и директора могут удалять листы реализации" });
+      }
+      
+      await storage.deleteImplementationSheet(sheetId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete implementation sheet:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create implementation item
+  app.post("/api/implementation-sheets/:sheetId/items", requireAuth, async (req, res) => {
+    try {
+      const { sheetId } = req.params;
+      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      
+      if (!isAdminOrDirector) {
+        return res.status(403).json({ error: "Только администраторы и директора могут добавлять позиции" });
+      }
+      
+      const item = await storage.createImplementationItem({
+        ...req.body,
+        sheetId
+      });
+      
+      res.json(item);
+    } catch (error) {
+      console.error("Failed to create implementation item:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update implementation item
+  app.put("/api/implementation-items/:itemId", requireAuth, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      
+      const item = await storage.getImplementationItem(itemId);
+      if (!item) {
+        return res.status(404).json({ error: "Позиция не найдена" });
+      }
+      
+      const sheet = await storage.getImplementationSheet(item.sheetId);
+      if (!sheet) {
+        return res.status(404).json({ error: "Лист реализации не найден" });
+      }
+      
+      // Check user access
+      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      if (!isAdminOrDirector) {
+        const userProject = await storage.getUserProject(req.session.user!.id, sheet.projectId);
+        if (!userProject) {
+          return res.status(403).json({ error: "Доступ запрещен" });
+        }
+      }
+      
+      const updatedItem = await storage.updateImplementationItem(
+        itemId, 
+        req.body, 
+        req.session.user!.id
+      );
+      
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Failed to update implementation item:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete implementation item
+  app.delete("/api/implementation-items/:itemId", requireAuth, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      
+      if (!isAdminOrDirector) {
+        return res.status(403).json({ error: "Только администраторы и директора могут удалять позиции" });
+      }
+      
+      await storage.deleteImplementationItem(itemId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete implementation item:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get photos for implementation item
+  app.get("/api/implementation-items/:itemId/photos", requireAuth, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      
+      const photos = await storage.getImplementationPhotos(itemId);
+      res.json(photos);
+    } catch (error) {
+      console.error("Failed to get implementation photos:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Upload photo for implementation item
+  app.post("/api/implementation-items/:itemId/photos", requireAuth, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const { photoUrl, thumbnailUrl, caption, visibleToClient } = req.body;
+      
+      const photo = await storage.createImplementationPhoto({
+        itemId,
+        photoUrl,
+        thumbnailUrl,
+        caption,
+        visibleToClient,
+        uploadedBy: req.session.user!.id
+      });
+      
+      res.json(photo);
+    } catch (error) {
+      console.error("Failed to create implementation photo:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete photo
+  app.delete("/api/implementation-photos/:photoId", requireAuth, async (req, res) => {
+    try {
+      const { photoId } = req.params;
+      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      
+      if (!isAdminOrDirector) {
+        return res.status(403).json({ error: "Только администраторы и директора могут удалять фотографии" });
+      }
+      
+      await storage.deleteImplementationPhoto(photoId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete implementation photo:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get change logs for implementation item
+  app.get("/api/implementation-items/:itemId/logs", requireAuth, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      
+      if (!isAdminOrDirector) {
+        return res.status(403).json({ error: "Только администраторы и директора могут просматривать журнал изменений" });
+      }
+      
+      const logs = await storage.getImplementationChangeLogs(itemId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Failed to get implementation change logs:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

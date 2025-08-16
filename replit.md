@@ -4,6 +4,17 @@ This is a construction and HVAC services management mobile application designed 
 
 ## Recent Changes
 
+**January 19, 2025** - Implementation Sheets feature (Смета → Лист реализации):
+- Created comprehensive system for tracking work progress from estimates
+- Implemented database tables for implementation sheets, items, photos, and change logs
+- Added file upload functionality with Google Cloud Storage integration
+- Created UI components for viewing and managing implementation sheets
+- Implemented progress tracking with percentage completion for each work item
+- Added photo documentation system with upload and viewing capabilities
+- Integrated role-based permissions - only admins/directors can create/edit sheets
+- Added navigation from project details to implementation sheets
+- System tracks changes with audit logs for progress updates and photo uploads
+
 **August 16, 2025** - Complete role-based access control system implementation:
 - Migrated from email-based admin checks to proper role-based authentication system
 - Updated existing admin user (platonabramov90@gmail.com) to 'admin' role in database

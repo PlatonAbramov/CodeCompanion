@@ -671,6 +671,110 @@ export type InsertToolMovement = z.infer<typeof insertToolMovementSchema>;
 export type ToolPerson = typeof toolPersons.$inferSelect;
 export type InsertToolPerson = z.infer<typeof insertToolPersonSchema>;
 
+// Implementation sheets (Листы реализации)
+export const implementationSheets = pgTable("implementation_sheets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  sourceDocumentId: varchar("source_document_id").references(() => documents.id), // Ссылка на исходный документ сметы
+  name: text("name").notNull(),
+  status: text("status").default("active"), // 'active' | 'completed' | 'draft'
+  totalProgress: decimal("total_progress", { precision: 5, scale: 2 }).default("0"), // Общий прогресс 0-100
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const implementationItems = pgTable("implementation_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sheetId: varchar("sheet_id").references(() => implementationSheets.id).notNull(),
+  position: integer("position").notNull(), // Порядковый номер позиции
+  name: text("name").notNull(), // Наименование работы
+  quantity: decimal("quantity", { precision: 12, scale: 3 }), // Количество
+  unit: text("unit"), // Единица измерения
+  price: decimal("price", { precision: 12, scale: 2 }), // Цена за единицу
+  totalCost: decimal("total_cost", { precision: 12, scale: 2 }), // Общая стоимость
+  description: text("description"), // Описание/примечание
+  progress: integer("progress").default(0), // Прогресс 0-100
+  isCompleted: boolean("is_completed").default(false), // Выполнено полностью
+  visibleToClient: boolean("visible_to_client").default(true), // Видимость для клиента
+  lastUpdatedBy: varchar("last_updated_by").references(() => users.id),
+  lastUpdatedAt: timestamp("last_updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const implementationPhotos = pgTable("implementation_photos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").references(() => implementationItems.id).notNull(),
+  photoUrl: text("photo_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"), // URL миниатюры
+  caption: text("caption"), // Подпись к фото
+  visibleToClient: boolean("visible_to_client").default(false), // Показывать заказчику
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+export const implementationChangeLogs = pgTable("implementation_change_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").references(() => implementationItems.id).notNull(),
+  changeType: text("change_type").notNull(), // 'progress' | 'status' | 'photo_added' | 'photo_removed'
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  changedBy: varchar("changed_by").references(() => users.id),
+  changedAt: timestamp("changed_at").defaultNow(),
+});
+
+// Relations for implementation sheets
+export const implementationSheetsRelations = relations(implementationSheets, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [implementationSheets.projectId],
+    references: [projects.id],
+  }),
+  sourceDocument: one(documents, {
+    fields: [implementationSheets.sourceDocumentId],
+    references: [documents.id],
+  }),
+  createdByUser: one(users, {
+    fields: [implementationSheets.createdBy],
+    references: [users.id],
+  }),
+  items: many(implementationItems),
+}));
+
+export const implementationItemsRelations = relations(implementationItems, ({ one, many }) => ({
+  sheet: one(implementationSheets, {
+    fields: [implementationItems.sheetId],
+    references: [implementationSheets.id],
+  }),
+  lastUpdatedByUser: one(users, {
+    fields: [implementationItems.lastUpdatedBy],
+    references: [users.id],
+  }),
+  photos: many(implementationPhotos),
+  changeLogs: many(implementationChangeLogs),
+}));
+
+export const implementationPhotosRelations = relations(implementationPhotos, ({ one }) => ({
+  item: one(implementationItems, {
+    fields: [implementationPhotos.itemId],
+    references: [implementationItems.id],
+  }),
+  uploadedByUser: one(users, {
+    fields: [implementationPhotos.uploadedBy],
+    references: [users.id],
+  }),
+}));
+
+export const implementationChangeLogsRelations = relations(implementationChangeLogs, ({ one }) => ({
+  item: one(implementationItems, {
+    fields: [implementationChangeLogs.itemId],
+    references: [implementationItems.id],
+  }),
+  changedByUser: one(users, {
+    fields: [implementationChangeLogs.changedBy],
+    references: [users.id],
+  }),
+}));
+
 // Админ-панель схемы
 export const createUserSchema = z.object({
   username: z.string().min(3, "Логин должен содержать минимум 3 символа"),
@@ -703,3 +807,51 @@ export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;
 export type UserSession = typeof userSessions.$inferSelect;
 export type LoginAttempt = typeof loginAttempts.$inferSelect;
 export type AdminAction = typeof adminActions.$inferSelect;
+
+// Implementation sheet schemas
+export const insertImplementationSheetSchema = createInsertSchema(implementationSheets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  totalProgress: true,
+});
+
+export const insertImplementationItemSchema = createInsertSchema(implementationItems).omit({
+  id: true,
+  createdAt: true,
+  lastUpdatedAt: true,
+}).extend({
+  progress: z.number().min(0).max(100),
+  quantity: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str || "0"))
+  ]).optional(),
+  price: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str || "0"))
+  ]).optional(),
+  totalCost: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str || "0"))
+  ]).optional(),
+});
+
+export const insertImplementationPhotoSchema = createInsertSchema(implementationPhotos).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export const insertImplementationChangeLogSchema = createInsertSchema(implementationChangeLogs).omit({
+  id: true,
+  changedAt: true,
+});
+
+// Implementation sheet types
+export type ImplementationSheet = typeof implementationSheets.$inferSelect;
+export type InsertImplementationSheet = z.infer<typeof insertImplementationSheetSchema>;
+export type ImplementationItem = typeof implementationItems.$inferSelect;
+export type InsertImplementationItem = z.infer<typeof insertImplementationItemSchema>;
+export type ImplementationPhoto = typeof implementationPhotos.$inferSelect;
+export type InsertImplementationPhoto = z.infer<typeof insertImplementationPhotoSchema>;
+export type ImplementationChangeLog = typeof implementationChangeLogs.$inferSelect;
+export type InsertImplementationChangeLog = z.infer<typeof insertImplementationChangeLogSchema>;
