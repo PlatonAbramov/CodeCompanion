@@ -108,44 +108,100 @@ export class InvoiceParser {
         };
       }
 
-      // Простой и надежный алгоритм: ищем ВСЕ строки, которые заканчиваются тремя числами
-      let itemPosition = 1; // Счетчик позиций для строк без номера в начале
+      // Полная отладка каждой строки для понимания структуры
+      console.log(`\n=== DEBUGGING PDF PARSING ===`);
+      console.log(`Starting from line ${tableStartIndex}, total lines: ${lines.length}`);
       
+      for (let i = tableStartIndex; i < Math.min(tableStartIndex + 25, lines.length); i++) {
+        const line = lines[i].trim();
+        if (line.includes('Subtotal')) break;
+        console.log(`Line ${i}: "${line}"`);
+        
+        const hasNumbers = line.match(/^(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
+        if (hasNumbers) {
+          console.log(`  -> Has numbers: text="${hasNumbers[1]}", qty=${hasNumbers[2]}, price=${hasNumbers[3]}, total=${hasNumbers[4]}`);
+        }
+      }
+      
+      // Простой и прямой подход: собираем элементы по парам строк
+      // Элемент 1: строки 0-1 (Укрывочные... + 1 мебели...)
+      // Элемент 3: строки 3-4 (Стены... + 3 покраска...)
+      
+      const dataLines: string[] = [];
       for (let i = tableStartIndex; i < lines.length; i++) {
         const line = lines[i].trim();
-        
-        // Останавливаемся при встрече "Subtotal"
-        if (line.includes('Subtotal')) {
-          break;
-        }
-        
-        if (!line) continue;
-        
-        // Ищем ЛЮБУЮ строку с тремя числами в конце (количество цена стоимость)
-        const numbersMatch = line.match(/^(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
+        if (line.includes('Subtotal')) break;
+        if (line) dataLines.push(line);
+      }
+      
+      console.log('\nCollected data lines:', dataLines.length);
+      
+      // Обрабатываем по очереди, собирая описания
+      let i = 0;
+      while (i < dataLines.length) {
+        const currentLine = dataLines[i];
+        const numbersMatch = currentLine.match(/^(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
         
         if (numbersMatch) {
-          const [, text, quantity, price, total] = numbersMatch;
-          let position = itemPosition++;
-          let description = text.trim();
+          // Это завершающая строка элемента
+          const [, textPart, quantity, price, total] = numbersMatch;
           
-          // Если строка начинается с номера, используем его
-          const positionMatch = text.match(/^(\d+)\s+(.+)/);
+          // Проверяем, есть ли номер в начале текста
+          const positionMatch = textPart.match(/^(\d+)\s+(.+)/);
+          
           if (positionMatch) {
-            position = parseInt(positionMatch[1]);
-            description = positionMatch[2].trim();
+            // Однострочный элемент: "2 Демонтаж и монтаж затирки 1 1500 1500"
+            const position = parseInt(positionMatch[1]);
+            const description = positionMatch[2].trim();
+            
+            items.push({
+              position,
+              name: description,
+              quantity: this.parseNumber(quantity)!,
+              unit: '',
+              price: this.parseNumber(price)!,
+              totalCost: this.parseNumber(total)!,
+              description: description
+            });
+            
+            console.log(`Single-line item ${position}: "${description}"`);
+          } else {
+            // Многострочный элемент - нужно найти предыдущую строку
+            if (i > 0) {
+              const prevLine = dataLines[i - 1];
+              const prevPositionMatch = prevLine.match(/^(\d+)?\s*(.+)/);
+              
+              if (prevPositionMatch) {
+                let position = 1;
+                let fullDescription = '';
+                
+                // Если есть номер в предыдущей строке
+                if (prevPositionMatch[1]) {
+                  position = parseInt(prevPositionMatch[1]);
+                  fullDescription = prevPositionMatch[2].trim() + ' ' + textPart.trim();
+                } else {
+                  // Ищем номер еще раньше или используем последовательный номер
+                  position = items.length + 1;
+                  fullDescription = prevLine + ' ' + textPart.trim();
+                }
+                
+                items.push({
+                  position,
+                  name: fullDescription,
+                  quantity: this.parseNumber(quantity)!,
+                  unit: '',
+                  price: this.parseNumber(price)!,
+                  totalCost: this.parseNumber(total)!,
+                  description: fullDescription
+                });
+                
+                console.log(`Multi-line item ${position}: "${fullDescription}"`);
+              }
+            }
           }
-          
-          items.push({
-            position,
-            name: description,
-            quantity: this.parseNumber(quantity)!,
-            unit: '',
-            price: this.parseNumber(price)!,
-            totalCost: this.parseNumber(total)!,
-            description: description
-          });
         }
+        
+        i++;
       }
 
       return {
