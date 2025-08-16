@@ -47,10 +47,20 @@ export function CreateImplementationSheetFromInvoice({ projectId, onSheetCreated
 
   const createSheetMutation = useMutation({
     mutationFn: async (data: { name: string; documentId: string }) => {
-      return apiRequest(`/api/projects/${projectId}/implementation-sheets/parse-invoice`, {
+      const response = await fetch(`/api/projects/${projectId}/implementation-sheets/parse-invoice`, {
         method: 'POST',
-        body: data
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw errorData;
+      }
+      
+      return response.json();
     },
     onSuccess: (result: any) => {
       toast({
