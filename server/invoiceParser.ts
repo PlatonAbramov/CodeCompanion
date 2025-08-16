@@ -63,11 +63,18 @@ export class InvoiceParser {
    */
   private async parsePDF(filePath: string): Promise<ParsedInvoiceResult> {
     try {
+      console.log('PDF Parser - attempting to read file:', filePath);
+      
       // Lazy load PDF parser to avoid initialization issues
       if (!pdfParse) {
         const moduleLib = await import('module');
         const require = moduleLib.createRequire(import.meta.url);
         pdfParse = require('pdf-parse/lib/pdf-parse.js');
+      }
+      
+      // Check if file exists
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`File not found: ${filePath}`);
       }
       
       const dataBuffer = fs.readFileSync(filePath);
@@ -382,6 +389,9 @@ export class InvoiceParser {
     const cleaned = String(value).replace(/[^\d.,\-]/g, '').replace(',', '.');
     const parsed = parseFloat(cleaned);
     
-    return isNaN(parsed) ? undefined : parsed;
+    if (isNaN(parsed)) return undefined;
+    
+    // Limit to prevent database overflow (precision 12, scale 3 = max 999999999.999)
+    return Math.min(Math.abs(parsed), 999999999);
   }
 }

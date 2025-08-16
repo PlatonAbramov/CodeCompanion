@@ -1542,14 +1542,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { InvoiceParser } = await import('./invoiceParser');
       const parser = new InvoiceParser();
       
-      // For now, use document path directly (later implement proper file storage)
+      // Construct the correct file path
       let filePath = document.fileUrl;
-      if (filePath.startsWith('/uploads/')) {
-        filePath = `uploads/${path.basename(filePath)}`;
+      console.log('Original file URL:', filePath);
+      
+      // Handle different URL formats
+      if (filePath.startsWith('/api/files/')) {
+        // Extract filename from API URL
+        const filename = path.basename(filePath);
+        filePath = path.join('server/uploads', filename);
+      } else if (filePath.startsWith('/uploads/')) {
+        // Handle relative uploads path
+        filePath = path.join('server', filePath);
+      } else if (!path.isAbsolute(filePath)) {
+        // Handle relative paths
+        filePath = path.join('server/uploads', path.basename(filePath));
+      }
+      
+      console.log('Resolved file path:', filePath);
+      
+      // Verify file exists before parsing
+      if (!fs.existsSync(filePath)) {
+        console.error('File not found at path:', filePath);
+        return res.status(400).json({ 
+          error: "File not found", 
+          details: [`File does not exist at path: ${filePath}`] 
+        });
       }
 
       const parseResult = await parser.parseInvoice(filePath, document.fileName);
-
+      
       if (!parseResult.success) {
         return res.status(400).json({ 
           error: "Failed to parse invoice", 
@@ -1575,15 +1597,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create implementation items from parsed data
       for (let i = 0; i < parseResult.items.length; i++) {
         const item = parseResult.items[i];
+        
+        // Validate and limit numeric values to prevent overflow
+        const quantity = isNaN(item.quantity) ? 0 : Math.min(Math.abs(item.quantity || 0), 999999);
+        const price = isNaN(item.price) ? 0 : Math.min(Math.abs(item.price || 0), 999999);
+        const totalCost = isNaN(item.totalCost) ? 0 : Math.min(Math.abs(item.totalCost || 0), 999999);
+        
         const itemData = {
           sheetId: sheet.id,
           position: item.position || i + 1,
-          name: item.name,
-          quantity: item.quantity || 0,
-          unit: item.unit,
-          price: item.price || 0,
-          totalCost: item.totalCost || 0,
-          description: item.description,
+          name: item.name || `Item ${i + 1}`,
+          quantity: quantity,
+          unit: item.unit || '',
+          price: price,
+          totalCost: totalCost,
+          description: item.description || '',
           progress: 0,
           isCompleted: false,
           visibleToClient: true,

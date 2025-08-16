@@ -1813,11 +1813,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createImplementationItem(data: InsertImplementationItem): Promise<ImplementationItem> {
-    // Convert numeric values to strings for decimal columns
+    // Convert and limit numeric values to prevent overflow
     const insertData: any = { ...data };
-    if (insertData.quantity !== undefined) insertData.quantity = insertData.quantity?.toString();
-    if (insertData.price !== undefined) insertData.price = insertData.price?.toString();
-    if (insertData.totalCost !== undefined) insertData.totalCost = insertData.totalCost?.toString();
+    
+    // Limit values to database precision constraints (12,3 = max 999999999.999)
+    if (insertData.quantity !== undefined) {
+      const num = Number(insertData.quantity);
+      insertData.quantity = isNaN(num) ? "0" : Math.min(Math.abs(num), 999999999).toString();
+    }
+    if (insertData.price !== undefined) {
+      const num = Number(insertData.price);
+      insertData.price = isNaN(num) ? "0" : Math.min(Math.abs(num), 999999999).toString();
+    }
+    if (insertData.totalCost !== undefined) {
+      const num = Number(insertData.totalCost);
+      insertData.totalCost = isNaN(num) ? "0" : Math.min(Math.abs(num), 999999999).toString();
+    }
     
     const [item] = await db
       .insert(implementationItems)
