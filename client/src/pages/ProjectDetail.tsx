@@ -99,15 +99,19 @@ export default function ProjectDetail() {
       mimeType: string;
     }>) => {
       const promises = files.map(file => 
-        apiRequest('POST', `/api/projects/${projectId}/documents`, {
-          name: file.fileName,
-          fileName: file.fileName,
-          fileUrl: file.fileUrl,
-          fileSize: file.fileSize,
-          mimeType: file.mimeType
+        apiRequest('/api/documents', {
+          method: 'POST',
+          body: JSON.stringify({
+            projectId: projectId,
+            name: file.fileName,
+            fileName: file.fileName,
+            fileUrl: file.fileUrl,
+            fileSize: file.fileSize,
+            mimeType: file.mimeType
+          })
         })
       );
-      return Promise.all(promises);
+      return Promise.all(promises.map(p => p.then(res => res.json())));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'documents'] });
@@ -128,7 +132,12 @@ export default function ProjectDetail() {
 
   // Document delete mutation
   const deleteMutation = useMutation({
-    mutationFn: (documentId: string) => apiRequest('DELETE', `/api/documents/${documentId}`),
+    mutationFn: async (documentId: string) => {
+      const res = await apiRequest(`/api/documents/${documentId}`, {
+        method: 'DELETE'
+      });
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'documents'] });
       toast({

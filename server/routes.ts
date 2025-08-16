@@ -325,6 +325,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/documents/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteDocument(req.params.id);
+      res.json({ message: "Document deleted successfully" });
+    } catch (error) {
+      console.error("Delete document error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Advance routes
   app.get("/api/projects/:id/advances", requireAuth, requireDirector, async (req, res) => {
     try {
