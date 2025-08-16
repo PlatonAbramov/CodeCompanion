@@ -56,10 +56,12 @@ function AuthenticatedApp() {
     // User is authenticated - only redirect from root/login if user just loaded the page
     // Don't redirect if already on valid pages (handled by individual auth in useAuth hook)
     if (location === '/' || (location === '/login' && user)) {
-      if (user.role === 'director') {
+      if (user.role === 'admin' || user.role === 'director') {
         setLocation('/director');
       } else if (user.role === 'master') {
         setLocation('/master');
+      } else if (user.role === 'client') {
+        setLocation('/client'); // На случай, если будет страница клиента
       }
     }
   }, [user, isLoading, location, setLocation]);
@@ -81,33 +83,33 @@ function AuthenticatedApp() {
 
   return (
     <Switch>
-      <Route path="/director" component={user.role === 'director' ? DirectorDashboard : () => { setLocation(user.role === 'master' ? '/master' : '/login'); return null; }} />
-      <Route path="/master" component={user.role === 'master' ? MasterDashboard : () => { setLocation(user.role === 'director' ? '/director' : '/login'); return null; }} />
+      <Route path="/director" component={(user.role === 'admin' || user.role === 'director') ? DirectorDashboard : NotFound} />
+      <Route path="/master" component={user.role === 'master' ? MasterDashboard : NotFound} />
       <Route path="/project/:id" component={ProjectDetail} />
       <Route path="/add-expense" component={AddExpense} />
-      <Route path="/add-advance/:projectId" component={user.role === 'director' ? AddAdvance : () => { setLocation('/director'); return null; }} />
-      <Route path="/add-customer-advance/:projectId" component={user.role === 'director' ? AddCustomerAdvance : () => { setLocation('/director'); return null; }} />
+      <Route path="/add-advance/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddAdvance : NotFound} />
+      <Route path="/add-customer-advance/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddCustomerAdvance : NotFound} />
       <Route path="/advances/:projectId" component={AdvancesList} />
       <Route path="/customer-advances/:projectId" component={CustomerAdvancesList} />
-      <Route path="/add-revenue" component={user.role === 'director' ? AddRevenue : () => { setLocation('/director'); return null; }} />
+      <Route path="/add-revenue" component={(user.role === 'admin' || user.role === 'director') ? AddRevenue : NotFound} />
       <Route path="/revenues/:projectId" component={RevenuesList} />
-      <Route path="/edit-revenue/:projectId/:revenueId" component={user.role === 'director' ? EditRevenue : () => { setLocation('/director'); return null; }} />
-      <Route path="/edit-advance/:projectId/:advanceId" component={user.role === 'director' ? EditAdvance : () => { setLocation('/director'); return null; }} />
-      <Route path="/edit-customer-advance/:projectId/:advanceId" component={user.role === 'director' ? EditCustomerAdvance : () => { setLocation('/director'); return null; }} />
+      <Route path="/edit-revenue/:projectId/:revenueId" component={(user.role === 'admin' || user.role === 'director') ? EditRevenue : NotFound} />
+      <Route path="/edit-advance/:projectId/:advanceId" component={(user.role === 'admin' || user.role === 'director') ? EditAdvance : NotFound} />
+      <Route path="/edit-customer-advance/:projectId/:advanceId" component={(user.role === 'admin' || user.role === 'director') ? EditCustomerAdvance : NotFound} />
       <Route path="/edit-expense/:projectId/:expenseId" component={EditExpense} />
       <Route path="/expenses/:projectId" component={ExpensesList} />
       <Route path="/expenses/:projectId/:category" component={CategoryExpenses} />
       <Route path="/owner-investments/:projectId" component={OwnerInvestmentsList} />
-      <Route path="/add-owner-investment/:projectId" component={user.role === 'director' ? AddOwnerInvestment : () => { setLocation('/director'); return null; }} />
-      <Route path="/edit-owner-investment/:id" component={user.role === 'director' ? EditOwnerInvestment : () => { setLocation('/director'); return null; }} />
-      <Route path="/employees" component={user.role === 'director' ? EmployeeManagement : () => { setLocation('/director'); return null; }} />
-      <Route path="/contractors" component={user.role === 'director' ? Contractors : () => { setLocation('/director'); return null; }} />
-      <Route path="/contractor/:id" component={user.role === 'director' ? ContractorDetail : () => { setLocation('/director'); return null; }} />
-      <Route path="/contractor/:contractorId/project/:assignmentId" component={user.role === 'director' ? EditContractorProject : () => { setLocation('/director'); return null; }} />
-      <Route path="/clients" component={user.role === 'director' ? Clients : () => { setLocation('/director'); return null; }} />
-      <Route path="/clients/:id" component={user.role === 'director' ? ClientDetail : () => { setLocation('/director'); return null; }} />
-      <Route path="/tools" component={user.role === 'director' ? Tools : () => { setLocation('/director'); return null; }} />
-      <Route path="/admin" component={(user?.email?.toLowerCase() === 'platonabramov90@gmail.com' || user?.username?.toLowerCase() === 'platonabramov90' || user?.username?.toLowerCase() === 'platonabramov90@gmail.com') ? AdminPanel : () => { setLocation('/director'); return null; }} />
+      <Route path="/add-owner-investment/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddOwnerInvestment : NotFound} />
+      <Route path="/edit-owner-investment/:id" component={(user.role === 'admin' || user.role === 'director') ? EditOwnerInvestment : NotFound} />
+      <Route path="/employees" component={(user.role === 'admin' || user.role === 'director') ? EmployeeManagement : NotFound} />
+      <Route path="/contractors" component={(user.role === 'admin' || user.role === 'director') ? Contractors : NotFound} />
+      <Route path="/contractor/:id" component={(user.role === 'admin' || user.role === 'director') ? ContractorDetail : NotFound} />
+      <Route path="/contractor/:contractorId/project/:assignmentId" component={(user.role === 'admin' || user.role === 'director') ? EditContractorProject : NotFound} />
+      <Route path="/clients" component={(user.role === 'admin' || user.role === 'director') ? Clients : NotFound} />
+      <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
+      <Route path="/tools" component={(user.role === 'admin' || user.role === 'director') ? Tools : NotFound} />
+      <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
