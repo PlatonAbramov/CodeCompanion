@@ -75,13 +75,13 @@ This is a construction and HVAC services management mobile application designed 
 - Fixed photo deletion functionality with proper user ID tracking
 - System now supports comprehensive media management for implementation sheets
 
-**August 16, 2025** - Database synchronization SUCCESS:
-- Successfully unified development and production to use single PostgreSQL database
-- Added DATABASE_URL as deployment secret and confirmed synchronization working
-- Both environments now contain: 1 user, 6 projects, implementation sheets, contractors, tools
-- Production deployment now correctly uses same database as development
-- All LSP errors resolved and authentication working across all environments
-- Database logging added for debugging future deployment issues
+**August 16, 2025** - Database synchronization limitations identified:
+- Replit Deployments automatically create separate production database
+- DATABASE_URL secret added but Replit uses it only for custom connections, not main database
+- Development: 6 projects, 1 user (Администратор Платон)
+- Production: 5 projects, separate database instance
+- Created sync_production_db.sql script for manual synchronization
+- Workaround: manually execute SQL script in production database via Database pane
 
 **August 15, 2025** - Database synchronization and admin panel fixes:
 - Fixed database schema synchronization between development and production environments
@@ -99,7 +99,7 @@ Preferred communication style: Simple, everyday language.
 
 **Important**: To ensure user accounts work across all deployments:
 
-1. **Development and Production Use Same Database**: Both environments connect to the same PostgreSQL database hosted on Neon, ensuring data persistence and feature consistency across deployments.
+1. **Development and Production Use Separate Databases**: Replit automatically provisions separate databases for development and production. Manual synchronization required for data consistency.
 
 2. **Schema Synchronization**: When making database schema changes:
    - Run `npm run db:push` locally to apply schema changes
