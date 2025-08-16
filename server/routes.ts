@@ -1841,7 +1841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Только администраторы и директора могут удалять фотографии" });
       }
       
-      await storage.deleteImplementationPhoto(photoId);
+      await storage.deleteImplementationPhoto(photoId, req.session.user!.id);
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete implementation photo:", error);

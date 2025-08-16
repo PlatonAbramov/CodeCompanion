@@ -202,30 +202,40 @@ export default function ImplementationSheetView() {
 
   const handleUploadComplete = async (result: any) => {
     console.log('Upload complete result:', result);
-    if (result.successful?.[0] && uploadingItemId) {
+    if (result.successful?.length > 0 && uploadingItemId) {
       try {
-        const uploadedFile = result.successful[0];
-        console.log('Uploaded file URL:', uploadedFile.uploadURL);
+        // Обрабатываем все успешно загруженные файлы
+        for (const uploadedFile of result.successful) {
+          console.log('Uploaded file URL:', uploadedFile.uploadURL);
+          
+          const photoUrl = await objectStorageService.setObjectAclPolicy(uploadedFile.uploadURL, {
+            visibility: 'public'
+          });
+          
+          console.log('Normalized photo URL:', photoUrl);
+          
+          await createPhotoMutation.mutateAsync({
+            itemId: uploadingItemId,
+            photoUrl,
+            visibleToClient: false
+          });
+          
+          console.log('File saved to database:', photoUrl);
+        }
         
-        const photoUrl = await objectStorageService.setObjectAclPolicy(uploadedFile.uploadURL, {
-          visibility: 'public'
+        toast({
+          title: language === 'ru' ? "Успешно" : "Success",
+          description: language === 'ru' 
+            ? `Загружено ${result.successful.length} файлов` 
+            : `Uploaded ${result.successful.length} files`,
         });
         
-        console.log('Normalized photo URL:', photoUrl);
-        
-        await createPhotoMutation.mutateAsync({
-          itemId: uploadingItemId,
-          photoUrl,
-          visibleToClient: false
-        });
-        
-        console.log('Photo saved to database');
         setUploadingItemId(null);
       } catch (error) {
-        console.error('Error saving photo:', error);
+        console.error('Error saving files:', error);
         toast({
           title: language === 'ru' ? "Ошибка" : "Error",
-          description: language === 'ru' ? "Не удалось сохранить фото" : "Failed to save photo",
+          description: language === 'ru' ? "Не удалось сохранить файлы" : "Failed to save files",
           variant: "destructive",
         });
         setUploadingItemId(null);
@@ -421,13 +431,14 @@ export default function ImplementationSheetView() {
                     
                     {uploadingItemId === item.id ? (
                       <ObjectUploader
-                        maxNumberOfFiles={5}
-                        maxFileSize={10485760}
+                        maxNumberOfFiles={10}
+                        maxFileSize={100 * 1024 * 1024} // 100MB
+                        allowedFileTypes={['image/*', 'video/*']}
                         onGetUploadParameters={handleGetUploadParameters}
                         onComplete={handleUploadComplete}
                       >
                         <Camera className="h-3 w-3 mr-1" />
-                        {language === 'ru' ? 'Загрузить' : 'Upload'}
+                        📷🎥
                       </ObjectUploader>
                     ) : (
                       <Button

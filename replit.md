@@ -66,6 +66,15 @@ This is a construction and HVAC services management mobile application designed 
 - Photos now successfully upload, save to database, and display in implementation sheets
 - Fixed authentication issues and API endpoint routing for object storage operations
 
+**August 16, 2025** - Multiple file upload and video support enhancement:
+- Fixed JSON parsing issue in object storage client - photos now upload correctly
+- Added support for multiple file uploads (up to 10 files per upload session)
+- Extended file type support to include both images and videos (any format)
+- Increased maximum file size to 100MB per file for video support
+- Enhanced upload completion handler to process multiple files sequentially
+- Fixed photo deletion functionality with proper user ID tracking
+- System now supports comprehensive media management for implementation sheets
+
 **August 16, 2025** - Complete role-based access control system implementation:
 - Migrated from email-based admin checks to proper role-based authentication system
 - Updated existing admin user (platonabramov90@gmail.com) to 'admin' role in database

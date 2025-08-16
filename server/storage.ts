@@ -1919,14 +1919,14 @@ export class DatabaseStorage implements IStorage {
     return photo;
   }
 
-  async deleteImplementationPhoto(id: string): Promise<void> {
+  async deleteImplementationPhoto(id: string, userId: string): Promise<void> {
     const [photo] = await db.select().from(implementationPhotos).where(eq(implementationPhotos.id, id));
     if (photo) {
       await this.createImplementationChangeLog({
         itemId: photo.itemId,
         changeType: 'photo_removed',
         oldValue: photo.photoUrl,
-        changedBy: '' // Will be set from session
+        changedBy: userId
       });
     }
     await db.delete(implementationPhotos).where(eq(implementationPhotos.id, id));
