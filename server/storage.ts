@@ -241,7 +241,7 @@ export interface IStorage {
   // Implementation photos
   getImplementationPhotos(itemId: string): Promise<ImplementationPhoto[]>;
   createImplementationPhoto(data: InsertImplementationPhoto): Promise<ImplementationPhoto>;
-  deleteImplementationPhoto(id: string): Promise<void>;
+  deleteImplementationPhoto(id: string, userId: string): Promise<void>;
   
   // Implementation change logs
   createImplementationChangeLog(data: InsertImplementationChangeLog): Promise<ImplementationChangeLog>;
@@ -1795,9 +1795,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createImplementationSheet(data: InsertImplementationSheet): Promise<ImplementationSheet> {
-    const insertData = { ...data };
+    const insertData: any = { ...data };
     if (insertData.parseErrors && Array.isArray(insertData.parseErrors)) {
-      (insertData as any).parseErrors = JSON.stringify(insertData.parseErrors);
+      insertData.parseErrors = insertData.parseErrors as string[];
     }
     const [sheet] = await db
       .insert(implementationSheets)

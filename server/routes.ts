@@ -1646,9 +1646,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const item = parseResult.items[i];
         
         // Validate and limit numeric values to prevent overflow
-        const quantity = isNaN(item.quantity) ? 0 : Math.min(Math.abs(item.quantity || 0), 999999);
-        const price = isNaN(item.price) ? 0 : Math.min(Math.abs(item.price || 0), 999999);
-        const totalCost = isNaN(item.totalCost) ? 0 : Math.min(Math.abs(item.totalCost || 0), 999999);
+        const quantity = isNaN(item.quantity || 0) ? 0 : Math.min(Math.abs(item.quantity || 0), 999999);
+        const price = isNaN(item.price || 0) ? 0 : Math.min(Math.abs(item.price || 0), 999999);
+        const totalCost = isNaN(item.totalCost || 0) ? 0 : Math.min(Math.abs(item.totalCost || 0), 999999);
         
         const itemData = {
           sheetId: sheet.id,
