@@ -39,6 +39,7 @@ export interface IStorage {
   getProject(id: string): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: string, project: Partial<InsertProject>): Promise<Project>;
+  deleteProject(id: string): Promise<void>;
   getUserProjects(userId: string): Promise<Project[]>;
   
   // Expenses
@@ -350,6 +351,39 @@ export class DatabaseStorage implements IStorage {
     }
 
     return updatedProject;
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    // Delete related data in the correct order to respect foreign key constraints
+    
+    // 1. Delete implementation photos and change logs
+    const implementationSheetsList = await db.select().from(implementationSheets).where(eq(implementationSheets.projectId, id));
+    for (const sheet of implementationSheetsList) {
+      const items = await db.select().from(implementationItems).where(eq(implementationItems.sheetId, sheet.id));
+      for (const item of items) {
+        await db.delete(implementationPhotos).where(eq(implementationPhotos.itemId, item.id));
+        await db.delete(implementationChangeLogs).where(eq(implementationChangeLogs.itemId, item.id));
+      }
+      await db.delete(implementationItems).where(eq(implementationItems.sheetId, sheet.id));
+    }
+    await db.delete(implementationSheets).where(eq(implementationSheets.projectId, id));
+    
+    // 2. Delete client payments
+    await db.delete(clientPayments).where(eq(clientPayments.projectId, id));
+    
+    // 3. Delete other project-related data
+    await db.delete(clientProjects).where(eq(clientProjects.projectId, id));
+    await db.delete(contractorProjects).where(eq(contractorProjects.projectId, id));
+    await db.delete(userProjects).where(eq(userProjects.projectId, id));
+    await db.delete(expenses).where(eq(expenses.projectId, id));
+    await db.delete(documents).where(eq(documents.projectId, id));
+    await db.delete(advances).where(eq(advances.projectId, id));
+    await db.delete(customerAdvances).where(eq(customerAdvances.projectId, id));
+    await db.delete(revenues).where(eq(revenues.projectId, id));
+    await db.delete(ownerInvestments).where(eq(ownerInvestments.projectId, id));
+    
+    // 4. Finally, delete the project itself
+    await db.delete(projects).where(eq(projects.id, id));
   }
 
   async getUserProjects(userId: string): Promise<Project[]> {

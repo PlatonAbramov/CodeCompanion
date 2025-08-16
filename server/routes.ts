@@ -86,6 +86,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+
+
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
     try {
@@ -1863,6 +1865,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(logs);
     } catch (error) {
       console.error("Failed to get implementation change logs:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete project - Admin only (after requireAdmin is defined)
+  app.delete("/api/projects/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteProject(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete project error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

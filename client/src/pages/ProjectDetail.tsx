@@ -11,6 +11,22 @@ import {
   ArrowLeft, MoreVertical, Download, Eye, Plus, Edit,
   FileText, Paperclip, Trash2, ChevronDown, ChevronUp
 } from "lucide-react";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { FileUploader } from "@/components/FileUploader";
 import { AssignClientModal } from "@/components/AssignClientModal";
 import { CreateImplementationSheetFromInvoice } from "@/components/CreateImplementationSheetFromInvoice";
@@ -70,6 +86,7 @@ export default function ProjectDetail() {
   const [isFinancialSummaryOpen, setIsFinancialSummaryOpen] = useState(false);
   const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
   const [isAssignClientModalOpen, setIsAssignClientModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];
@@ -204,6 +221,39 @@ export default function ProjectDetail() {
     document.body.removeChild(link);
   };
 
+  // Project delete mutation - only for admin
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest(`/api/projects/${projectId}`, {
+        method: 'DELETE'
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Успех',
+        description: 'Проект удален успешно',
+      });
+      setLocation('/');
+    },
+    onError: (error) => {
+      console.error('Delete project error:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось удалить проект',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  const handleDeleteProject = () => {
+    deleteProjectMutation.mutate();
+    setIsDeleteDialogOpen(false);
+  };
+
+  const isAdmin = user?.role === 'admin';
+  const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
+
   const goBack = () => {
     if (user?.role === 'admin' || user?.role === 'director') {
       setLocation('/director');
@@ -225,24 +275,45 @@ export default function ProjectDetail() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={goBack}
-              className="mr-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <div className="flex-1">
-              <h2 className="font-semibold text-slate-900">{project.name}</h2>
-              {project.location && (
-                <p className="text-sm text-slate-500">{project.location}</p>
-              )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={goBack}
+                className="mr-2"
+                data-testid="button-back"
+              >
+                <ArrowLeft size={20} />
+              </Button>
+              <div className="flex-1">
+                <h2 className="font-semibold text-slate-900">{project.name}</h2>
+                {project.location && (
+                  <p className="text-sm text-slate-500">{project.location}</p>
+                )}
+              </div>
             </div>
-            <Button variant="ghost" size="sm">
-              <MoreVertical size={20} />
-            </Button>
+            
+            {/* Admin menu for project actions */}
+            {isAdmin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" data-testid="button-project-menu">
+                    <MoreVertical size={20} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    className="text-red-600 focus:text-red-600"
+                    data-testid="menu-delete-project"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Удалить проект
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </header>
@@ -614,6 +685,28 @@ export default function ProjectDetail() {
         onClose={() => setIsAssignClientModalOpen(false)}
         projectId={projectId}
       />
+
+      {/* Delete Project Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить проект</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить проект безвозвратно? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Отмена</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteProject}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete"
+            >
+              Удалить проект
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
