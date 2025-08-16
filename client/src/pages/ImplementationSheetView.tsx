@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -15,7 +15,8 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, Plus, Camera, Trash2, Edit, Save, X, 
-  Eye, EyeOff, CheckCircle, Circle, Image as ImageIcon 
+  Eye, EyeOff, CheckCircle, Circle, Image as ImageIcon,
+  ChevronLeft, ChevronRight
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -71,6 +72,7 @@ export default function ImplementationSheetView() {
   const [isEditMode, setIsEditMode] = useState<string | null>(null);
   const [editProgress, setEditProgress] = useState(0);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number>(0);
   
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
   const objectStorageService = new ObjectStorageService();
@@ -84,6 +86,59 @@ export default function ImplementationSheetView() {
     queryKey: [`/api/implementation-items/${selectedItem?.id}/photos`],
     enabled: !!selectedItem?.id
   });
+
+  // Сортируем фотографии по времени загрузки (новые в конце)
+  const sortedPhotos = useMemo(() => {
+    if (!itemPhotos) return [];
+    return [...itemPhotos].sort((a, b) => 
+      new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime()
+    );
+  }, [itemPhotos]);
+
+  // Обновляем индекс когда выбираем фото
+  useEffect(() => {
+    if (selectedPhoto && sortedPhotos.length > 0) {
+      const index = sortedPhotos.findIndex(photo => photo.id === selectedPhoto.id);
+      if (index !== -1) {
+        setCurrentPhotoIndex(index);
+      }
+    }
+  }, [selectedPhoto, sortedPhotos]);
+
+  // Функции навигации по фотографиям
+  const navigateToPhoto = (direction: 'prev' | 'next') => {
+    if (sortedPhotos.length === 0) return;
+    
+    let newIndex = currentPhotoIndex;
+    if (direction === 'prev') {
+      newIndex = currentPhotoIndex > 0 ? currentPhotoIndex - 1 : sortedPhotos.length - 1;
+    } else {
+      newIndex = currentPhotoIndex < sortedPhotos.length - 1 ? currentPhotoIndex + 1 : 0;
+    }
+    
+    setCurrentPhotoIndex(newIndex);
+    setSelectedPhoto(sortedPhotos[newIndex]);
+  };
+
+  // Обработка клавиш навигации
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedPhoto) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          navigateToPhoto('prev');
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          navigateToPhoto('next');
+        } else if (e.key === 'Escape') {
+          setSelectedPhoto(null);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedPhoto, currentPhotoIndex, sortedPhotos]);
 
   const updateItemMutation = useMutation({
     mutationFn: async ({ itemId, data }: { itemId: string; data: Partial<ImplementationItem> }) => {
@@ -469,22 +524,30 @@ export default function ImplementationSheetView() {
             </DialogTitle>
           </DialogHeader>
           
-          {/* Компактное отображение фотографий в одну строку */}
+          {/* Компактное отображение фотографий в одну строку - сортированные по времени */}
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {itemPhotos?.map((photo) => (
+            {sortedPhotos?.map((photo, index) => (
               <div key={photo.id} className="relative group flex-shrink-0">
                 <img
                   src={photo.photoUrl}
                   alt={photo.caption || ''}
-                  className="w-24 h-24 object-cover rounded-lg cursor-pointer border"
-                  onClick={() => setSelectedPhoto(photo)}
+                  className={`w-24 h-24 object-cover rounded-lg cursor-pointer border-2 transition-all ${
+                    selectedPhoto?.id === photo.id ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+                  }`}
+                  onClick={() => {
+                    setSelectedPhoto(photo);
+                    setCurrentPhotoIndex(index);
+                  }}
                 />
                 {isAdminOrDirector && (
                   <Button
                     size="icon"
                     variant="destructive"
                     className="absolute -top-1 -right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => deletePhotoMutation.mutate(photo.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deletePhotoMutation.mutate(photo.id);
+                    }}
                     data-testid={`button-delete-photo-${photo.id}`}
                   >
                     <Trash2 className="h-3 w-3" />
@@ -500,20 +563,31 @@ export default function ImplementationSheetView() {
                     <EyeOff className="h-2 w-2" />
                   )}
                 </Badge>
+                {/* Номер фотографии */}
+                <Badge 
+                  className="absolute top-1 left-1 text-xs px-1 py-0 bg-black/50 text-white border-none"
+                >
+                  {index + 1}
+                </Badge>
               </div>
             ))}
           </div>
 
-          {/* Если нужно развернуть фото, показываем в сетке */}
-          {(itemPhotos?.length || 0) > 4 && (
+          {/* Если больше 6 фотографий, показываем в сетке */}
+          {(sortedPhotos?.length || 0) > 6 && (
             <div className="grid gap-4 md:grid-cols-3 mt-4">
-              {itemPhotos?.map((photo) => (
+              {sortedPhotos?.map((photo, index) => (
                 <div key={photo.id} className="relative group">
                   <img
                     src={photo.photoUrl}
                     alt={photo.caption || ''}
-                    className="w-full h-32 object-cover rounded-lg cursor-pointer"
-                    onClick={() => setSelectedPhoto(photo)}
+                    className={`w-full h-32 object-cover rounded-lg cursor-pointer border-2 transition-all ${
+                      selectedPhoto?.id === photo.id ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+                    }`}
+                    onClick={() => {
+                      setSelectedPhoto(photo);
+                      setCurrentPhotoIndex(index);
+                    }}
                   />
                   {photo.caption && (
                     <p className="text-xs text-muted-foreground mt-1 truncate">{photo.caption}</p>
@@ -523,7 +597,10 @@ export default function ImplementationSheetView() {
                       size="icon"
                       variant="destructive"
                       className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => deletePhotoMutation.mutate(photo.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deletePhotoMutation.mutate(photo.id);
+                      }}
                       data-testid={`button-delete-photo-${photo.id}`}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -534,18 +611,23 @@ export default function ImplementationSheetView() {
                     variant={photo.visibleToClient ? 'default' : 'secondary'}
                   >
                     {photo.visibleToClient ? (
-                      <Eye className="h-2 w-2 mr-1" />
+                      <Eye className="h-2 w-2" />
                     ) : (
-                      <EyeOff className="h-2 w-2 mr-1" />
+                      <EyeOff className="h-2 w-2" />
                     )}
-                    {language === 'ru' ? 'Клиент' : 'Client'}
+                  </Badge>
+                  {/* Номер фотографии */}
+                  <Badge 
+                    className="absolute top-1 left-1 text-xs px-1 py-0 bg-black/50 text-white border-none"
+                  >
+                    {index + 1}
                   </Badge>
                 </div>
               ))}
             </div>
           )}
           
-          {itemPhotos?.length === 0 && (
+          {sortedPhotos?.length === 0 && (
             <div className="text-center py-8">
               <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">
@@ -556,15 +638,100 @@ export default function ImplementationSheetView() {
         </DialogContent>
       </Dialog>
 
-      {/* Full size photo viewer */}
+      {/* Full size photo viewer with navigation */}
       <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
-        <DialogContent className="max-w-6xl max-h-[90vh]">
-          {selectedPhoto && (
-            <img
-              src={selectedPhoto.photoUrl}
-              alt={selectedPhoto.caption || ''}
-              className="w-full h-full object-contain"
-            />
+        <DialogContent className="max-w-6xl max-h-[90vh] p-0 bg-black/95">
+          {selectedPhoto && sortedPhotos.length > 0 && (
+            <div className="relative w-full h-full">
+              {/* Navigation buttons */}
+              {sortedPhotos.length > 1 && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
+                    onClick={() => navigateToPhoto('prev')}
+                    data-testid="button-prev-photo"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
+                    onClick={() => navigateToPhoto('next')}
+                    data-testid="button-next-photo"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </Button>
+                </>
+              )}
+              
+              {/* Photo counter */}
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
+                <Badge className="bg-black/50 text-white">
+                  {currentPhotoIndex + 1} / {sortedPhotos.length}
+                </Badge>
+              </div>
+
+              {/* Close button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white"
+                onClick={() => setSelectedPhoto(null)}
+                data-testid="button-close-photo"
+              >
+                <X className="h-6 w-6" />
+              </Button>
+
+              {/* Photo with swipe support */}
+              <div 
+                className="w-full h-full flex items-center justify-center cursor-pointer"
+                onTouchStart={(e) => {
+                  const touch = e.touches[0];
+                  e.currentTarget.dataset.startX = touch.clientX.toString();
+                }}
+                onTouchEnd={(e) => {
+                  const startX = parseFloat(e.currentTarget.dataset.startX || '0');
+                  const endX = e.changedTouches[0].clientX;
+                  const diffX = startX - endX;
+                  
+                  if (Math.abs(diffX) > 50) { // Минимальное расстояние для свайпа
+                    if (diffX > 0) {
+                      navigateToPhoto('next'); // Свайп влево = следующее фото
+                    } else {
+                      navigateToPhoto('prev'); // Свайп вправо = предыдущее фото
+                    }
+                  }
+                }}
+              >
+                {selectedPhoto.photoUrl.includes('video') || 
+                 selectedPhoto.photoUrl.match(/\.(mp4|webm|ogg|mov|avi)$/i) ? (
+                  <video
+                    src={selectedPhoto.photoUrl}
+                    controls
+                    className="max-w-full max-h-full object-contain"
+                    autoPlay={false}
+                  />
+                ) : (
+                  <img
+                    src={selectedPhoto.photoUrl}
+                    alt={selectedPhoto.caption || ''}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                )}
+              </div>
+
+              {/* Photo info */}
+              {selectedPhoto.caption && (
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+                  <Badge className="bg-black/50 text-white max-w-md">
+                    {selectedPhoto.caption}
+                  </Badge>
+                </div>
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>
