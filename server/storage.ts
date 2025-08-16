@@ -241,7 +241,7 @@ export interface IStorage {
   // Implementation photos
   getImplementationPhotos(itemId: string): Promise<ImplementationPhoto[]>;
   createImplementationPhoto(data: InsertImplementationPhoto): Promise<ImplementationPhoto>;
-  deleteImplementationPhoto(id: string, userId?: string): Promise<void>;
+  deleteImplementationPhoto(id: string): Promise<void>;
   
   // Implementation change logs
   createImplementationChangeLog(data: InsertImplementationChangeLog): Promise<ImplementationChangeLog>;
@@ -280,54 +280,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: string): Promise<void> {
-    // Удаляем все связанные данные пользователя в правильном порядке
-    
-    // 1. Удаляем записи contractor_projects где пользователь создатель
-    await db.delete(contractorProjects).where(eq(contractorProjects.createdBy, id));
-    
-    // 2. Удаляем записи revenues где пользователь создатель
-    await db.delete(revenues).where(eq(revenues.createdBy, id));
-    
-    // 3. Удаляем записи client_payments где пользователь создатель
-    await db.delete(clientPayments).where(eq(clientPayments.createdBy, id));
-    
-    // 4. Удаляем записи owner_investments где пользователь создатель
-    await db.delete(ownerInvestments).where(eq(ownerInvestments.createdBy, id));
-    
-    // 5. Удаляем записи customer_advances где пользователь создатель
-    await db.delete(customerAdvances).where(eq(customerAdvances.createdBy, id));
-    
-    // 6. Удаляем записи advances где пользователь создатель
-    await db.delete(advances).where(eq(advances.createdBy, id));
-    
-    // 7. Удаляем записи expenses где пользователь указан как userId
-    await db.delete(expenses).where(eq(expenses.userId, id));
-    
-    // 8. Удаляем записи tool_movements где пользователь создатель
-    await db.delete(toolMovements).where(eq(toolMovements.createdBy, id));
-    
-    // 9. Удаляем записи implementation_change_logs где пользователь создатель
-    await db.delete(implementationChangeLogs).where(eq(implementationChangeLogs.changedBy, id));
-    
-    // 10. Удаляем записи implementation_photos где пользователь создатель
-    await db.delete(implementationPhotos).where(eq(implementationPhotos.uploadedBy, id));
-    
-    // 11. Удаляем связи пользователя с проектами
+    // Удаляем связанные данные пользователя
     await db.delete(userProjects).where(eq(userProjects.userId, id));
-    
-    // 12. Удаляем сессии пользователя
     await db.delete(userSessions).where(eq(userSessions.userId, id));
-    
-    // 13. Удаляем попытки входа пользователя
     await db.delete(loginAttempts).where(eq(loginAttempts.userId, id));
     
-    // 14. Удаляем админ-действия где этот пользователь был целью (поле targetUserId)
+    // Удаляем админ-действия где этот пользователь был целью
     await db.delete(adminActions).where(eq(adminActions.targetUserId, id));
     
-    // 15. Удаляем админ-действия где этот пользователь был исполнителем (поле adminUserId)
-    await db.delete(adminActions).where(eq(adminActions.adminUserId, id));
-    
-    // 16. Наконец удаляем самого пользователя
+    // Удаляем самого пользователя
     await db.delete(users).where(eq(users.id, id));
   }
 
@@ -1996,7 +1957,7 @@ export class DatabaseStorage implements IStorage {
     return photo;
   }
 
-  async deleteImplementationPhoto(id: string, userId?: string): Promise<void> {
+  async deleteImplementationPhoto(id: string, userId: string): Promise<void> {
     const [photo] = await db.select().from(implementationPhotos).where(eq(implementationPhotos.id, id));
     if (photo) {
       await this.createImplementationChangeLog({

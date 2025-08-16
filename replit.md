@@ -86,14 +86,6 @@ This is a construction and HVAC services management mobile application designed 
 - Added support for multiple user roles in admin panel UI with proper role badges
 - System now enforces strict access controls where only admin can create/manage all users
 
-**August 16, 2025** - Database user cleanup completed:
-- Successfully cleaned up user database to maintain only platonabramov90@gmail.com with full admin rights
-- Removed duplicate and test users (director, platonabramov90_main) to avoid authentication conflicts
-- Fixed cascading deletion issues by properly updating foreign key references before user deletion
-- Corrected database schema field name errors in storage.ts (createdBy vs userId, targetUserId vs targetUser)
-- All LSP errors resolved - application now starts cleanly without TypeScript compilation errors
-- Database now contains single admin user with secure access and proper role-based permissions
-
 **August 15, 2025** - Database synchronization and admin panel fixes:
 - Fixed database schema synchronization between development and production environments
 - Renamed session_token to session_id in user_sessions table for consistency
