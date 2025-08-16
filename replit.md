@@ -75,16 +75,16 @@ This is a construction and HVAC services management mobile application designed 
 - Fixed photo deletion functionality with proper user ID tracking
 - System now supports comprehensive media management for implementation sheets
 
-**August 16, 2025** - Complete user account cleanup and role-based access control:
+**August 16, 2025** - Complete user account cleanup and authentication fix:
 - Successfully deleted all user accounts except "Администратор Платон" (@platonabramov90@gmail.com)
 - Deleted 4 users while preserving all data and reassigning to remaining admin user
 - All projects, expenses, advances, and client relationships transferred to admin user
 - Only one user account remains: "Администратор Платон" with admin role
+- Fixed authentication endpoint to always fetch current user data from database
+- Resolved production deployment issue where cached session data showed outdated user info
+- Modified /api/auth/me endpoint to refresh user data from database on each request
 - Implemented comprehensive role hierarchy: admin > director > master > client
 - Updated AdminPanel.tsx to use role-based permissions instead of email checks
-- Modified DirectorDashboard.tsx admin panel button to show only for 'admin' role users
-- Enhanced API endpoints with role-specific access controls for project management
-- Removed all public registration endpoints - user creation now exclusively through admin panel
 - System now enforces strict access controls where only admin can create/manage all users
 
 **August 15, 2025** - Database synchronization and admin panel fixes:

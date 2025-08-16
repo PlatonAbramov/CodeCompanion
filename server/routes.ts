@@ -145,11 +145,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.get("/api/auth/me", (req, res) => {
+  app.get("/api/auth/me", async (req, res) => {
     if (!req.session?.user) {
       return res.status(401).json({ error: "Not authenticated" });
     }
-    res.json({ user: req.session.user });
+    
+    try {
+      // Получаем актуальные данные пользователя из базы данных
+      const currentUser = await storage.getUserById(req.session.user.id);
+      if (!currentUser || !currentUser.isActive) {
+        req.session.destroy(() => {});
+        return res.status(401).json({ error: "User not found or inactive" });
+      }
+      
+      // Обновляем сессию актуальными данными
+      req.session.user = {
+        id: currentUser.id,
+        username: currentUser.username,
+        name: currentUser.name,
+        role: currentUser.role
+      };
+      
+      res.json({ user: req.session.user });
+    } catch (error) {
+      console.error("Get current user error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   // User management routes (Director only)
