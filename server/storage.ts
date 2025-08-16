@@ -851,6 +851,10 @@ export class DatabaseStorage implements IStorage {
     return result || undefined;
   }
 
+  async getDocumentById(id: string): Promise<Document | undefined> {
+    return this.getDocument(id);
+  }
+
   async deleteDocument(id: string): Promise<void> {
     await db.delete(documents).where(eq(documents.id, id));
   }
@@ -1732,6 +1736,10 @@ export class DatabaseStorage implements IStorage {
       .from(implementationSheets)
       .where(eq(implementationSheets.id, id));
     return sheet || undefined;
+  }
+
+  async getImplementationSheetById(id: string): Promise<ImplementationSheet | undefined> {
+    return this.getImplementationSheet(id);
   }
 
   async createImplementationSheet(data: InsertImplementationSheet): Promise<ImplementationSheet> {

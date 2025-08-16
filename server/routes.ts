@@ -1596,8 +1596,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createImplementationItem(itemData);
       }
 
-      // Get the complete sheet with items
-      const completeSheet = await storage.getImplementationSheetById(sheet.id);
+      // Get the complete sheet with items  
+      const completeSheet = await storage.getImplementationSheet(sheet.id);
       
       res.json({
         sheet: completeSheet,

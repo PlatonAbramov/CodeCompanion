@@ -49,7 +49,7 @@ export function CreateImplementationSheetFromInvoice({ projectId, onSheetCreated
     mutationFn: async (data: { name: string; documentId: string }) => {
       return apiRequest(`/api/projects/${projectId}/implementation-sheets/parse-invoice`, {
         method: 'POST',
-        body: JSON.stringify(data)
+        body: data
       });
     },
     onSuccess: (result: any) => {
@@ -65,7 +65,7 @@ export function CreateImplementationSheetFromInvoice({ projectId, onSheetCreated
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/implementation-sheets`] });
     },
     onError: (error: any) => {
-      const errorData = error.body || {};
+      const errorData = error?.body || error || {};
       setParseResult(errorData);
       
       if (errorData.suggestColumnMapping) {
