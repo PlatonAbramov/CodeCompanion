@@ -11,5 +11,10 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// Log the DATABASE_URL for debugging (without exposing the password)
+const dbUrl = process.env.DATABASE_URL;
+const maskedUrl = dbUrl.replace(/:([^:@]+)@/, ':***@');
+console.log(`Using DATABASE_URL: ${maskedUrl}`);
+
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle({ client: pool, schema });
