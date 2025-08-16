@@ -9,7 +9,7 @@ interface User {
   username: string;
   email?: string;
   name: string;
-  role: 'director' | 'master';
+  role: 'admin' | 'director' | 'master' | 'client';
 }
 
 interface LoginData {
@@ -31,12 +31,10 @@ export function useAuth() {
     
     const checkAuth = async () => {
       try {
-        const res = await apiRequest('GET', '/api/auth/me');
-        if (res.ok) {
-          const userData = await res.json();
-          if (isMounted) {
-            setUser(userData.user);
-          }
+        const res = await apiRequest('/api/auth/me');
+        const userData = await res.json();
+        if (isMounted) {
+          setUser(userData.user);
         }
       } catch (error) {
         // User not authenticated
@@ -57,7 +55,10 @@ export function useAuth() {
   // Login mutation
   const loginMutation = useMutation({
     mutationFn: async (data: LoginData) => {
-      const res = await apiRequest('POST', '/api/auth/login', data);
+      const res = await apiRequest('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: (data) => {
@@ -94,7 +95,9 @@ export function useAuth() {
   // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/auth/logout');
+      const res = await apiRequest('/api/auth/logout', {
+        method: 'POST'
+      });
       return res.json();
     },
     onSuccess: () => {
