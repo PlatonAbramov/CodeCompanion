@@ -1572,6 +1572,10 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Cannot delete tool that is currently out');
     }
     
+    // Delete related tool movements first
+    await db.delete(toolMovements).where(eq(toolMovements.toolId, id));
+    
+    // Then delete the tool
     await db.delete(tools).where(eq(tools.id, id));
   }
 

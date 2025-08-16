@@ -93,7 +93,7 @@ export default function Contractors() {
 
   const { data: contractors, isLoading } = useQuery<Contractor[]>({
     queryKey: ['/api/contractors'],
-    enabled: user?.role === 'director', // Только загружаем данные если пользователь директор
+    enabled: user?.role === 'admin' || user?.role === 'director', // Доступ для админов и директоров
   });
 
   const createContractorMutation = useMutation({
@@ -186,7 +186,7 @@ export default function Contractors() {
     );
   }
 
-  if (user.role !== 'director') {
+  if (user.role !== 'admin' && user.role !== 'director') {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <p>Доступ запрещен</p>
