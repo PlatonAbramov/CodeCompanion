@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { FileUploader } from "@/components/FileUploader";
 import { AssignClientModal } from "@/components/AssignClientModal";
+import { CreateImplementationSheetFromInvoice } from "@/components/CreateImplementationSheetFromInvoice";
 import { apiRequest } from "@/lib/queryClient";
 
 interface Project {
@@ -272,16 +273,24 @@ export default function ProjectDetail() {
                 Назначить заказчика
               </Button>
               
-              <Button 
-                variant="outline"
-                className="px-6 py-3 rounded-full shadow-sm"
-                onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
-              >
-                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                  <FileText size={16} className="text-green-600" />
-                </div>
-                Листы реализации
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline"
+                  className="flex-1 px-6 py-3 rounded-full shadow-sm"
+                  onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
+                >
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <FileText size={16} className="text-green-600" />
+                  </div>
+                  Листы реализации
+                </Button>
+                <CreateImplementationSheetFromInvoice 
+                  projectId={projectId}
+                  onSheetCreated={() => {
+                    // Обновление при создании листа
+                  }}
+                />
+              </div>
             </>
           )}
         </div>
