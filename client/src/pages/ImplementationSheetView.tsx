@@ -261,163 +261,161 @@ export default function ImplementationSheetView() {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {sheet.items?.map((item) => (
-          <Card key={item.id} className={item.isCompleted ? 'opacity-75' : ''}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggleComplete(item)}
-                      data-testid={`button-toggle-${item.id}`}
-                    >
-                      {item.isCompleted ? (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <Circle className="h-5 w-5" />
-                      )}
-                    </Button>
-                    <span className={item.isCompleted ? 'line-through' : ''}>
-                      {item.position}. {item.name}
-                    </span>
-                  </CardTitle>
-                  {item.description && (
-                    <p className="text-sm text-muted-foreground mt-2">{item.description}</p>
-                  )}
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {isAdminOrDirector && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggleVisibility(item)}
-                      data-testid={`button-visibility-${item.id}`}
-                    >
-                      {item.visibleToClient ? (
-                        <Eye className="h-4 w-4" />
-                      ) : (
-                        <EyeOff className="h-4 w-4" />
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  {item.quantity && item.unit && (
-                    <p className="text-sm">
-                      {language === 'ru' ? 'Количество: ' : 'Quantity: '}
-                      <span className="font-medium">{item.quantity} {item.unit}</span>
-                    </p>
-                  )}
-                  {item.totalCost && (
-                    <p className="text-sm">
-                      {language === 'ru' ? 'Стоимость: ' : 'Cost: '}
-                      <span className="font-medium">₽{item.totalCost}</span>
-                    </p>
-                  )}
-                </div>
-                
-                <div>
-                  {isEditMode === item.id ? (
-                    <div className="space-y-2">
-                      <Label>{language === 'ru' ? 'Прогресс' : 'Progress'}: {editProgress}%</Label>
-                      <Slider
-                        value={[editProgress]}
-                        onValueChange={([value]) => setEditProgress(value)}
-                        max={100}
-                        step={5}
-                        className="w-full"
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            handleProgressUpdate(item.id, editProgress);
-                          }}
-                          data-testid={`button-save-progress-${item.id}`}
-                        >
-                          <Save className="h-4 w-4 mr-1" />
-                          {language === 'ru' ? 'Сохранить' : 'Save'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setIsEditMode(null)}
-                          data-testid={`button-cancel-progress-${item.id}`}
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          {language === 'ru' ? 'Отмена' : 'Cancel'}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">
-                          {language === 'ru' ? 'Прогресс' : 'Progress'}
-                        </span>
-                        <span className="text-sm font-semibold">{item.progress}%</span>
-                      </div>
-                      <Progress value={item.progress} className="h-2" />
-                      {(isAdminOrDirector || user?.id === item.lastUpdatedBy) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setIsEditMode(item.id);
-                            setEditProgress(item.progress);
-                          }}
-                          data-testid={`button-edit-progress-${item.id}`}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          {language === 'ru' ? 'Изменить' : 'Edit'}
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="mt-4 flex gap-2">
+          <Card key={item.id} className={`${item.isCompleted ? 'opacity-75' : ''} overflow-hidden`}>
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                {/* Статус завершения */}
                 <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedItem(item)}
-                  data-testid={`button-view-photos-${item.id}`}
+                  variant="ghost"
+                  size="icon"
+                  className="flex-shrink-0 h-8 w-8"
+                  onClick={() => handleToggleComplete(item)}
+                  data-testid={`button-toggle-${item.id}`}
                 >
-                  <ImageIcon className="h-4 w-4 mr-1" />
-                  {language === 'ru' ? 'Фотографии' : 'Photos'}
+                  {item.isCompleted ? (
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <Circle className="h-5 w-5" />
+                  )}
                 </Button>
-                
-                {uploadingItemId === item.id ? (
-                  <ObjectUploader
-                    maxNumberOfFiles={5}
-                    maxFileSize={10485760}
-                    onGetUploadParameters={handleGetUploadParameters}
-                    onComplete={handleUploadComplete}
-                  >
-                    <Camera className="h-4 w-4 mr-1" />
-                    {language === 'ru' ? 'Загрузить фото' : 'Upload Photo'}
-                  </ObjectUploader>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handlePhotoUpload(item.id)}
-                    data-testid={`button-upload-photo-${item.id}`}
-                  >
-                    <Camera className="h-4 w-4 mr-1" />
-                    {language === 'ru' ? 'Добавить фото' : 'Add Photo'}
-                  </Button>
-                )}
+
+                <div className="flex-1 min-w-0">
+                  {/* Название и стоимость в одной строке */}
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className={`font-medium text-sm leading-tight ${item.isCompleted ? 'line-through' : ''}`}>
+                      {item.position}. {item.name}
+                      {item.totalCost && (
+                        <span className="ml-2 text-blue-600 font-semibold">
+                          — {item.totalCost.toLocaleString()} AED
+                        </span>
+                      )}
+                    </h3>
+                    
+                    {/* Кнопки управления */}
+                    <div className="flex items-center gap-1">
+                      {isAdminOrDirector && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => handleToggleVisibility(item)}
+                          data-testid={`button-visibility-${item.id}`}
+                        >
+                          {item.visibleToClient ? (
+                            <Eye className="h-3 w-3" />
+                          ) : (
+                            <EyeOff className="h-3 w-3" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Прогресс */}
+                  <div className="mb-3">
+                    {isEditMode === item.id ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">{language === 'ru' ? 'Прогресс' : 'Progress'}</Label>
+                          <span className="text-xs font-semibold">{editProgress}%</span>
+                        </div>
+                        <Slider
+                          value={[editProgress]}
+                          onValueChange={([value]) => setEditProgress(value)}
+                          max={100}
+                          step={5}
+                          className="w-full"
+                        />
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            className="h-6 text-xs px-2"
+                            onClick={() => handleProgressUpdate(item.id, editProgress)}
+                            data-testid={`button-save-progress-${item.id}`}
+                          >
+                            <Save className="h-3 w-3 mr-1" />
+                            {language === 'ru' ? 'Сохранить' : 'Save'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-xs px-2"
+                            onClick={() => setIsEditMode(null)}
+                            data-testid={`button-cancel-progress-${item.id}`}
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            {language === 'ru' ? 'Отмена' : 'Cancel'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {language === 'ru' ? 'Прогресс' : 'Progress'}
+                          </span>
+                          <span className="text-xs font-semibold">{item.progress}%</span>
+                        </div>
+                        <Progress value={item.progress} className="h-2" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Кнопки действий */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {!isEditMode && (isAdminOrDirector || user?.id === item.lastUpdatedBy) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-xs px-2"
+                        onClick={() => {
+                          setIsEditMode(item.id);
+                          setEditProgress(item.progress);
+                        }}
+                        data-testid={`button-edit-progress-${item.id}`}
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        {language === 'ru' ? 'Изменить' : 'Edit'}
+                      </Button>
+                    )}
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-xs px-2"
+                      onClick={() => setSelectedItem(item)}
+                      data-testid={`button-view-photos-${item.id}`}
+                    >
+                      <ImageIcon className="h-3 w-3 mr-1" />
+                      {language === 'ru' ? 'Фото' : 'Photos'}
+                    </Button>
+                    
+                    {uploadingItemId === item.id ? (
+                      <ObjectUploader
+                        maxNumberOfFiles={5}
+                        maxFileSize={10485760}
+                        onGetUploadParameters={handleGetUploadParameters}
+                        onComplete={handleUploadComplete}
+                      >
+                        <Camera className="h-3 w-3 mr-1" />
+                        {language === 'ru' ? 'Загрузить' : 'Upload'}
+                      </ObjectUploader>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-xs px-2"
+                        onClick={() => handlePhotoUpload(item.id)}
+                        data-testid={`button-upload-photo-${item.id}`}
+                      >
+                        <Camera className="h-3 w-3 mr-1" />
+                        {language === 'ru' ? 'Добавить' : 'Add'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -433,43 +431,81 @@ export default function ImplementationSheetView() {
             </DialogTitle>
           </DialogHeader>
           
-          <div className="grid gap-4 md:grid-cols-2">
+          {/* Компактное отображение фотографий в одну строку */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
             {itemPhotos?.map((photo) => (
-              <div key={photo.id} className="relative group">
+              <div key={photo.id} className="relative group flex-shrink-0">
                 <img
                   src={photo.photoUrl}
                   alt={photo.caption || ''}
-                  className="w-full h-48 object-cover rounded-lg cursor-pointer"
+                  className="w-24 h-24 object-cover rounded-lg cursor-pointer border"
                   onClick={() => setSelectedPhoto(photo)}
                 />
-                {photo.caption && (
-                  <p className="text-sm text-muted-foreground mt-1">{photo.caption}</p>
-                )}
                 {isAdminOrDirector && (
                   <Button
                     size="icon"
                     variant="destructive"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute -top-1 -right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => deletePhotoMutation.mutate(photo.id)}
                     data-testid={`button-delete-photo-${photo.id}`}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3 w-3" />
                   </Button>
                 )}
                 <Badge 
-                  className="absolute bottom-2 left-2"
+                  className="absolute bottom-1 left-1 text-xs px-1 py-0"
                   variant={photo.visibleToClient ? 'default' : 'secondary'}
                 >
                   {photo.visibleToClient ? (
-                    <Eye className="h-3 w-3 mr-1" />
+                    <Eye className="h-2 w-2" />
                   ) : (
-                    <EyeOff className="h-3 w-3 mr-1" />
+                    <EyeOff className="h-2 w-2" />
                   )}
-                  {language === 'ru' ? 'Клиент' : 'Client'}
                 </Badge>
               </div>
             ))}
           </div>
+
+          {/* Если нужно развернуть фото, показываем в сетке */}
+          {itemPhotos?.length > 4 && (
+            <div className="grid gap-4 md:grid-cols-3 mt-4">
+              {itemPhotos?.map((photo) => (
+                <div key={photo.id} className="relative group">
+                  <img
+                    src={photo.photoUrl}
+                    alt={photo.caption || ''}
+                    className="w-full h-32 object-cover rounded-lg cursor-pointer"
+                    onClick={() => setSelectedPhoto(photo)}
+                  />
+                  {photo.caption && (
+                    <p className="text-xs text-muted-foreground mt-1 truncate">{photo.caption}</p>
+                  )}
+                  {isAdminOrDirector && (
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => deletePhotoMutation.mutate(photo.id)}
+                      data-testid={`button-delete-photo-${photo.id}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                  <Badge 
+                    className="absolute bottom-1 left-1 text-xs px-1 py-0"
+                    variant={photo.visibleToClient ? 'default' : 'secondary'}
+                  >
+                    {photo.visibleToClient ? (
+                      <Eye className="h-2 w-2 mr-1" />
+                    ) : (
+                      <EyeOff className="h-2 w-2 mr-1" />
+                    )}
+                    {language === 'ru' ? 'Клиент' : 'Client'}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
           
           {itemPhotos?.length === 0 && (
             <div className="text-center py-8">
