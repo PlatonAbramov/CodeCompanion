@@ -71,10 +71,14 @@ export function useAuth() {
       
       // Force page reload to ensure clean state
       setTimeout(() => {
-        if (data.user.role === 'director') {
+        if (data.user.role === 'admin') {
+          window.location.href = '/director'; // Админ попадает на дашборд директора
+        } else if (data.user.role === 'director') {
           window.location.href = '/director';
         } else if (data.user.role === 'master') {
           window.location.href = '/master';
+        } else if (data.user.role === 'client') {
+          window.location.href = '/client'; // На случай, если будет страница клиента
         }
       }, 500);
     },
