@@ -87,18 +87,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
+      console.log("Login attempt:", { username, passwordLength: password?.length });
       
       if (!username || !password) {
+        console.log("Missing username or password");
         return res.status(400).json({ error: "Username and password required" });
       }
 
       const user = await storage.getUserByUsername(username);
+      console.log("User found:", user ? { id: user.id, username: user.username, isActive: user.isActive } : null);
+      
       if (!user || !user.isActive) {
+        console.log("User not found or not active");
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
       const isValid = await bcrypt.compare(password, user.password);
+      console.log("Password validation result:", isValid);
+      
       if (!isValid) {
+        console.log("Invalid password");
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
