@@ -103,7 +103,7 @@ Preferred communication style: Simple, everyday language.
 
 **Important**: To ensure user accounts work across all deployments:
 
-1. **Development and Production Use Same Database**: Both environments connect to the same PostgreSQL database hosted on Neon, ensuring data persistence across deployments.
+1. **Development and Production Use Different Databases**: Development and production environments connect to separate PostgreSQL databases hosted on Neon. User account changes must be made in both environments separately.
 
 2. **Schema Synchronization**: When making database schema changes:
    - Run `npm run db:push` locally to apply schema changes
