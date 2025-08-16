@@ -190,19 +190,35 @@ export default function ImplementationSheetView() {
   };
 
   const handleUploadComplete = async (result: any) => {
+    console.log('Upload complete result:', result);
     if (result.successful?.[0] && uploadingItemId) {
-      const uploadedFile = result.successful[0];
-      const photoUrl = await objectStorageService.setObjectAclPolicy(uploadedFile.uploadURL, {
-        visibility: 'public'
-      });
-      
-      await createPhotoMutation.mutateAsync({
-        itemId: uploadingItemId,
-        photoUrl,
-        visibleToClient: false
-      });
-      
-      setUploadingItemId(null);
+      try {
+        const uploadedFile = result.successful[0];
+        console.log('Uploaded file URL:', uploadedFile.uploadURL);
+        
+        const photoUrl = await objectStorageService.setObjectAclPolicy(uploadedFile.uploadURL, {
+          visibility: 'public'
+        });
+        
+        console.log('Normalized photo URL:', photoUrl);
+        
+        await createPhotoMutation.mutateAsync({
+          itemId: uploadingItemId,
+          photoUrl,
+          visibleToClient: false
+        });
+        
+        console.log('Photo saved to database');
+        setUploadingItemId(null);
+      } catch (error) {
+        console.error('Error saving photo:', error);
+        toast({
+          title: language === 'ru' ? "Ошибка" : "Error",
+          description: language === 'ru' ? "Не удалось сохранить фото" : "Failed to save photo",
+          variant: "destructive",
+        });
+        setUploadingItemId(null);
+      }
     }
   };
 
@@ -467,7 +483,7 @@ export default function ImplementationSheetView() {
           </div>
 
           {/* Если нужно развернуть фото, показываем в сетке */}
-          {itemPhotos?.length > 4 && (
+          {(itemPhotos?.length || 0) > 4 && (
             <div className="grid gap-4 md:grid-cols-3 mt-4">
               {itemPhotos?.map((photo) => (
                 <div key={photo.id} className="relative group">

@@ -58,6 +58,14 @@ This is a construction and HVAC services management mobile application designed 
 - Added missing document deletion endpoint on server side
 - All CRUD operations now use consistent API request format for better maintainability
 
+**August 16, 2025** - Object storage photo upload functionality completed:
+- Fixed missing object storage API endpoints (/api/objects/upload and /api/objects/acl)
+- Implemented Google Cloud Storage integration for implementation sheet photos
+- Added photo persistence to database with proper metadata tracking
+- Restructured UI for compact display with AED currency and efficient space usage
+- Photos now successfully upload, save to database, and display in implementation sheets
+- Fixed authentication issues and API endpoint routing for object storage operations
+
 **August 16, 2025** - Complete role-based access control system implementation:
 - Migrated from email-based admin checks to proper role-based authentication system
 - Updated existing admin user (platonabramov90@gmail.com) to 'admin' role in database

@@ -649,6 +649,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(filePath);
   });
 
+  // Object Storage service instance
+  const objectStorageService = new ObjectStorageService();
+
+  // Get upload URL for object storage
+  app.post("/api/objects/upload", requireAuth, async (req, res) => {
+    try {
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Failed to get upload URL:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Serve public objects
+  app.get("/public-objects/:filePath(*)", async (req, res) => {
+    const filePath = req.params.filePath;
+    try {
+      const file = await objectStorageService.searchPublicObject(filePath);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      objectStorageService.downloadObject(file, res);
+    } catch (error) {
+      console.error("Error searching for public object:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Serve private objects
+  app.get("/objects/:objectPath(*)", requireAuth, async (req, res) => {
+    const userId = req.session.user?.id;
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      // For implementation photos, allow read access to authenticated users for now
+      const canAccess = true;
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error checking object access:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
   // Contractors routes
   app.get("/api/contractors", requireAuth, async (req, res) => {
     try {
@@ -1426,39 +1475,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Object storage endpoints
-  const objectStorageService = new ObjectStorageService();
-  
-  // Get upload URL for objects
-  app.post("/api/objects/upload", requireAuth, async (req, res) => {
-    try {
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
-    } catch (error) {
-      console.error("Failed to get upload URL:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // Serve objects
-  app.get("/objects/:objectPath(*)", async (req, res) => {
-    try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      objectStorageService.downloadObject(objectFile, res);
-    } catch (error) {
-      console.error("Error serving object:", error);
-      if (error instanceof ObjectNotFoundError) {
-        return res.sendStatus(404);
-      }
-      return res.sendStatus(500);
-    }
-  });
-
-  // Set object ACL policy
+  // Set object ACL policy - use existing objectStorageService
   app.post("/api/objects/acl", requireAuth, async (req, res) => {
     try {
       const { objectUrl, visibility } = req.body;
+      const userId = req.session.user?.id;
+      
       const objectPath = objectStorageService.normalizeObjectEntityPath(objectUrl);
+      
       res.json({ objectPath });
     } catch (error) {
       console.error("Failed to set object ACL:", error);
