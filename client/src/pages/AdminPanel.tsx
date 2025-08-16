@@ -62,7 +62,7 @@ export default function AdminPanel() {
   const { data: stats } = useQuery<AdminStats>({
     queryKey: ['/api/admin/stats'],
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/admin/stats');
+      const res = await apiRequest('/api/admin/stats');
       return res.json();
     },
     enabled: isAdmin,
@@ -76,7 +76,7 @@ export default function AdminPanel() {
       if (searchTerm) params.append('search', searchTerm);
       if (filterStatus !== 'all') params.append('status', filterStatus);
       
-      const res = await apiRequest('GET', `/api/admin/users?${params}`);
+      const res = await apiRequest(`/api/admin/users?${params}`);
       return res.json();
     },
     enabled: isAdmin,
@@ -86,7 +86,7 @@ export default function AdminPanel() {
   const { data: adminActions } = useQuery<AdminAction[]>({
     queryKey: ['/api/admin/actions'],
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/admin/actions');
+      const res = await apiRequest('/api/admin/actions');
       return res.json();
     },
     enabled: isAdmin,
@@ -96,7 +96,7 @@ export default function AdminPanel() {
   const { data: loginAttempts } = useQuery<LoginAttempt[]>({
     queryKey: ['/api/admin/login-attempts'],
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/admin/login-attempts');
+      const res = await apiRequest('/api/admin/login-attempts');
       return res.json();
     },
     enabled: isAdmin,
@@ -117,7 +117,10 @@ export default function AdminPanel() {
   // Мутация создания пользователя
   const createUserMutation = useMutation({
     mutationFn: async (data: CreateUser) => {
-      const res = await apiRequest('POST', '/api/admin/users', data);
+      const res = await apiRequest('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -142,7 +145,10 @@ export default function AdminPanel() {
   // Мутация блокировки/разблокировки пользователя
   const toggleUserBlockMutation = useMutation({
     mutationFn: async ({ userId, blocked }: { userId: string; blocked: boolean }) => {
-      const res = await apiRequest('PATCH', `/api/admin/users/${userId}/block`, { blocked });
+      const res = await apiRequest(`/api/admin/users/${userId}/block`, {
+        method: 'PATCH',
+        body: JSON.stringify({ blocked })
+      });
       return res.json();
     },
     onSuccess: (_, { blocked }) => {
@@ -165,7 +171,9 @@ export default function AdminPanel() {
   // Мутация сброса пароля
   const resetPasswordMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const res = await apiRequest('POST', `/api/admin/users/${userId}/reset-password`);
+      const res = await apiRequest(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST'
+      });
       return res.json();
     },
     onSuccess: (data) => {
@@ -187,7 +195,9 @@ export default function AdminPanel() {
   // Мутация принудительного выхода
   const forceLogoutMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const res = await apiRequest('POST', `/api/admin/users/${userId}/force-logout`);
+      const res = await apiRequest(`/api/admin/users/${userId}/force-logout`, {
+        method: 'POST'
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -210,7 +220,9 @@ export default function AdminPanel() {
   // Мутация удаления пользователя
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const res = await apiRequest('DELETE', `/api/admin/users/${userId}`);
+      const res = await apiRequest(`/api/admin/users/${userId}`, {
+        method: 'DELETE'
+      });
       return res.json();
     },
     onSuccess: () => {

@@ -90,7 +90,10 @@ export default function Tools() {
   // Create tool mutation
   const createToolMutation = useMutation({
     mutationFn: async (data: z.infer<typeof createToolFormSchema>) => {
-      const res = await apiRequest('POST', '/api/tools', data);
+      const res = await apiRequest('/api/tools', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -152,7 +155,10 @@ export default function Tools() {
   const editToolMutation = useMutation({
     mutationFn: async (data: z.infer<typeof createToolFormSchema>) => {
       if (!editingTool) return;
-      const res = await apiRequest('PATCH', `/api/tools/${editingTool.id}`, data);
+      const res = await apiRequest(`/api/tools/${editingTool.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -170,7 +176,9 @@ export default function Tools() {
   // Delete tool mutation
   const deleteToolMutation = useMutation({
     mutationFn: async (toolId: string) => {
-      const res = await apiRequest('DELETE', `/api/tools/${toolId}`, {});
+      const res = await apiRequest(`/api/tools/${toolId}`, {
+        method: 'DELETE'
+      });
       return res.json();
     },
     onSuccess: () => {

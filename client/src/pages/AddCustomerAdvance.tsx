@@ -54,7 +54,10 @@ export default function AddCustomerAdvance() {
   // Create customer advance mutation
   const createCustomerAdvanceMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('POST', '/api/customer-advances', data);
+      const res = await apiRequest('/api/customer-advances', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: () => {

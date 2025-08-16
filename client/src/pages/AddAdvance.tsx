@@ -55,7 +55,10 @@ export default function AddAdvance() {
   // Create advance mutation
   const createAdvanceMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('POST', '/api/advances', data);
+      const res = await apiRequest('/api/advances', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: () => {

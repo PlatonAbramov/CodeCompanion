@@ -94,13 +94,17 @@ export default function EditContractorProject() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: EditContractorProjectFormData) => {
-      return apiRequest('PUT', `/api/contractor-projects/${projectAssignmentId}`, {
-        budget: data.budgetAllocation.toString(),
-        description: data.workDescription,
-        startDate: new Date(data.startDate).toISOString(),
-        endDate: data.endDate ? new Date(data.endDate).toISOString() : null,
-        status: data.isActive ? 'active' : 'completed',
+      const res = await apiRequest(`/api/contractor-projects/${projectAssignmentId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          budget: data.budgetAllocation.toString(),
+          description: data.workDescription,
+          startDate: new Date(data.startDate).toISOString(),
+          endDate: data.endDate ? new Date(data.endDate).toISOString() : null,
+          status: data.isActive ? 'active' : 'completed',
+        })
       });
+      return res.json();
     },
     onSuccess: () => {
       toast({

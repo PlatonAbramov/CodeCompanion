@@ -59,7 +59,10 @@ export default function EditOwnerInvestment() {
 
   const updateOwnerInvestmentMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('PUT', `/api/owner-investments/${ownerInvestmentId}`, data);
+      const res = await apiRequest(`/api/owner-investments/${ownerInvestmentId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: () => {

@@ -51,7 +51,10 @@ export default function EmployeeManagement() {
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('POST', '/api/users', data);
+      const res = await apiRequest('/api/users', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: () => {

@@ -36,7 +36,10 @@ export default function AddOwnerInvestment() {
 
   const createOwnerInvestmentMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('POST', `/api/projects/${projectId}/owner-investments`, data);
+      const res = await apiRequest(`/api/projects/${projectId}/owner-investments`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
       return res.json();
     },
     onSuccess: () => {

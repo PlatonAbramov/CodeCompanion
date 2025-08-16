@@ -15,6 +15,14 @@ This is a construction and HVAC services management mobile application designed 
 - Added navigation from project details to implementation sheets
 - System tracks changes with audit logs for progress updates and photo uploads
 
+**August 16, 2025** - Complete API request format standardization and fixes:
+- Fixed document upload functionality - now properly creates database records after file upload
+- Standardized all API request calls across the entire codebase to use new format: `apiRequest(url, { method, body })`
+- Updated 15+ files including Tools.tsx, AdminPanel.tsx, AddAdvance.tsx, AddExpense.tsx, Contractors.tsx, and others
+- Removed all instances of old format: `apiRequest('METHOD', url, data)` 
+- Added missing document deletion endpoint on server side
+- All CRUD operations now use consistent API request format for better maintainability
+
 **August 16, 2025** - Complete role-based access control system implementation:
 - Migrated from email-based admin checks to proper role-based authentication system
 - Updated existing admin user (platonabramov90@gmail.com) to 'admin' role in database

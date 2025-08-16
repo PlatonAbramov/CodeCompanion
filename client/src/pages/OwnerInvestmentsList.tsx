@@ -36,8 +36,10 @@ export default function OwnerInvestmentsList() {
 
   const deleteOwnerInvestmentMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest('DELETE', `/api/owner-investments/${id}`);
-      return res;
+      const res = await apiRequest(`/api/owner-investments/${id}`, {
+        method: 'DELETE'
+      });
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'owner-investments'] });

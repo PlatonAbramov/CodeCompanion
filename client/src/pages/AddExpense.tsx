@@ -67,7 +67,11 @@ export default function AddExpense() {
   // Create expense mutation
   const createExpenseMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest('POST', '/api/expenses', data);
+      const res = await apiRequest('/api/expenses', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      return res.json();
     },
     onSuccess: () => {
       // Invalidate all relevant queries
