@@ -81,23 +81,57 @@ export class InvoiceParser {
       const pdfData = await pdfParse(dataBuffer);
       const text = pdfData.text;
 
-      // Простой алгоритм извлечения табличных данных из текста
-      const lines = text.split('\n').filter(line => line.trim().length > 0);
+      // Улучшенный алгоритм парсинга табличных данных
+      const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
       const items: ParsedInvoiceItem[] = [];
 
-      // Ищем строки, которые могут содержать табличные данные
+      // Ищем заголовок таблицы
+      let tableStartIndex = -1;
+      
+      // Ищем заголовок таблицы
       for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Ищем заголовок таблицы
+        if (line.includes('No.') && line.includes('Description') && line.includes('Quantity')) {
+          tableStartIndex = i + 1; // Начинаем с следующей строки после заголовка
+          break;
+        }
+      }
+
+      if (tableStartIndex === -1) {
+        return {
+          success: false,
+          items: [],
+          format: 'PDF',
+          errors: ['Не удалось найти заголовок таблицы в PDF документе']
+        };
+      }
+
+      // Парсинг строк таблицы
+      for (let i = tableStartIndex; i < lines.length; i++) {
         const line = lines[i].trim();
         
-        // Пропускаем заголовки и пустые строки
-        if (this.isHeaderLine(line) || line.length < 10) {
-          continue;
+        // Останавливаемся при встрече "Subtotal"
+        if (line.includes('Subtotal')) {
+          break;
         }
 
-        // Пытаемся извлечь данные из строки
-        const parsedItem = this.parseTableLine(line, i + 1);
-        if (parsedItem) {
-          items.push(parsedItem);
+        // Ищем строки, которые начинаются с номера и содержат числовые данные в конце
+        const match = line.match(/^(\d+)\s+(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
+        
+        if (match) {
+          const [, position, description, quantity, price, totalCost] = match;
+          
+          items.push({
+            position: parseInt(position),
+            name: description.trim(),
+            quantity: this.parseNumber(quantity),
+            unit: '',
+            price: this.parseNumber(price),
+            totalCost: this.parseNumber(totalCost),
+            description: description.trim()
+          });
         }
       }
 
@@ -393,5 +427,63 @@ export class InvoiceParser {
     
     // Limit to prevent database overflow (precision 12, scale 3 = max 999999999.999)
     return Math.min(Math.abs(parsed), 999999999);
+  }
+
+  /**
+   * Улучшенный парсинг строки таблицы с поддержкой разделения на описание и числовые данные
+   */
+  private parseTableLineAdvanced(line: string, position: number): Partial<ParsedInvoiceItem> {
+    // Ищем числовые значения в конце строки
+    const numericMatch = line.match(/(.+?)\s+(\d+(?:[.,]\d+)?)\s*([a-zA-Z]*)\s*(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)$/);
+    
+    if (numericMatch) {
+      const [, description, quantity, unit, price, total] = numericMatch;
+      return {
+        position,
+        name: description.trim(),
+        quantity: this.parseNumber(quantity),
+        unit: unit || undefined,
+        price: this.parseNumber(price),
+        totalCost: this.parseNumber(total)
+      };
+    }
+    
+    // Если числовые данные не найдены, считаем это описанием
+    return {
+      position,
+      name: line.trim()
+    };
+  }
+
+  /**
+   * Проверяет, содержит ли строка числовые данные (количество, цена, стоимость)
+   */
+  private containsNumericData(line: string): boolean {
+    // Ищем паттерны: число [единица] число число (количество [единица] цена стоимость)
+    return /\d+(?:[.,]\d+)?\s*[a-zA-Z]*\s*\d+(?:[.,]\d+)?\s+\d+(?:[.,]\d+)?/.test(line);
+  }
+
+  /**
+   * Извлекает числовые данные из строки
+   */
+  private extractNumericData(line: string): {
+    quantity?: number;
+    unit?: string;
+    price?: number;
+    totalCost?: number;
+  } {
+    const match = line.match(/(\d+(?:[.,]\d+)?)\s*([a-zA-Z]*)\s*(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)/);
+    
+    if (match) {
+      const [, quantity, unit, price, total] = match;
+      return {
+        quantity: this.parseNumber(quantity),
+        unit: unit || undefined,
+        price: this.parseNumber(price),
+        totalCost: this.parseNumber(total)
+      };
+    }
+    
+    return {};
   }
 }

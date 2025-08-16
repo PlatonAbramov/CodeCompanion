@@ -34,6 +34,14 @@ This is a construction and HVAC services management mobile application designed 
 - Full integration working: PDF upload → parsing → implementation sheet creation → database storage
 - Successfully tested with real construction invoice containing 43 line items with quantities, prices, and costs
 
+**August 16, 2025** - Improved PDF parsing accuracy and table structure detection:
+- Enhanced PDF parser to correctly identify table headers "No. Description Quantity Unit Price (AED) Total (AED)"
+- Implemented proper table boundary detection - parsing starts after header and stops before "Subtotal"
+- Fixed multi-line description handling to correctly combine split descriptions into single items
+- Parser now correctly handles Russian construction invoice format with proper item separation
+- Successfully parsing 8+ construction work items with accurate quantities, prices, and total costs
+- Improved table row detection using regex patterns for "number description quantity price total" format
+
 **August 16, 2025** - Complete API request format standardization and fixes:
 - Fixed document upload functionality - now properly creates database records after file upload
 - Standardized all API request calls across the entire codebase to use new format: `apiRequest(url, { method, body })`
