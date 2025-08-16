@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import csvParser from 'csv-parser';
-import pdfParse from './pdf-parser-safe';
+// Use dynamic import to avoid PDF parse issues
+let pdfParse: any;
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -62,6 +63,13 @@ export class InvoiceParser {
    */
   private async parsePDF(filePath: string): Promise<ParsedInvoiceResult> {
     try {
+      // Lazy load PDF parser to avoid initialization issues
+      if (!pdfParse) {
+        const moduleLib = await import('module');
+        const require = moduleLib.createRequire(import.meta.url);
+        pdfParse = require('pdf-parse/lib/pdf-parse.js');
+      }
+      
       const dataBuffer = fs.readFileSync(filePath);
       const pdfData = await pdfParse(dataBuffer);
       const text = pdfData.text;
@@ -318,7 +326,7 @@ export class InvoiceParser {
   /**
    * Парсит строку таблицы из PDF
    */
-  private parseTableLine(line: string, position: number): ParsedInvoiceItem | null {
+  private parseTableLine(line: any, position: number): ParsedInvoiceItem | null {
     // Простой алгоритм: ищем числа и текст
     const parts = line.split(/\s+/).filter(part => part.length > 0);
     

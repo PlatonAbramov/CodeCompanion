@@ -2,7 +2,10 @@
  * Safe wrapper for pdf-parse that avoids test file loading issues
  */
 
-// Require the library directly to avoid import-time test file execution
-const pdfParse = require('pdf-parse');
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
-export default pdfParse;
+// Import the library function directly to bypass debug mode
+const pdfParseMod = require('pdf-parse/lib/pdf-parse.js');
+
+export default pdfParseMod;

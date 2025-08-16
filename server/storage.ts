@@ -1577,7 +1577,7 @@ export class DatabaseStorage implements IStorage {
       createdAt: movement.createdAt,
       createdBy: movement.createdBy,
       createdByUser: { name: movement.createdByName },
-    } as ToolMovement & { createdBy: { name: string } }));
+    } as any));
   }
 
   async createToolMovement(movement: InsertToolMovement): Promise<ToolMovement> {
@@ -1757,9 +1757,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createImplementationSheet(data: InsertImplementationSheet): Promise<ImplementationSheet> {
+    const insertData = { ...data };
+    if (insertData.parseErrors && Array.isArray(insertData.parseErrors)) {
+      (insertData as any).parseErrors = JSON.stringify(insertData.parseErrors);
+    }
     const [sheet] = await db
       .insert(implementationSheets)
-      .values([data])
+      .values(insertData)
       .returning();
     return sheet;
   }

@@ -15,6 +15,16 @@ This is a construction and HVAC services management mobile application designed 
 - Added navigation from project details to implementation sheets
 - System tracks changes with audit logs for progress updates and photo uploads
 
+**August 16, 2025** - Critical debugging and PDF parser fixes:
+- Successfully resolved critical PDF parser crash that was preventing application startup
+- Fixed "require is not defined in ES module scope" error by implementing safe dynamic loading
+- Corrected database schema type errors and circular dependency issues in shared/schema.ts
+- Added missing getUserProject method to DatabaseStorage class  
+- Resolved multiple TypeScript compilation errors across server files
+- Application now successfully starts on port 5000 with working authentication system
+- All core features including project management, expense tracking, and user authentication are operational
+- PDF invoice parsing functionality restored with proper ES module compatibility
+
 **August 16, 2025** - Complete API request format standardization and fixes:
 - Fixed document upload functionality - now properly creates database records after file upload
 - Standardized all API request calls across the entire codebase to use new format: `apiRequest(url, { method, body })`
