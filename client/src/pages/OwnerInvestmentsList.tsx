@@ -77,7 +77,7 @@ export default function OwnerInvestmentsList() {
         <h3 className="font-semibold text-slate-900">
           Всего {investorName}: {formatCurrency((investments.reduce((sum, inv) => sum + parseFloat(inv.amount), 0)).toString())}
         </h3>
-        {user?.role === 'director' && (
+        {(user?.role === 'admin' || user?.role === 'director') && (
           <Button 
             onClick={() => setLocation(`/add-owner-investment/${projectId}?investor=${investorName.toLowerCase()}`)}
             size="sm"
@@ -102,7 +102,7 @@ export default function OwnerInvestmentsList() {
                       {formatCurrency(investment.amount)}
                     </span>
                     <div className="flex items-center space-x-2">
-                      {user?.role === 'director' && (
+                      {(user?.role === 'admin' || user?.role === 'director') && (
                         <>
                           <Button
                             variant="ghost"

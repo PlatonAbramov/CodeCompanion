@@ -38,7 +38,7 @@ export default function EmployeeManagement() {
   });
 
   // Redirect if not director
-  if (user?.role !== 'director') {
+  if (user?.role !== 'admin' && user?.role !== 'director') {
     setLocation('/director');
     return null;
   }

@@ -244,7 +244,7 @@ export default function CategoryExpenses() {
                       </div>
                       
                       <div className="ml-4 flex items-center">
-                        {(user?.role === 'director' || expense.user.id === user?.id) && (
+                        {(user?.role === 'admin' || user?.role === 'director' || expense.user.id === user?.id) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -266,7 +266,7 @@ export default function CategoryExpenses() {
                                   Просмотреть чек
                                 </DropdownMenuItem>
                               )}
-                              {user?.role === 'director' && (
+                              {(user?.role === 'admin' || user?.role === 'director') && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <AlertDialog>

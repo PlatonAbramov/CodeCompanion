@@ -195,7 +195,7 @@ export default function ProjectDetail() {
   };
 
   const goBack = () => {
-    if (user?.role === 'director') {
+    if (user?.role === 'admin' || user?.role === 'director') {
       setLocation('/director');
     } else {
       setLocation('/master');
@@ -250,7 +250,7 @@ export default function ProjectDetail() {
             Добавить расход
           </Button>
           
-          {user?.role === 'director' && (
+          {(user?.role === 'admin' || user?.role === 'director') && (
             <Button 
               variant="outline"
               className="px-6 py-3 rounded-full shadow-sm"
@@ -299,7 +299,7 @@ export default function ProjectDetail() {
                 >
                   <div className="flex items-center flex-1">
                     <span className="text-slate-600">Аванс от заказчика</span>
-                    {user?.role === 'director' && (
+                    {(user?.role === 'admin' || user?.role === 'director') && (
                       <div className="flex items-center ml-2">
                         <Button 
                           variant="ghost" 
@@ -338,7 +338,7 @@ export default function ProjectDetail() {
                 >
                   <div className="flex items-center flex-1">
                     <span className="text-slate-600">Взятые авансы (Влад + Платон)</span>
-                    {user?.role === 'director' && (
+                    {(user?.role === 'admin' || user?.role === 'director') && (
                       <div className="flex items-center ml-2">
                         <Button 
                           variant="ghost" 
@@ -377,7 +377,7 @@ export default function ProjectDetail() {
                 >
                   <div className="flex items-center flex-1">
                     <span className="text-slate-600">Вложили из своих (Влад + Платон)</span>
-                    {user?.role === 'director' && (
+                    {(user?.role === 'admin' || user?.role === 'director') && (
                       <div className="flex items-center ml-2">
                         <Button 
                           variant="ghost" 
@@ -416,7 +416,7 @@ export default function ProjectDetail() {
                 >
                   <div className="flex items-center flex-1">
                     <span className="text-slate-600">Расходы на проект</span>
-                    {user?.role === 'director' && (
+                    {(user?.role === 'admin' || user?.role === 'director') && (
                       <div className="flex items-center ml-2">
                         <Button 
                           variant="ghost" 
@@ -467,7 +467,7 @@ export default function ProjectDetail() {
                 </div>
               </div>
               
-              {user?.role === 'director' && (
+              {(user?.role === 'admin' || user?.role === 'director') && (
                 <Button 
                   className="w-full mt-4 bg-slate-100 text-slate-700 hover:bg-slate-200"
                   onClick={() => {
@@ -506,7 +506,7 @@ export default function ProjectDetail() {
               
               <CollapsibleContent>
                 <div className="mt-4">
-                  {user?.role === 'director' && (
+                  {(user?.role === 'admin' || user?.role === 'director') && (
                     <div className="mb-4 flex justify-end">
                       <FileUploader
                         onUpload={handleFilesUpload}
@@ -553,7 +553,7 @@ export default function ProjectDetail() {
                       >
                         <Download size={16} />
                       </Button>
-                      {user?.role === 'director' && (
+                      {(user?.role === 'admin' || user?.role === 'director') && (
                         <Button 
                           variant="ghost" 
                           size="sm"

@@ -209,7 +209,7 @@ export default function AdvancesList() {
                       </div>
                       
                       <div className="ml-4 flex items-center">
-                        {user?.role === 'director' && (
+                        {(user?.role === 'admin' || user?.role === 'director') && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

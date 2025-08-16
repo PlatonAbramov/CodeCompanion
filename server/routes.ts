@@ -76,8 +76,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   const requireDirector = (req: any, res: any, next: any) => {
-    if (!req.session?.user || req.session.user.role !== 'director') {
-      return res.status(403).json({ error: "Director access required" });
+    if (!req.session?.user || (req.session.user.role !== 'director' && req.session.user.role !== 'admin')) {
+      return res.status(403).json({ error: "Director or admin access required" });
     }
     next();
   };
