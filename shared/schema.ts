@@ -17,7 +17,7 @@ export const users = pgTable("users", {
   mustChangePassword: boolean("must_change_password").default(false), // Принудительная смена пароля
   createdAt: timestamp("created_at").defaultNow(),
   lastLogin: timestamp("last_login"),
-  createdBy: varchar("created_by").references(() => users.id), // Кто создал пользователя
+  createdBy: varchar("created_by"), // Кто создал пользователя
 });
 
 export const projects = pgTable("projects", {
@@ -246,7 +246,7 @@ export const adminActions = pgTable("admin_actions", {
 });
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   projects: many(projects),
   expenses: many(expenses),
   userProjects: many(userProjects),
@@ -259,6 +259,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   clients: many(clients),
   clientProjects: many(clientProjects),
   clientPayments: many(clientPayments),
+  createdByUser: one(users, {
+    fields: [users.createdBy],
+    references: [users.id],
+  }),
 }));
 
 export const contractorsRelations = relations(contractors, ({ one, many }) => ({

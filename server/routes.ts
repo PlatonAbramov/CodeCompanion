@@ -186,7 +186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
-      let projects;
+      let projects: any[] = [];
       
       // Администратор видит все проекты
       if (fullUser.role === 'admin') {
@@ -203,9 +203,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Заказчик видит только свои проекты (где он заказчик)
       else if (fullUser.role === 'client') {
         projects = await storage.getUserProjects(user.id);
-      }
-      else {
-        projects = [];
       }
       
       res.json(projects);
@@ -1582,10 +1579,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sheetId: sheet.id,
           position: item.position || i + 1,
           name: item.name,
-          quantity: item.quantity ? item.quantity.toString() : null,
+          quantity: item.quantity || 0,
           unit: item.unit,
-          price: item.price ? item.price.toString() : null,
-          totalCost: item.totalCost ? item.totalCost.toString() : null,
+          price: item.price || 0,
+          totalCost: item.totalCost || 0,
           description: item.description,
           progress: 0,
           isCompleted: false,

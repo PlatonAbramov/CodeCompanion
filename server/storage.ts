@@ -362,6 +362,19 @@ export class DatabaseStorage implements IStorage {
     return userProjectsList.map(up => up.project);
   }
 
+  async getUserProject(userId: string, projectId: string): Promise<UserProject | undefined> {
+    const [userProject] = await db
+      .select()
+      .from(userProjects)
+      .where(
+        and(
+          eq(userProjects.userId, userId),
+          eq(userProjects.projectId, projectId)
+        )
+      );
+    return userProject || undefined;
+  }
+
   async getProjectExpenses(projectId: string): Promise<(Expense & { user: { name: string }, contractor?: { name: string, company?: string } })[]> {
     const result = await db
       .select({
@@ -1562,8 +1575,9 @@ export class DatabaseStorage implements IStorage {
       isAdminCorrected: movement.isAdminCorrected,
       correctionReason: movement.correctionReason,
       createdAt: movement.createdAt,
-      createdBy: { name: movement.createdByName },
-    }));
+      createdBy: movement.createdBy,
+      createdByUser: { name: movement.createdByName },
+    } as ToolMovement & { createdBy: { name: string } }));
   }
 
   async createToolMovement(movement: InsertToolMovement): Promise<ToolMovement> {
@@ -1745,15 +1759,19 @@ export class DatabaseStorage implements IStorage {
   async createImplementationSheet(data: InsertImplementationSheet): Promise<ImplementationSheet> {
     const [sheet] = await db
       .insert(implementationSheets)
-      .values(data)
+      .values([data])
       .returning();
     return sheet;
   }
 
   async updateImplementationSheet(id: string, data: Partial<InsertImplementationSheet>): Promise<ImplementationSheet> {
+    const updateData: any = { ...data, updatedAt: new Date() };
+    if (updateData.parseErrors && Array.isArray(updateData.parseErrors)) {
+      updateData.parseErrors = JSON.stringify(updateData.parseErrors);
+    }
     const [sheet] = await db
       .update(implementationSheets)
-      .set({ ...data, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(implementationSheets.id, id))
       .returning();
     return sheet;

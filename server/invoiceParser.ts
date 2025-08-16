@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import csvParser from 'csv-parser';
-import pdfParse from 'pdf-parse';
+import pdfParse from './pdf-parser-safe';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -188,7 +188,7 @@ export class InvoiceParser {
       let isFirstRow = true;
 
       fs.createReadStream(filePath)
-        .pipe(csvParser({ separator: [',', ';'] }))
+        .pipe(csvParser({ separator: ',' }))
         .on('headers', (headerList: string[]) => {
           headers = headerList;
         })
