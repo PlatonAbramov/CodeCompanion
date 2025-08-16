@@ -10,7 +10,7 @@ export const users = pgTable("users", {
   email: text("email").unique(), // Добавляем email для админки
   password: text("password").notNull(),
   name: text("name").notNull(),
-  role: text("role").notNull(), // 'director' | 'master'
+  role: text("role").notNull(), // 'admin' | 'director' | 'master' | 'client'
   isActive: boolean("is_active").default(true),
   isBlocked: boolean("is_blocked").default(false), // Для блокировки пользователей
   tempPassword: text("temp_password"), // Временный пароль
@@ -677,7 +677,7 @@ export const createUserSchema = z.object({
   email: z.string().email("Некорректный email").optional(),
   name: z.string().min(2, "Имя должно содержать минимум 2 символа"),
   password: z.string().min(6, "Пароль должен содержать минимум 6 символов"),
-  role: z.enum(["director", "master"], { required_error: "Выберите роль" }),
+  role: z.enum(["admin", "director", "master", "client"], { required_error: "Выберите роль" }),
 });
 
 export const insertUserSessionSchema = createInsertSchema(userSessions).omit({

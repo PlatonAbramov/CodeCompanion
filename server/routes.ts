@@ -168,12 +168,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
+      const fullUser = await storage.getUserById(user.id);
+      if (!fullUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
       let projects;
       
-      if (user.role === 'director') {
+      // Администратор видит все проекты
+      if (fullUser.role === 'admin') {
         projects = await storage.getAllProjects();
-      } else {
+      }
+      // Прораб видит только назначенные ему проекты  
+      else if (fullUser.role === 'director') {
         projects = await storage.getUserProjects(user.id);
+      }
+      // Мастер видит только назначенные ему проекты
+      else if (fullUser.role === 'master') {
+        projects = await storage.getUserProjects(user.id);
+      }
+      // Заказчик видит только свои проекты (где он заказчик)
+      else if (fullUser.role === 'client') {
+        projects = await storage.getUserProjects(user.id);
+      }
+      else {
+        projects = [];
       }
       
       res.json(projects);
@@ -196,6 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Создание проектов - только директор
   app.post("/api/projects", requireAuth, requireDirector, async (req, res) => {
     try {
       const projectData = insertProjectSchema.parse({
@@ -1150,22 +1170,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin middleware - только для platonabramov90@gmail.com
-  const requireAdmin = async (req: any, res: any, next: any) => {
-    if (!req.session?.user) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-    
-    const user = await storage.getUserById(req.session.user.id);
-    if (!user || (
-      user.email?.toLowerCase() !== 'platonabramov90@gmail.com' && 
-      user.username?.toLowerCase() !== 'platonabramov90' && 
-      user.username?.toLowerCase() !== 'platonabramov90@gmail.com'
-    )) {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-    
-    next();
+  // Middleware для проверки ролей
+  const requireRole = (allowedRoles: string[]) => {
+    return async (req: any, res: any, next: any) => {
+      if (!req.session?.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      const user = await storage.getUserById(req.session.user.id);
+      if (!user || !allowedRoles.includes(user.role)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      next();
+    };
   };
+
+  // Специализированные middleware
+  const requireAdmin = requireRole(["admin"]);
+  const requireDirectorOrAdmin = requireRole(["admin", "director"]);
+  const requireMasterOrAbove = requireRole(["admin", "director", "master"]);
+  const requireAnyRole = requireRole(["admin", "director", "master", "client"]);
 
   // Админ-панель: статистика
   app.get("/api/admin/stats", requireAdmin, async (req, res) => {

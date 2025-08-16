@@ -4,6 +4,17 @@ This is a construction and HVAC services management mobile application designed 
 
 ## Recent Changes
 
+**August 16, 2025** - Complete role-based access control system implementation:
+- Migrated from email-based admin checks to proper role-based authentication system
+- Updated existing admin user (platonabramov90@gmail.com) to 'admin' role in database
+- Implemented comprehensive role hierarchy: admin > director > master > client
+- Updated AdminPanel.tsx to use role-based permissions instead of email checks
+- Modified DirectorDashboard.tsx admin panel button to show only for 'admin' role users
+- Enhanced API endpoints with role-specific access controls for project management
+- Removed all public registration endpoints - user creation now exclusively through admin panel
+- Added support for multiple user roles in admin panel UI with proper role badges
+- System now enforces strict access controls where only admin can create/manage all users
+
 **August 15, 2025** - Database synchronization and admin panel fixes:
 - Fixed database schema synchronization between development and production environments
 - Renamed session_token to session_id in user_sessions table for consistency
@@ -11,16 +22,6 @@ This is a construction and HVAC services management mobile application designed 
 - Fixed React Hooks ordering in AdminPanel.tsx to prevent rendering errors
 - Ensured all admin panel queries use enabled: isAdmin for optimization
 - Database schema now properly synced for consistent authentication across deployments
-
-**August 15, 2025** - Completed admin panel implementation with full functionality:
-- Added admin panel database tables (userSessions, loginAttempts, adminActions) with proper schema
-- Created comprehensive AdminPanel.tsx component with user management interface
-- Implemented admin-only access controls restricted to platonabramov90@gmail.com
-- Added admin panel navigation button in DirectorDashboard.tsx for authorized user
-- Created full server-side API routes for admin functionality in routes.ts
-- Updated storage interface with admin methods for user management and action logging
-- Successfully migrated database schema to include email column and admin tables
-- Created admin user account with proper authentication credentials
 
 # User Preferences
 
@@ -73,8 +74,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Authentication & Authorization
 - **Session Management**: Express-session middleware for persistent login sessions
-- **Role-Based Access**: Directors have full system access, Masters can only view/edit their own expenses
+- **Role-Based Access Control**: Four-tier hierarchy system with specific permissions:
+  - **Admin**: Full system access, user management, project creation/editing, all data access
+  - **Director**: Project management for assigned projects, expense tracking, team oversight
+  - **Master**: Limited to assigned projects, expense tracking, own data management
+  - **Client**: View-only access to projects where they are the client
 - **Route Protection**: Middleware functions enforce authentication and role-based permissions
+- **Admin-Only User Creation**: No public registration - all users created through admin panel
 - **Password Security**: Bcrypt hashing with salt rounds for secure password storage
 
 ## File Management

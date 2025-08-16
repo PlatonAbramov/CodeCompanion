@@ -56,7 +56,7 @@ export default function AdminPanel() {
   const queryClient = useQueryClient();
 
   // Проверяем, что пользователь - администратор
-  const isAdmin = user?.email?.toLowerCase() === "platonabramov90@gmail.com" || user?.username?.toLowerCase() === "platonabramov90" || user?.username?.toLowerCase() === "platonabramov90@gmail.com";
+  const isAdmin = user?.role === "admin";
 
   // Статистика
   const { data: stats } = useQuery<AdminStats>({
@@ -554,8 +554,14 @@ export default function AdminPanel() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={user.role === 'director' ? 'default' : 'secondary'}>
-                                {user.role === 'director' ? 'Директор' : 'Мастер'}
+                              <Badge variant={
+                                user.role === 'admin' ? 'destructive' : 
+                                user.role === 'director' ? 'default' : 
+                                user.role === 'master' ? 'secondary' : 'outline'
+                              }>
+                                {user.role === 'admin' ? 'Администратор' : 
+                                 user.role === 'director' ? 'Прораб' : 
+                                 user.role === 'master' ? 'Мастер' : 'Заказчик'}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -934,8 +940,10 @@ export default function AdminPanel() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="admin">Администратор</SelectItem>
+                          <SelectItem value="director">Прораб</SelectItem>
                           <SelectItem value="master">Мастер</SelectItem>
-                          <SelectItem value="director">Директор</SelectItem>
+                          <SelectItem value="client">Заказчик</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

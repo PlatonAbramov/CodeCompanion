@@ -380,7 +380,7 @@ export default function DirectorDashboard() {
               <Button variant="ghost" size="sm">
                 <Bell size={20} />
               </Button>
-              {(user?.email?.toLowerCase() === 'platonabramov90@gmail.com' || user?.username?.toLowerCase() === 'platonabramov90' || user?.username?.toLowerCase() === 'platonabramov90@gmail.com') && (
+              {user?.role === 'admin' && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
