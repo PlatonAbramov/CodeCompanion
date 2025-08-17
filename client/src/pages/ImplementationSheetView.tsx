@@ -22,6 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { ObjectStorageService } from "@/lib/objectStorage";
+import { PhotoViewer } from "@/components/PhotoViewer";
 
 interface ImplementationItem {
   id: string;
@@ -642,100 +643,17 @@ export default function ImplementationSheetView() {
         </DialogContent>
       </Dialog>
 
-      {/* Full size photo viewer with navigation */}
+      {/* Full size photo viewer with navigation and zoom */}
       <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
-        <DialogContent className="max-w-6xl max-h-[90vh] p-0 bg-black/95">
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
           {selectedPhoto && sortedPhotos.length > 0 && (
-            <div className="relative w-full h-full">
-              {/* Navigation buttons */}
-              {sortedPhotos.length > 1 && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
-                    onClick={() => navigateToPhoto('prev')}
-                    data-testid="button-prev-photo"
-                  >
-                    <ChevronLeft className="h-6 w-6" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white"
-                    onClick={() => navigateToPhoto('next')}
-                    data-testid="button-next-photo"
-                  >
-                    <ChevronRight className="h-6 w-6" />
-                  </Button>
-                </>
-              )}
-              
-              {/* Photo counter */}
-              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-                <Badge className="bg-black/50 text-white">
-                  {currentPhotoIndex + 1} / {sortedPhotos.length}
-                </Badge>
-              </div>
-
-              {/* Close button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white"
-                onClick={() => setSelectedPhoto(null)}
-                data-testid="button-close-photo"
-              >
-                <X className="h-6 w-6" />
-              </Button>
-
-              {/* Photo with swipe support */}
-              <div 
-                className="w-full h-full flex items-center justify-center cursor-pointer"
-                onTouchStart={(e) => {
-                  const touch = e.touches[0];
-                  e.currentTarget.dataset.startX = touch.clientX.toString();
-                }}
-                onTouchEnd={(e) => {
-                  const startX = parseFloat(e.currentTarget.dataset.startX || '0');
-                  const endX = e.changedTouches[0].clientX;
-                  const diffX = startX - endX;
-                  
-                  if (Math.abs(diffX) > 50) { // Минимальное расстояние для свайпа
-                    if (diffX > 0) {
-                      navigateToPhoto('next'); // Свайп влево = следующее фото
-                    } else {
-                      navigateToPhoto('prev'); // Свайп вправо = предыдущее фото
-                    }
-                  }
-                }}
-              >
-                {selectedPhoto.photoUrl.includes('video') || 
-                 selectedPhoto.photoUrl.match(/\.(mp4|webm|ogg|mov|avi)$/i) ? (
-                  <video
-                    src={selectedPhoto.photoUrl}
-                    controls
-                    className="max-w-full max-h-full object-contain"
-                    autoPlay={false}
-                  />
-                ) : (
-                  <img
-                    src={selectedPhoto.photoUrl}
-                    alt={selectedPhoto.caption || ''}
-                    className="max-w-full max-h-full object-contain"
-                  />
-                )}
-              </div>
-
-              {/* Photo info */}
-              {selectedPhoto.caption && (
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
-                  <Badge className="bg-black/50 text-white max-w-md">
-                    {selectedPhoto.caption}
-                  </Badge>
-                </div>
-              )}
-            </div>
+            <PhotoViewer 
+              photo={selectedPhoto}
+              photos={sortedPhotos}
+              currentIndex={currentPhotoIndex}
+              onNavigate={navigateToPhoto}
+              onClose={() => setSelectedPhoto(null)}
+            />
           )}
         </DialogContent>
       </Dialog>

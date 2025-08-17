@@ -46,6 +46,8 @@ Preferred communication style: Simple, everyday language.
 - **Financial Reporting**: Real-time profit/loss, financial summaries.
 - **Document Management**: Centralized storage for project documents.
 - **Implementation Sheets**: Detailed tracking of work progress from estimates, including photo documentation.
+- **Enhanced Photo Viewing**: Full-screen photo viewer with zoom, rotation, navigation, and keyboard shortcuts.
+- **Real-time Updates**: Automatic cache invalidation and refresh for client users.
 - **Multi-language Support**: Russian and English.
 - **Mobile-First Design**: Optimized for mobile devices.
 
