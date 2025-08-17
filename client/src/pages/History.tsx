@@ -18,8 +18,8 @@ function History() {
   const [match, params] = useRoute("/history/:projectId");
   const projectId = params?.projectId;
   
-  const [entityTypeFilter, setEntityTypeFilter] = useState<string>("");
-  const [userFilter, setUserFilter] = useState<string>("");
+  const [entityTypeFilter, setEntityTypeFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<{
     from: Date | undefined;
     to: Date | undefined;
@@ -35,14 +35,15 @@ function History() {
       if (!projectId) return [];
       
       const params = new URLSearchParams();
-      if (entityTypeFilter) params.append("entityType", entityTypeFilter);
-      if (userFilter) params.append("userId", userFilter);
+      if (entityTypeFilter && entityTypeFilter !== "all") params.append("entityType", entityTypeFilter);
+      if (userFilter && userFilter !== "all") params.append("userId", userFilter);
       if (dateRange.from) params.append("startDate", dateRange.from.toISOString());
       if (dateRange.to) params.append("endDate", dateRange.to.toISOString());
       
-      return apiRequest(`/api/audit-logs/project/${projectId}?${params.toString()}`, {
+      const res = await apiRequest(`/api/audit-logs/project/${projectId}?${params.toString()}`, {
         method: "GET"
       });
+      return res.json();
     },
     enabled: !!projectId
   });
@@ -50,7 +51,10 @@ function History() {
   // Fetch users for filter
   const { data: users } = useQuery({
     queryKey: ["/api/users"],
-    queryFn: async () => apiRequest("/api/users", { method: "GET" })
+    queryFn: async () => {
+      const res = await apiRequest("/api/users", { method: "GET" });
+      return res.json();
+    }
   });
 
   const getActionBadgeColor = (action: string) => {
@@ -146,7 +150,7 @@ function History() {
                 <SelectValue placeholder="Все типы объектов" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Все типы</SelectItem>
+                <SelectItem value="all">Все типы</SelectItem>
                 <SelectItem value="project">Проекты</SelectItem>
                 <SelectItem value="expense">Расходы</SelectItem>
                 <SelectItem value="advance">Авансы</SelectItem>
@@ -163,7 +167,7 @@ function History() {
                 <SelectValue placeholder="Все пользователи" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Все пользователи</SelectItem>
+                <SelectItem value="all">Все пользователи</SelectItem>
                 {users?.map((user: any) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.name}

@@ -21,7 +21,7 @@ function Analytics() {
     from: undefined,
     to: undefined,
   });
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedContractor, setSelectedContractor] = useState<string>("");
   const [selectedClient, setSelectedClient] = useState<string>("");
 
@@ -30,7 +30,7 @@ function Analytics() {
     queryKey: ["/api/analytics/projects", statusFilter, dateRange],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (statusFilter) params.append("status", statusFilter);
+      if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
       if (dateRange.from) params.append("startDate", dateRange.from.toISOString());
       if (dateRange.to) params.append("endDate", dateRange.to.toISOString());
       
@@ -264,7 +264,7 @@ function Analytics() {
                   <SelectValue placeholder="Все статусы" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все статусы</SelectItem>
+                  <SelectItem value="all">Все статусы</SelectItem>
                   <SelectItem value="active">Активные</SelectItem>
                   <SelectItem value="completed">Завершенные</SelectItem>
                   <SelectItem value="paused">Приостановленные</SelectItem>
@@ -290,7 +290,7 @@ function Analytics() {
                   <SelectValue placeholder="Выберите подрядчика" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все подрядчики</SelectItem>
+                  <SelectItem value="all">Все подрядчики</SelectItem>
                   {contractors?.map((contractor: any) => (
                     <SelectItem key={contractor.id} value={contractor.id}>
                       {contractor.name}
@@ -351,7 +351,7 @@ function Analytics() {
                   <SelectValue placeholder="Выберите заказчика" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все заказчики</SelectItem>
+                  <SelectItem value="all">Все заказчики</SelectItem>
                   {clients?.map((client: any) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}

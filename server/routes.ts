@@ -200,6 +200,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get archived projects
+  app.get("/api/projects/archived", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const fullUser = await storage.getUserById(user.id);
+      if (!fullUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      let projects: any[] = [];
+      
+      // Get all projects and filter archived ones
+      if (fullUser.role === 'admin') {
+        projects = await storage.getAllProjects();
+      } else if (fullUser.role === 'director') {
+        projects = await storage.getUserProjects(user.id);
+      }
+      
+      // Filter only archived projects
+      const archivedProjects = projects.filter(p => p.status === 'archived');
+      res.json(archivedProjects);
+    } catch (error) {
+      console.error("Get archived projects error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Project routes
   app.get("/api/projects", requireAuth, async (req, res) => {
     try {

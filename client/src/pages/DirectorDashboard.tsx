@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Bus, Bell, LogOut, Plus, Home, Folder, Users, BarChart3,
   ProjectorIcon, TrendingUp, TrendingDown, Calendar, Edit2, ChevronDown, ChevronUp,
-  Building2, Wrench, Settings
+  Building2, Wrench, Settings, Archive
 } from "lucide-react";
 import { AssignClientModal } from '@/components/AssignClientModal';
 import { BottomNavigation } from "@/components/BottomNavigation";
@@ -362,6 +362,7 @@ export default function DirectorDashboard() {
   };
 
   const activeProjectsCount = projects.filter((p: Project) => p.status === 'active').length;
+  const archivedProjectsCount = projects.filter((p: Project) => p.status === 'archived').length;
   const totalRevenue = (financialData as any)?.totalRevenue || 0;
   const totalExpenses = (financialData as any)?.totalExpenses || 0;
   const totalAdvances = (financialData as any)?.totalAdvances || 0;
@@ -418,8 +419,11 @@ export default function DirectorDashboard() {
 
       {/* Statistics Cards */}
       <div className="p-4">
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setLocation('/director')}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -452,6 +456,33 @@ export default function DirectorDashboard() {
             </CardContent>
           </Card>
         </div>
+        
+        {/* Archived Projects Card - only show if there are archived projects */}
+        {archivedProjectsCount > 0 && (
+          <div className="mb-6">
+            <Card 
+              className="cursor-pointer hover:shadow-md transition-shadow bg-gray-50"
+              onClick={() => setLocation('/archived-projects')}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <Archive className="text-gray-600" size={20} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Архивные проекты</p>
+                      <p className="text-xl font-bold text-gray-800">{archivedProjectsCount}</p>
+                    </div>
+                  </div>
+                  <div className="text-gray-400">
+                    <ChevronDown className="rotate-[-90deg]" size={20} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Projects Section */}
         <div className="flex items-center justify-between mb-4">
