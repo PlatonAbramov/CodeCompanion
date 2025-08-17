@@ -312,10 +312,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Project not found" });
       }
 
-      // Check access for clients - they can only see their assigned projects
+      // Check access for clients - they can only see projects from their assigned client
       if (user.role === 'client') {
-        const userProjects = await storage.getUserProjects(user.id);
-        const hasAccess = userProjects.some(p => p.id === req.params.id);
+        // Get the client employee relationship
+        const clientEmployee = await storage.getClientEmployeeByUserId(user.id);
+        if (!clientEmployee) {
+          return res.status(403).json({ error: "No client assignment found" });
+        }
+        
+        // Get projects for this client
+        const clientProjects = await storage.getClientProjects(clientEmployee.clientId);
+        const hasAccess = clientProjects.some(cp => cp.projectId === req.params.id);
         
         if (!hasAccess) {
           return res.status(403).json({ error: "Access denied to this project" });
@@ -481,8 +488,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check access for clients
       if (user.role === 'client') {
-        const userProjects = await storage.getUserProjects(user.id);
-        const hasAccess = userProjects.some(p => p.id === projectId);
+        // Get the client employee relationship
+        const clientEmployee = await storage.getClientEmployeeByUserId(user.id);
+        if (!clientEmployee) {
+          return res.status(403).json({ error: "No client assignment found" });
+        }
+        
+        // Get projects for this client
+        const clientProjects = await storage.getClientProjects(clientEmployee.clientId);
+        const hasAccess = clientProjects.some(cp => cp.projectId === projectId);
         
         if (!hasAccess) {
           return res.status(403).json({ error: "Access denied to this project" });
