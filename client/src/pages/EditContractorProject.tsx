@@ -56,13 +56,13 @@ export default function EditContractorProject() {
   // Get contractor project assignment
   const { data: assignment, isLoading } = useQuery<ContractorProject>({
     queryKey: ['/api/contractor-projects', projectAssignmentId],
-    enabled: user?.role === 'director',
+    enabled: !!(projectAssignmentId && (user?.role === 'admin' || user?.role === 'director')),
   });
 
   // Get contractor info
   const { data: contractor } = useQuery<Contractor>({
     queryKey: ['/api/contractors', contractorId],
-    enabled: user?.role === 'director',
+    enabled: !!(contractorId && (user?.role === 'admin' || user?.role === 'director')),
   });
 
   const form = useForm<EditContractorProjectFormData>({
@@ -144,7 +144,7 @@ export default function EditContractorProject() {
     );
   }
 
-  if (user.role !== 'director') {
+  if (user.role !== 'admin' && user.role !== 'director') {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <p>Доступ запрещен</p>
