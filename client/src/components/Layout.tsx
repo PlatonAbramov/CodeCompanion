@@ -27,9 +27,9 @@ export function Layout({ children }: LayoutProps) {
             
             {/* Навигация для клиентов - только заказчики */}
             {user?.role === 'client' ? (
-              <Link href="/clients" data-testid="nav-clients">
+              <Link href="/client-projects" data-testid="nav-clients">
                 <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                  location.startsWith('/clients') 
+                  location.startsWith('/client-projects') 
                     ? 'text-blue-600 bg-blue-50' 
                     : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
                 }`}>

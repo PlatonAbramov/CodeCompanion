@@ -68,7 +68,8 @@ function AuthenticatedApp() {
       } else if (user.role === 'master') {
         setLocation('/master');
       } else if (user.role === 'client') {
-        setLocation('/clients'); // Клиенты идут на страницу своих проектов
+        console.log('Redirecting client to /client-projects');
+        setLocation('/client-projects'); // Клиенты идут на страницу своих проектов
       }
     }
   }, [user, isLoading, location, setLocation]);
@@ -113,7 +114,8 @@ function AuthenticatedApp() {
       <Route path="/contractors" component={(user.role === 'admin' || user.role === 'director') ? Contractors : NotFound} />
       <Route path="/contractor/:id" component={(user.role === 'admin' || user.role === 'director') ? ContractorDetail : NotFound} />
       <Route path="/contractor/:contractorId/project/:assignmentId" component={(user.role === 'admin' || user.role === 'director') ? EditContractorProject : NotFound} />
-      <Route path="/clients" component={user.role === 'client' ? ClientProjects : (user.role === 'admin' || user.role === 'director') ? Clients : NotFound} />
+      <Route path="/client-projects" component={ClientProjects} />
+      <Route path="/clients" component={(user.role === 'admin' || user.role === 'director') ? Clients : NotFound} />
       <Route path="/test-client" component={TestClient} />
       <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
       <Route path="/tools" component={(user.role === 'admin' || user.role === 'director') ? Tools : NotFound} />
