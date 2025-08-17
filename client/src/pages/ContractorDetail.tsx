@@ -61,25 +61,25 @@ export default function ContractorDetail() {
   // Get contractor details
   const { data: contractor, isLoading: contractorLoading } = useQuery<Contractor>({
     queryKey: ['/api/contractors', contractorId],
-    enabled: user?.role === 'director',
+    enabled: !!(contractorId && (user?.role === 'admin' || user?.role === 'director')),
   });
 
   // Get contractor expenses
   const { data: expenses = [], isLoading: expensesLoading } = useQuery<ContractorExpense[]>({
     queryKey: ['/api/contractors', contractorId, 'expenses'],
-    enabled: user?.role === 'director',
+    enabled: !!(contractorId && (user?.role === 'admin' || user?.role === 'director')),
   });
 
   // Get contractor statistics
   const { data: stats } = useQuery<ContractorStats>({
     queryKey: ['/api/contractors', contractorId, 'stats'],
-    enabled: user?.role === 'director',
+    enabled: !!(contractorId && (user?.role === 'admin' || user?.role === 'director')),
   });
 
   // Get contractor projects
   const { data: projects = [], isLoading: projectsLoading } = useQuery<ContractorProject[]>({
     queryKey: ['/api/contractors', contractorId, 'projects'],
-    enabled: user?.role === 'director',
+    enabled: !!(contractorId && (user?.role === 'admin' || user?.role === 'director')),
   });
 
   // Проверка авторизации
@@ -91,7 +91,7 @@ export default function ContractorDetail() {
     );
   }
 
-  if (user.role !== 'director') {
+  if (user.role !== 'admin' && user.role !== 'director') {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <p>Доступ запрещен</p>

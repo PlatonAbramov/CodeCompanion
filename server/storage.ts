@@ -343,9 +343,12 @@ export class DatabaseStorage implements IStorage {
       role: users.role,
       isActive: users.isActive,
       isBlocked: users.isBlocked,
+      tempPassword: users.tempPassword,
+      mustChangePassword: users.mustChangePassword,
       createdAt: users.createdAt,
       lastLogin: users.lastLogin,
-      createdBy: users.createdBy
+      createdBy: users.createdBy,
+      password: users.password
     }).from(users).orderBy(users.name).limit(100);
   }
 
