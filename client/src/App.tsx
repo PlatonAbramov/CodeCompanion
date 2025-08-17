@@ -60,16 +60,16 @@ function AuthenticatedApp() {
       return;
     }
 
-    // User is authenticated - only redirect from root/login if user just loaded the page
-    // Don't redirect if already on valid pages (handled by individual auth in useAuth hook)
-    if (location === '/' || (location === '/login' && user)) {
+    // User is authenticated - redirect from root/login/invalid pages
+    if (location === '/' || (location === '/login' && user) || 
+        (user.role === 'client' && location !== '/client-projects' && location !== '/projects')) {
       if (user.role === 'admin' || user.role === 'director') {
         setLocation('/director');
       } else if (user.role === 'master') {
         setLocation('/master');
       } else if (user.role === 'client') {
-        console.log('Redirecting client to /client-projects');
-        setLocation('/client-projects'); // Клиенты идут на страницу своих проектов
+        console.log('Redirecting client from', location, 'to /client-projects');
+        setLocation('/client-projects');
       }
     }
   }, [user, isLoading, location, setLocation]);
@@ -94,12 +94,12 @@ function AuthenticatedApp() {
 
   return (
     <Switch>
-      <Route path="/client-projects">
-        {user.role === 'client' ? <ClientProjects /> : <NotFound />}
-      </Route>
+      <Route path="/client-projects" component={ClientProjects} />
       <Route path="/director" component={(user.role === 'admin' || user.role === 'director') ? DirectorDashboard : NotFound} />
       <Route path="/master" component={user.role === 'master' ? MasterDashboard : NotFound} />
-      <Route path="/projects/:id" component={ProjectDetail} />
+      <Route path="/projects/:id">
+        {user.role ? <ProjectDetail /> : <NotFound />}
+      </Route>
       <Route path="/add-expense" component={AddExpense} />
       <Route path="/add-advance/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddAdvance : NotFound} />
       <Route path="/add-customer-advance/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddCustomerAdvance : NotFound} />
