@@ -1,13 +1,13 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
-import { Home, Users, Receipt, Wrench, Users as StaffIcon } from "lucide-react";
+import { Home, Users, Receipt, Wrench, Users as StaffIcon, LogOut } from "lucide-react";
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [location] = useLocation();
 
   // Показываем нижнюю навигацию только для аутентифицированных пользователей
@@ -27,16 +27,31 @@ export function Layout({ children }: LayoutProps) {
             
             {/* Навигация для клиентов - только заказчики */}
             {user?.role === 'client' ? (
-              <Link href="/client-projects" data-testid="nav-clients">
-                <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                  location.startsWith('/client-projects') 
-                    ? 'text-blue-600 bg-blue-50' 
-                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                }`}>
-                  <Receipt size={20} />
-                  <span className="text-xs mt-1">Мои проекты</span>
-                </div>
-              </Link>
+              <>
+                <Link href="/client-projects" data-testid="nav-clients">
+                  <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
+                    location.startsWith('/client-projects') 
+                      ? 'text-blue-600 bg-blue-50' 
+                      : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                  }`}>
+                    <Receipt size={20} />
+                    <span className="text-xs mt-1">Мои проекты</span>
+                  </div>
+                </Link>
+                
+                {/* Кнопка выхода для клиентов */}
+                <button
+                  onClick={() => {
+                    console.log('Client logout clicked');
+                    logout();
+                  }}
+                  className="flex flex-col items-center justify-center p-2 rounded-lg transition-colors text-gray-600 hover:text-blue-600 hover:bg-gray-50"
+                  data-testid="nav-logout"
+                >
+                  <LogOut size={20} />
+                  <span className="text-xs mt-1">Выход</span>
+                </button>
+              </>
             ) : (
               <>
                 {/* Главная - только для не-клиентов */}

@@ -484,28 +484,31 @@ export default function ImplementationSheetView() {
                       {language === 'ru' ? 'Фото' : 'Photos'}
                     </Button>
                     
-                    {uploadingItemId === item.id ? (
-                      <ObjectUploader
-                        maxNumberOfFiles={10}
-                        maxFileSize={100 * 1024 * 1024} // 100MB
-                        allowedFileTypes={['image/*', 'video/*']}
-                        onGetUploadParameters={handleGetUploadParameters}
-                        onComplete={handleUploadComplete}
-                      >
-                        <Camera className="h-3 w-3 mr-1" />
-                        📷🎥
-                      </ObjectUploader>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 text-xs px-2"
-                        onClick={() => handlePhotoUpload(item.id)}
-                        data-testid={`button-upload-photo-${item.id}`}
-                      >
-                        <Camera className="h-3 w-3 mr-1" />
-                        {language === 'ru' ? 'Добавить' : 'Add'}
-                      </Button>
+                    {/* Функция добавления фото только для админов и директоров */}
+                    {isAdminOrDirector && (
+                      uploadingItemId === item.id ? (
+                        <ObjectUploader
+                          maxNumberOfFiles={10}
+                          maxFileSize={100 * 1024 * 1024} // 100MB
+                          allowedFileTypes={['image/*', 'video/*']}
+                          onGetUploadParameters={handleGetUploadParameters}
+                          onComplete={handleUploadComplete}
+                        >
+                          <Camera className="h-3 w-3 mr-1" />
+                          📷🎥
+                        </ObjectUploader>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-xs px-2"
+                          onClick={() => handlePhotoUpload(item.id)}
+                          data-testid={`button-upload-photo-${item.id}`}
+                        >
+                          <Camera className="h-3 w-3 mr-1" />
+                          {language === 'ru' ? 'Добавить' : 'Add'}
+                        </Button>
+                      )
                     )}
                   </div>
                 </div>
