@@ -72,9 +72,7 @@ export function useAuth() {
       
       // Force page reload to ensure clean state
       setTimeout(() => {
-        if (data.user.role === 'admin') {
-          window.location.href = '/director'; // Админ попадает на дашборд директора
-        } else if (data.user.role === 'director') {
+        if (data.user.role === 'admin' || data.user.role === 'director') {
           window.location.href = '/director';
         } else if (data.user.role === 'master') {
           window.location.href = '/master';

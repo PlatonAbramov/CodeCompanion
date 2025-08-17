@@ -117,7 +117,7 @@ export default function RevenuesList() {
                 )}
               </div>
             </div>
-            {user?.role === 'director' && (
+            {(user?.role === 'admin' || user?.role === 'director') && (
               <Button 
                 className="bg-primary text-white"
                 onClick={() => setLocation(`/add-revenue?projectId=${projectId}`)}
@@ -139,7 +139,7 @@ export default function RevenuesList() {
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">Нет доходов</h3>
               <p className="text-slate-500 mb-4">Пока не добавлено ни одного дохода для этого проекта</p>
-              {user?.role === 'director' && (
+              {(user?.role === 'admin' || user?.role === 'director') && (
                 <Button 
                   className="bg-primary text-white"
                   onClick={() => setLocation(`/add-revenue?projectId=${projectId}`)}
@@ -211,7 +211,7 @@ export default function RevenuesList() {
                       </div>
                       
                       <div className="ml-4 flex items-center">
-                        {user?.role === 'director' && (
+                        {(user?.role === 'admin' || user?.role === 'director') && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

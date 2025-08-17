@@ -69,7 +69,7 @@ export default function AddRevenue() {
       setLocation(`/project/${projectIdFromUrl}`);
     } else if (formData.projectId) {
       setLocation(`/project/${formData.projectId}`);
-    } else if (user?.role === 'director') {
+    } else if (user?.role === 'admin' || user?.role === 'director') {
       setLocation('/director');
     } else {
       setLocation('/master');

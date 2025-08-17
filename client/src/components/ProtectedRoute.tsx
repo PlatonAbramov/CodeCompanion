@@ -26,7 +26,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     // User is authenticated
     if (location === '/login' || location === '/') {
       // Redirect authenticated user from login page to appropriate dashboard
-      if (user.role === 'director') {
+      if (user.role === 'admin' || user.role === 'director') {
         setLocation('/director');
       } else if (user.role === 'master') {
         setLocation('/master');
@@ -36,7 +36,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
     if (requiredRole && user.role !== requiredRole) {
       // User doesn't have required role, redirect to their dashboard
-      if (user.role === 'director') {
+      if (user.role === 'admin' || user.role === 'director') {
         setLocation('/director');
       } else if (user.role === 'master') {
         setLocation('/master');

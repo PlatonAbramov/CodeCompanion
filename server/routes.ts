@@ -228,10 +228,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let projects: any[] = [];
       
       // Get all projects and filter archived ones
-      if (fullUser.role === 'admin') {
+      if (fullUser.role === 'admin' || fullUser.role === 'director') {
         projects = await storage.getAllProjects();
-      } else if (fullUser.role === 'director') {
-        projects = await storage.getUserProjects(user.id);
       }
       
       // Filter only archived projects
@@ -264,13 +262,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let projects: any[] = [];
       
-      // Администратор видит все проекты
-      if (fullUser.role === 'admin') {
+      // Администратор и прораб видят все проекты
+      if (fullUser.role === 'admin' || fullUser.role === 'director') {
         projects = await storage.getAllProjects();
-      }
-      // Прораб видит только назначенные ему проекты  
-      else if (fullUser.role === 'director') {
-        projects = await storage.getUserProjects(user.id);
       }
       // Мастер видит только назначенные ему проекты
       else if (fullUser.role === 'master') {

@@ -568,11 +568,11 @@ export default function AdminPanel() {
                             <TableCell>
                               <Badge variant={
                                 user.role === 'admin' ? 'destructive' : 
-                                user.role === 'director' ? 'default' : 
+                                (user.role === 'admin' || user.role === 'director') ? 'default' : 
                                 user.role === 'master' ? 'secondary' : 'outline'
                               }>
                                 {user.role === 'admin' ? 'Администратор' : 
-                                 user.role === 'director' ? 'Прораб' : 
+                                 (user.role === 'admin' || user.role === 'director') ? 'Прораб' : 
                                  user.role === 'master' ? 'Мастер' : 'Заказчик'}
                               </Badge>
                             </TableCell>

@@ -89,7 +89,7 @@ export default function AddAdvance() {
   const goBack = () => {
     if (projectId) {
       setLocation(`/project/${projectId}`);
-    } else if (user?.role === 'director') {
+    } else if (user?.role === 'admin' || user?.role === 'director') {
       setLocation('/director');
     } else {
       setLocation('/master');

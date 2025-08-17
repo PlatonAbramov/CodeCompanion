@@ -117,7 +117,7 @@ export default function AdvancesList() {
                 )}
               </div>
             </div>
-            {user?.role === 'director' && (
+            {(user?.role === 'admin' || user?.role === 'director') && (
               <Button 
                 className="bg-primary text-white"
                 onClick={() => setLocation(`/add-advance/${projectId}`)}
@@ -139,7 +139,7 @@ export default function AdvancesList() {
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">Нет авансов</h3>
               <p className="text-slate-500 mb-4">Пока не выдано ни одного аванса для этого проекта</p>
-              {user?.role === 'director' && (
+              {(user?.role === 'admin' || user?.role === 'director') && (
                 <Button 
                   className="bg-primary text-white"
                   onClick={() => setLocation(`/add-advance/${projectId}`)}

@@ -116,7 +116,7 @@ export default function CustomerAdvancesList() {
                 )}
               </div>
             </div>
-            {user?.role === 'director' && (
+            {(user?.role === 'admin' || user?.role === 'director') && (
               <Button 
                 className="bg-primary text-white"
                 onClick={() => setLocation(`/add-customer-advance/${projectId}`)}
@@ -138,7 +138,7 @@ export default function CustomerAdvancesList() {
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">Нет авансов от заказчика</h3>
               <p className="text-slate-500 mb-4">Пока не получено ни одного аванса от заказчика для этого проекта</p>
-              {user?.role === 'director' && (
+              {(user?.role === 'admin' || user?.role === 'director') && (
                 <Button 
                   className="bg-primary text-white"
                   onClick={() => setLocation(`/add-customer-advance/${projectId}`)}
