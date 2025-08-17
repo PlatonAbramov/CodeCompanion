@@ -15,7 +15,7 @@ import { insertClientSchema, type Client, type InsertClient } from "@shared/sche
 import { Link, useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { BottomNavigation } from "@/components/BottomNavigation";
+
 import { useAuth } from "@/hooks/useAuth";
 
 export default function ClientsPage() {
