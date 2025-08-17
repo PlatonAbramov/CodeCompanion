@@ -68,7 +68,7 @@ export const revenues = pgTable("revenues", {
 export const expenses = pgTable("expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Может быть null если пользователь удален
   category: text("category").notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   description: text("description"),
@@ -86,7 +86,7 @@ export const documents = pgTable("documents", {
   mimeType: text("mime_type").notNull(), // MIME type
   fileUrl: text("file_url").notNull(), // URL to the stored file
   visibleToClient: boolean("visible_to_client").default(false), // Показывать заказчику
-  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  uploadedBy: varchar("uploaded_by").references(() => users.id), // Может быть null если пользователь удален
   createdAt: timestamp("created_at").defaultNow(),
 });
 

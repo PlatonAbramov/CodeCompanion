@@ -356,7 +356,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: string): Promise<void> {
-    // Удаляем связанные данные пользователя
+    // Удаляем только технические связанные данные пользователя
     await db.delete(userProjects).where(eq(userProjects.userId, id));
     await db.delete(userSessions).where(eq(userSessions.userId, id));
     await db.delete(loginAttempts).where(eq(loginAttempts.userId, id));
@@ -365,11 +365,9 @@ export class DatabaseStorage implements IStorage {
     // Удаляем админ-действия где этот пользователь был целью
     await db.delete(adminActions).where(eq(adminActions.targetUserId, id));
     
-    // Обновляем createdBy в связанных таблицах на null где это разрешено схемой
+    // Обновляем ссылки на пользователя на null, сохраняя все данные
     await db.update(projects).set({ createdBy: null }).where(eq(projects.createdBy, id));
     await db.update(clientProjects).set({ createdBy: null }).where(eq(clientProjects.createdBy, id));
-    // Удаляем документы пользователя (не можем обновить uploadedBy на null, так как это обязательное поле)
-    await db.delete(documents).where(eq(documents.uploadedBy, id));
     await db.update(advances).set({ createdBy: null }).where(eq(advances.createdBy, id));
     await db.update(customerAdvances).set({ createdBy: null }).where(eq(customerAdvances.createdBy, id));
     await db.update(revenues).set({ createdBy: null }).where(eq(revenues.createdBy, id));
@@ -383,8 +381,10 @@ export class DatabaseStorage implements IStorage {
     await db.update(implementationItems).set({ lastUpdatedBy: null }).where(eq(implementationItems.lastUpdatedBy, id));
     await db.update(implementationChangeLogs).set({ changedBy: null }).where(eq(implementationChangeLogs.changedBy, id));
     
-    // Удаляем расходы пользователя (не можем обновить userId на null, так как это обязательное поле)
-    await db.delete(expenses).where(eq(expenses.userId, id));
+    // ВСЕ ДАННЫЕ СОТРУДНИКА ОСТАЮТСЯ: документы, расходы, фотографии, изменения
+    // Обнуляем ссылки на пользователя, но сохраняем все данные
+    await db.update(expenses).set({ userId: null }).where(eq(expenses.userId, id));
+    await db.update(documents).set({ uploadedBy: null }).where(eq(documents.uploadedBy, id));
     
     // Удаляем самого пользователя
     await db.delete(users).where(eq(users.id, id));
