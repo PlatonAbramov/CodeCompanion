@@ -42,6 +42,7 @@ import Analytics from "@/pages/Analytics";
 import History from "@/pages/History";
 import ArchivedProjects from "@/pages/ArchivedProjects";
 import NotFound from "@/pages/not-found";
+import TestClient from "@/pages/TestClient";
 
 function AuthenticatedApp() {
   const { user, isLoading } = useAuth();
@@ -112,6 +113,7 @@ function AuthenticatedApp() {
       <Route path="/contractor/:id" component={(user.role === 'admin' || user.role === 'director') ? ContractorDetail : NotFound} />
       <Route path="/contractor/:contractorId/project/:assignmentId" component={(user.role === 'admin' || user.role === 'director') ? EditContractorProject : NotFound} />
       <Route path="/clients" component={(user.role === 'admin' || user.role === 'director' || user.role === 'client') ? Clients : NotFound} />
+      <Route path="/test-client" component={TestClient} />
       <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
       <Route path="/tools" component={(user.role === 'admin' || user.role === 'director') ? Tools : NotFound} />
       <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />

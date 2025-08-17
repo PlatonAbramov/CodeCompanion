@@ -45,7 +45,8 @@ export default function ClientsPage() {
 
   // Debug logging for client users
   if (isClientUser) {
-    console.log('Client user data:', { clientProjects, isLoadingProjects, projectsError });
+    console.log('Client user data:', { clientProjects, isLoadingProjects, projectsError, user });
+    console.log('isClientUser:', isClientUser);
   }
 
   // For admin/director users, get all clients
@@ -175,12 +176,27 @@ export default function ClientsPage() {
 
   // Client role specific - render projects view
   if (isClientUser) {
+    console.log('Rendering client view', { isLoadingProjects, clientProjects, projectsError });
+    
     if (isLoadingProjects) {
       return (
         <div className="min-h-screen bg-slate-50 p-4">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-center h-64">
               <div className="text-lg">Загрузка проектов...</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (projectsError) {
+      console.error('Projects error:', projectsError);
+      return (
+        <div className="min-h-screen bg-slate-50 p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-lg text-red-600">Ошибка загрузки проектов</div>
             </div>
           </div>
         </div>
@@ -539,7 +555,7 @@ export default function ClientsPage() {
         )}
       </div>
 
-      <BottomNavigation userRole={user?.role} />
+
     </div>
   );
 }
