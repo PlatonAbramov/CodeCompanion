@@ -2105,11 +2105,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isAdminOrDirector = user.role === 'admin' || user.role === 'director';
       
       if (!isAdminOrDirector) {
-        const userProjects = await storage.getUserProjects(user.id);
-        const hasAccess = userProjects.some(p => p.id === sheet.projectId);
-        
-        if (!hasAccess) {
-          return res.status(403).json({ error: "Доступ запрещен" });
+        if (user.role === 'client') {
+          // For client users, check via client_employees table
+          const clientEmployee = await storage.getClientEmployeeByUserId(user.id);
+          if (!clientEmployee) {
+            return res.status(403).json({ error: "No client assignment found" });
+          }
+          
+          const clientProjects = await storage.getClientProjects(clientEmployee.clientId);
+          const hasAccess = clientProjects.some(cp => cp.projectId === sheet.projectId);
+          
+          if (!hasAccess) {
+            return res.status(403).json({ error: "Доступ запрещен" });
+          }
+        } else {
+          // For master users, check via user_projects table
+          const userProjects = await storage.getUserProjects(user.id);
+          const hasAccess = userProjects.some(p => p.id === sheet.projectId);
+          
+          if (!hasAccess) {
+            return res.status(403).json({ error: "Доступ запрещен" });
+          }
         }
       }
       
