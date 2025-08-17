@@ -89,8 +89,14 @@ function AuthenticatedApp() {
     return <Login />;
   }
 
+  console.log('Current user:', user);
+  console.log('Current location:', location);
+
   return (
     <Switch>
+      <Route path="/client-projects">
+        {user.role === 'client' ? <ClientProjects /> : <NotFound />}
+      </Route>
       <Route path="/director" component={(user.role === 'admin' || user.role === 'director') ? DirectorDashboard : NotFound} />
       <Route path="/master" component={user.role === 'master' ? MasterDashboard : NotFound} />
       <Route path="/projects/:id" component={ProjectDetail} />
@@ -114,7 +120,6 @@ function AuthenticatedApp() {
       <Route path="/contractors" component={(user.role === 'admin' || user.role === 'director') ? Contractors : NotFound} />
       <Route path="/contractor/:id" component={(user.role === 'admin' || user.role === 'director') ? ContractorDetail : NotFound} />
       <Route path="/contractor/:contractorId/project/:assignmentId" component={(user.role === 'admin' || user.role === 'director') ? EditContractorProject : NotFound} />
-      <Route path="/client-projects" component={ClientProjects} />
       <Route path="/clients" component={(user.role === 'admin' || user.role === 'director') ? Clients : NotFound} />
       <Route path="/test-client" component={TestClient} />
       <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
