@@ -289,10 +289,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects/:id", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user!;
       const project = await storage.getProject(req.params.id);
       if (!project) {
         return res.status(404).json({ error: "Project not found" });
       }
+
+      // Check access for clients - they can only see their assigned projects
+      if (user.role === 'client') {
+        const userProjects = await storage.getUserProjects(user.id);
+        const hasAccess = userProjects.some(p => p.id === req.params.id);
+        
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied to this project" });
+        }
+      }
+
       res.json(project);
     } catch (error) {
       console.error("Get project error:", error);
@@ -336,7 +348,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects/:id/financial-summary", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user!;
       const projectId = req.params.id;
+      
+      // Check access for clients
+      if (user.role === 'client') {
+        const userProjects = await storage.getUserProjects(user.id);
+        const hasAccess = userProjects.some(p => p.id === projectId);
+        
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied to this project" });
+        }
+      }
+      
       const cacheKey = cacheKeys.projectFinancialSummary(projectId);
       
       // Try cache first (10 seconds)
@@ -371,7 +395,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects/:id/expenses", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user!;
       const projectId = req.params.id;
+      
+      // Check access for clients
+      if (user.role === 'client') {
+        const userProjects = await storage.getUserProjects(user.id);
+        const hasAccess = userProjects.some(p => p.id === projectId);
+        
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied to this project" });
+        }
+      }
+      
       const cacheKey = cacheKeys.projectExpenses(projectId);
       
       // Try cache first (30 seconds)
@@ -428,7 +464,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Document routes
   app.get("/api/projects/:id/documents", requireAuth, async (req, res) => {
     try {
-      const documents = await storage.getProjectDocuments(req.params.id);
+      const user = req.session.user!;
+      const projectId = req.params.id;
+      
+      // Check access for clients
+      if (user.role === 'client') {
+        const userProjects = await storage.getUserProjects(user.id);
+        const hasAccess = userProjects.some(p => p.id === projectId);
+        
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied to this project" });
+        }
+        
+        // For clients, only return visible documents
+        const documents = await storage.getProjectDocuments(projectId);
+        const visibleDocuments = documents.filter(doc => doc.visibleToClient);
+        return res.json(visibleDocuments);
+      }
+      
+      const documents = await storage.getProjectDocuments(projectId);
       res.json(documents);
     } catch (error) {
       console.error("Get documents error:", error);
@@ -1863,18 +1917,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all implementation sheets for a project
   app.get("/api/projects/:projectId/implementation-sheets", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user!;
       const { projectId } = req.params;
       
       // Check user access to project
-      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      const isAdminOrDirector = user.role === 'admin' || user.role === 'director';
       if (!isAdminOrDirector) {
-        const userProject = await storage.getUserProject(req.session.user!.id, projectId);
-        if (!userProject) {
+        const userProjects = await storage.getUserProjects(user.id);
+        const hasAccess = userProjects.some(p => p.id === projectId);
+        if (!hasAccess) {
           return res.status(403).json({ error: "Доступ запрещен" });
         }
       }
       
       const sheets = await storage.getImplementationSheets(projectId);
+      
+      // For clients, filter to show only visible items and photos
+      if (user.role === 'client') {
+        const clientSheets = await Promise.all(sheets.map(async (sheet) => {
+          const items = await storage.getImplementationItems(sheet.id);
+          const visibleItems = await Promise.all(items.map(async (item) => {
+            if (!item.visibleToClient) return null;
+            
+            const photos = await storage.getImplementationPhotos(item.id);
+            const visiblePhotos = photos.filter(photo => photo.visibleToClient);
+            
+            return { ...item, photos: visiblePhotos };
+          }));
+          
+          return { 
+            ...sheet, 
+            items: visibleItems.filter(item => item !== null) 
+          };
+        }));
+        return res.json(clientSheets);
+      }
+      
       res.json(sheets);
     } catch (error) {
       console.error("Failed to get implementation sheets:", error);
@@ -2167,7 +2245,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get photos for implementation item
   app.get("/api/implementation-items/:itemId/photos", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user!;
       const { itemId } = req.params;
+      
+      // Check access for clients
+      if (user.role === 'client') {
+        const item = await storage.getImplementationItem(itemId);
+        if (!item) {
+          return res.status(404).json({ error: "Item not found" });
+        }
+        
+        const sheet = await storage.getImplementationSheet(item.sheetId);
+        if (!sheet) {
+          return res.status(404).json({ error: "Sheet not found" });
+        }
+        
+        const userProjects = await storage.getUserProjects(user.id);
+        const hasAccess = userProjects.some(p => p.id === sheet.projectId);
+        
+        if (!hasAccess || !item.visibleToClient) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+        
+        const photos = await storage.getImplementationPhotos(itemId);
+        const visiblePhotos = photos.filter(photo => photo.visibleToClient);
+        return res.json(visiblePhotos);
+      }
       
       const photos = await storage.getImplementationPhotos(itemId);
       res.json(photos);

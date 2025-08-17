@@ -62,7 +62,7 @@ function AuthenticatedApp() {
 
     // User is authenticated - redirect from root/login/invalid pages
     if (location === '/' || (location === '/login' && user) || 
-        (user.role === 'client' && location !== '/client-projects' && location !== '/projects')) {
+        (user.role === 'client' && location !== '/client-projects' && !location.startsWith('/projects/'))) {
       if (user.role === 'admin' || user.role === 'director') {
         setLocation('/director');
       } else if (user.role === 'master') {
