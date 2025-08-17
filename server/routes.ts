@@ -2037,10 +2037,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check user access to project
       const isAdminOrDirector = user.role === 'admin' || user.role === 'director';
       if (!isAdminOrDirector) {
-        const userProjects = await storage.getUserProjects(user.id);
-        const hasAccess = userProjects.some(p => p.id === projectId);
-        if (!hasAccess) {
-          return res.status(403).json({ error: "Доступ запрещен" });
+        if (user.role === 'client') {
+          // For client users, check via client_employees table
+          const clientEmployee = await storage.getClientEmployeeByUserId(user.id);
+          if (!clientEmployee) {
+            return res.status(403).json({ error: "No client assignment found" });
+          }
+          
+          const clientProjects = await storage.getClientProjects(clientEmployee.clientId);
+          const hasAccess = clientProjects.some(cp => cp.projectId === projectId);
+          
+          if (!hasAccess) {
+            return res.status(403).json({ error: "Доступ запрещен" });
+          }
+        } else {
+          // For master users, check via user_projects table
+          const userProjects = await storage.getUserProjects(user.id);
+          const hasAccess = userProjects.some(p => p.id === projectId);
+          if (!hasAccess) {
+            return res.status(403).json({ error: "Доступ запрещен" });
+          }
         }
       }
       
@@ -2339,9 +2355,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check user access
       const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
       if (!isAdminOrDirector) {
-        const userProject = await storage.getUserProject(req.session.user!.id, sheet.projectId);
-        if (!userProject) {
-          return res.status(403).json({ error: "Доступ запрещен" });
+        if (req.session.user!.role === 'client') {
+          // For client users, check via client_employees table
+          const clientEmployee = await storage.getClientEmployeeByUserId(req.session.user!.id);
+          if (!clientEmployee) {
+            return res.status(403).json({ error: "No client assignment found" });
+          }
+          
+          const clientProjects = await storage.getClientProjects(clientEmployee.clientId);
+          const hasAccess = clientProjects.some(cp => cp.projectId === sheet.projectId);
+          
+          if (!hasAccess) {
+            return res.status(403).json({ error: "Доступ запрещен" });
+          }
+        } else {
+          // For master users, check via user_projects table
+          const userProject = await storage.getUserProject(req.session.user!.id, sheet.projectId);
+          if (!userProject) {
+            return res.status(403).json({ error: "Доступ запрещен" });
+          }
         }
       }
       
@@ -2394,8 +2426,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Sheet not found" });
         }
         
-        const userProjects = await storage.getUserProjects(user.id);
-        const hasAccess = userProjects.some(p => p.id === sheet.projectId);
+        // Check via client_employees for client users
+        const clientEmployee = await storage.getClientEmployeeByUserId(user.id);
+        if (!clientEmployee) {
+          return res.status(403).json({ error: "No client assignment found" });
+        }
+        
+        const clientProjects = await storage.getClientProjects(clientEmployee.clientId);
+        const hasAccess = clientProjects.some(cp => cp.projectId === sheet.projectId);
         
         if (!hasAccess) {
           return res.status(403).json({ error: "Access denied" });
