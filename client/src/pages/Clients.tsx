@@ -442,14 +442,14 @@ export default function ClientsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Связанный пользователь</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <Select onValueChange={(value) => field.onChange(value === "none" ? undefined : value)} value={field.value || "none"}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Выберите пользователя с правами заказчика" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Не назначен</SelectItem>
+                          <SelectItem value="none">Не назначен</SelectItem>
                           {clientUsers.map((user) => (
                             <SelectItem key={user.id} value={user.id}>
                               {user.name} ({user.username})
@@ -546,6 +546,14 @@ export default function ClientsPage() {
                 <div className="flex items-start text-sm text-muted-foreground">
                   <MapPin className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
                   <span>{client.address}</span>
+                </div>
+              )}
+              {client.userId && (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <span className="font-medium">Пользователь:</span>
+                  <span className="ml-2">
+                    {clientUsers.find(u => u.id === client.userId)?.name || 'Не найден'}
+                  </span>
                 </div>
               )}
               <div className="flex justify-end space-x-2 pt-2">
