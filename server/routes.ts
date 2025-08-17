@@ -1901,6 +1901,237 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // === NEW FEATURES API ENDPOINTS ===
+  
+  // 1. AUDIT LOGS (История изменений)
+  app.get("/api/audit-logs/project/:projectId", requireAuth, async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const { entityType, userId, startDate, endDate } = req.query;
+      
+      const filters: any = {};
+      if (entityType) filters.entityType = entityType as string;
+      if (userId) filters.userId = userId as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      
+      const logs = await storage.getProjectAuditLogs(projectId, filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Failed to get audit logs:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/audit-logs/:entityType/:entityId", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      const logs = await storage.getEntityAuditLogs(entityType, entityId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Failed to get entity audit logs:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // 2. PROJECT ARCHIVING (Архивирование проектов)
+  app.patch("/api/projects/:id/archive", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { archive } = req.body; // true to archive, false to unarchive
+      
+      const project = await storage.updateProject(id, {
+        status: archive ? 'archived' : 'active'
+      });
+      
+      // Create audit log for archiving
+      const user = req.session.user!;
+      await storage.createAuditLog({
+        entityType: 'project',
+        entityId: id,
+        action: archive ? 'archive' : 'unarchive',
+        fieldName: 'status',
+        oldValue: archive ? 'active' : 'archived',
+        newValue: archive ? 'archived' : 'active',
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: id
+      });
+      
+      res.json(project);
+    } catch (error) {
+      console.error("Failed to archive project:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // 3. CLIENT PORTAL (Личный кабинет заказчика)
+  app.get("/api/client-portal/projects", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      
+      // Only clients can access this endpoint
+      if (user.role !== 'client') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Get projects where user is a client
+      const projects = await storage.getUserProjects(user.id);
+      
+      // Filter to show only visible documents and items
+      const projectsWithVisibility = await Promise.all(projects.map(async (project) => {
+        const documents = await storage.getProjectDocuments(project.id);
+        const visibleDocuments = documents.filter(doc => doc.visibleToClient);
+        
+        const sheets = await storage.getImplementationSheets(project.id);
+        const visibleSheets = await Promise.all(sheets.map(async (sheet) => {
+          const items = await storage.getImplementationItems(sheet.id);
+          const visibleItems = items.filter(item => item.visibleToClient);
+          return { ...sheet, items: visibleItems };
+        }));
+        
+        return {
+          ...project,
+          documents: visibleDocuments,
+          implementationSheets: visibleSheets
+        };
+      }));
+      
+      res.json(projectsWithVisibility);
+    } catch (error) {
+      console.error("Failed to get client portal projects:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/client-portal/project/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const { id } = req.params;
+      
+      // Only clients can access this endpoint
+      if (user.role !== 'client') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Check if user has access to this project
+      const userProjects = await storage.getUserProjects(user.id);
+      const hasAccess = userProjects.some(p => p.id === id);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied to this project" });
+      }
+      
+      const project = await storage.getProject(id);
+      const documents = await storage.getProjectDocuments(id);
+      const visibleDocuments = documents.filter(doc => doc.visibleToClient);
+      
+      const sheets = await storage.getImplementationSheets(id);
+      const visibleSheets = await Promise.all(sheets.map(async (sheet) => {
+        const items = await storage.getImplementationItems(sheet.id);
+        const visibleItems = await Promise.all(items.map(async (item) => {
+          if (!item.visibleToClient) return null;
+          
+          const photos = await storage.getImplementationPhotos(item.id);
+          const visiblePhotos = photos.filter(photo => photo.visibleToClient);
+          
+          return { ...item, photos: visiblePhotos };
+        }));
+        
+        return { 
+          ...sheet, 
+          items: visibleItems.filter(item => item !== null) 
+        };
+      }));
+      
+      const financialSummary = await storage.getProjectFinancialSummary(id);
+      
+      res.json({
+        project,
+        documents: visibleDocuments,
+        implementationSheets: visibleSheets,
+        financialSummary
+      });
+    } catch (error) {
+      console.error("Failed to get client portal project:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // 4. ANALYTICS DASHBOARD (Аналитика и отчеты)
+  app.get("/api/analytics/projects", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const { status, startDate, endDate } = req.query;
+      
+      const filters: any = {};
+      if (status) filters.status = status as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      
+      const analytics = await storage.getProjectsAnalytics(filters);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Failed to get project analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/analytics/contractors", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const { contractorId } = req.query;
+      const analytics = await storage.getContractorAnalytics(contractorId as string);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Failed to get contractor analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/analytics/clients", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const { clientId } = req.query;
+      const analytics = await storage.getClientAnalytics(clientId as string);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Failed to get client analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/analytics/tools", requireAuth, requireDirector, async (req, res) => {
+    try {
+      const analytics = await storage.getToolsAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Failed to get tools analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // 5. EMAIL NOTIFICATIONS TEST (Тестовый endpoint для email уведомлений)
+  app.post("/api/test-email-notification", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { recipientEmail, subject, body, eventType } = req.body;
+      const user = req.session.user!;
+      
+      await storage.createEmailNotification({
+        recipientEmail,
+        subject,
+        body,
+        eventType,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role
+      });
+      
+      res.json({ success: true, message: "Email notification queued" });
+    } catch (error) {
+      console.error("Failed to create email notification:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

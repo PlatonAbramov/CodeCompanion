@@ -3,6 +3,7 @@ import {
   contractors, contractorProjects, clients, clientProjects, clientPayments,
   tools, toolMovements, toolPersons, userSessions, loginAttempts, adminActions,
   implementationSheets, implementationItems, implementationPhotos, implementationChangeLogs,
+  auditLogs, emailNotifications,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
   type Advance, type InsertAdvance, type CustomerAdvance, type InsertCustomerAdvance,
@@ -246,6 +247,63 @@ export interface IStorage {
   // Implementation change logs
   createImplementationChangeLog(data: InsertImplementationChangeLog): Promise<ImplementationChangeLog>;
   getImplementationChangeLogs(itemId: string): Promise<ImplementationChangeLog[]>;
+  
+  // Audit Logs
+  createAuditLog(log: {
+    entityType: string;
+    entityId: string;
+    action: string;
+    fieldName?: string;
+    oldValue?: string;
+    newValue?: string;
+    userId: string;
+    userName: string;
+    userRole: string;
+    projectId?: string;
+    metadata?: any;
+  }): Promise<void>;
+  getProjectAuditLogs(projectId: string, filters?: {
+    entityType?: string;
+    userId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<any[]>;
+  getEntityAuditLogs(entityType: string, entityId: string): Promise<any[]>;
+  
+  // Email Notifications
+  createEmailNotification(notification: {
+    recipientEmail: string;
+    subject: string;
+    body: string;
+    eventType: string;
+    projectId?: string;
+    projectName?: string;
+    itemId?: string;
+    itemName?: string;
+    userId?: string;
+    userName?: string;
+    userRole?: string;
+  }): Promise<void>;
+  getPendingNotifications(): Promise<any[]>;
+  markNotificationSent(id: string): Promise<void>;
+  markNotificationFailed(id: string, error: string): Promise<void>;
+  
+  // Analytics
+  getProjectsAnalytics(filters?: {
+    status?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<{
+    activeCount: number;
+    archivedCount: number;
+    totalContractValue: number;
+    totalExpenses: number;
+    totalPayments: number;
+    averageProgress: number;
+  }>;
+  getContractorAnalytics(contractorId?: string): Promise<any[]>;
+  getClientAnalytics(clientId?: string): Promise<any[]>;
+  getToolsAnalytics(): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1985,6 +2043,254 @@ export class DatabaseStorage implements IStorage {
       .from(implementationChangeLogs)
       .where(eq(implementationChangeLogs.itemId, itemId))
       .orderBy(desc(implementationChangeLogs.changedAt));
+  }
+  
+  // Audit Log Implementation
+  async createAuditLog(log: {
+    entityType: string;
+    entityId: string;
+    action: string;
+    fieldName?: string;
+    oldValue?: string;
+    newValue?: string;
+    userId: string;
+    userName: string;
+    userRole: string;
+    projectId?: string;
+    metadata?: any;
+  }): Promise<void> {
+    await db.insert(auditLogs).values(log);
+  }
+  
+  async getProjectAuditLogs(projectId: string, filters?: {
+    entityType?: string;
+    userId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<any[]> {
+    let query = db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.projectId, projectId))
+      .$dynamic();
+      
+    if (filters?.entityType) {
+      query = query.where(eq(auditLogs.entityType, filters.entityType));
+    }
+    if (filters?.userId) {
+      query = query.where(eq(auditLogs.userId, filters.userId));
+    }
+    if (filters?.startDate) {
+      query = query.where(sql`${auditLogs.createdAt} >= ${filters.startDate}`);
+    }
+    if (filters?.endDate) {
+      query = query.where(sql`${auditLogs.createdAt} <= ${filters.endDate}`);
+    }
+    
+    return await query.orderBy(desc(auditLogs.createdAt));
+  }
+  
+  async getEntityAuditLogs(entityType: string, entityId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.entityType, entityType),
+          eq(auditLogs.entityId, entityId)
+        )
+      )
+      .orderBy(desc(auditLogs.createdAt));
+  }
+  
+  // Email Notifications Implementation
+  async createEmailNotification(notification: {
+    recipientEmail: string;
+    subject: string;
+    body: string;
+    eventType: string;
+    projectId?: string;
+    projectName?: string;
+    itemId?: string;
+    itemName?: string;
+    userId?: string;
+    userName?: string;
+    userRole?: string;
+  }): Promise<void> {
+    await db.insert(emailNotifications).values(notification);
+  }
+  
+  async getPendingNotifications(): Promise<any[]> {
+    return await db
+      .select()
+      .from(emailNotifications)
+      .where(eq(emailNotifications.status, 'pending'))
+      .orderBy(emailNotifications.createdAt);
+  }
+  
+  async markNotificationSent(id: string): Promise<void> {
+    await db
+      .update(emailNotifications)
+      .set({ 
+        status: 'sent',
+        sentAt: new Date()
+      })
+      .where(eq(emailNotifications.id, id));
+  }
+  
+  async markNotificationFailed(id: string, error: string): Promise<void> {
+    await db
+      .update(emailNotifications)
+      .set({ 
+        status: 'failed',
+        errorMessage: error
+      })
+      .where(eq(emailNotifications.id, id));
+  }
+  
+  // Analytics Implementation
+  async getProjectsAnalytics(filters?: {
+    status?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<{
+    activeCount: number;
+    archivedCount: number;
+    totalContractValue: number;
+    totalExpenses: number;
+    totalPayments: number;
+    averageProgress: number;
+  }> {
+    let query = db.select().from(projects).$dynamic();
+    
+    if (filters?.status) {
+      query = query.where(eq(projects.status, filters.status));
+    }
+    if (filters?.startDate) {
+      query = query.where(sql`${projects.createdAt} >= ${filters.startDate}`);
+    }
+    if (filters?.endDate) {
+      query = query.where(sql`${projects.createdAt} <= ${filters.endDate}`);
+    }
+    
+    const projectList = await query;
+    const projectIds = projectList.map(p => p.id);
+    
+    // Count by status
+    const activeCount = projectList.filter(p => p.status === 'active').length;
+    const archivedCount = projectList.filter(p => p.status === 'archived').length;
+    
+    // Calculate totals
+    const totalContractValue = projectList.reduce((sum, p) => sum + Number(p.totalCost), 0);
+    
+    // Get expenses total
+    let totalExpenses = 0;
+    if (projectIds.length > 0) {
+      const expensesData = await db
+        .select({ total: sql`COALESCE(SUM(${expenses.amount}), 0)` })
+        .from(expenses)
+        .where(inArray(expenses.projectId, projectIds));
+      totalExpenses = Number(expensesData[0]?.total || 0);
+    }
+    
+    // Get payments total
+    let totalPayments = 0;
+    if (projectIds.length > 0) {
+      const paymentsData = await db
+        .select({ total: sql`COALESCE(SUM(${clientPayments.amount}), 0)` })
+        .from(clientPayments)
+        .where(inArray(clientPayments.projectId, projectIds));
+      totalPayments = Number(paymentsData[0]?.total || 0);
+    }
+    
+    // Get average progress from implementation sheets
+    let averageProgress = 0;
+    if (projectIds.length > 0) {
+      const progressData = await db
+        .select({ avg: sql`COALESCE(AVG(${implementationSheets.totalProgress}), 0)` })
+        .from(implementationSheets)
+        .where(inArray(implementationSheets.projectId, projectIds));
+      averageProgress = Number(progressData[0]?.avg || 0);
+    }
+    
+    return {
+      activeCount,
+      archivedCount,
+      totalContractValue,
+      totalExpenses,
+      totalPayments,
+      averageProgress
+    };
+  }
+  
+  async getContractorAnalytics(contractorId?: string): Promise<any[]> {
+    let query = db
+      .select({
+        contractorId: contractors.id,
+        contractorName: contractors.name,
+        specialization: contractors.specialization,
+        totalProjects: sql`COUNT(DISTINCT ${contractorProjects.projectId})`,
+        totalBudget: sql`COALESCE(SUM(${contractorProjects.budget}), 0)`,
+        totalExpenses: sql`COALESCE(SUM(${expenses.amount}), 0)`,
+      })
+      .from(contractors)
+      .leftJoin(contractorProjects, eq(contractors.id, contractorProjects.contractorId))
+      .leftJoin(expenses, eq(contractors.id, expenses.contractorId))
+      .groupBy(contractors.id)
+      .$dynamic();
+      
+    if (contractorId) {
+      query = query.where(eq(contractors.id, contractorId));
+    }
+    
+    return await query;
+  }
+  
+  async getClientAnalytics(clientId?: string): Promise<any[]> {
+    let query = db
+      .select({
+        clientId: clients.id,
+        clientName: clients.name,
+        totalProjects: sql`COUNT(DISTINCT ${clientProjects.projectId})`,
+        totalContractValue: sql`COALESCE(SUM(${clientProjects.contractAmount}), 0)`,
+        totalPayments: sql`COALESCE(SUM(${clientPayments.amount}), 0)`,
+      })
+      .from(clients)
+      .leftJoin(clientProjects, eq(clients.id, clientProjects.clientId))
+      .leftJoin(clientPayments, eq(clients.id, clientPayments.clientId))
+      .groupBy(clients.id)
+      .$dynamic();
+      
+    if (clientId) {
+      query = query.where(eq(clients.id, clientId));
+    }
+    
+    return await query;
+  }
+  
+  async getToolsAnalytics(): Promise<any> {
+    const toolsData = await db
+      .select({
+        totalTools: sql`COUNT(*)`,
+        availableTools: sql`COUNT(CASE WHEN status = 'AVAILABLE' THEN 1 END)`,
+        outTools: sql`COUNT(CASE WHEN status = 'OUT' THEN 1 END)`,
+        writtenOffTools: sql`COUNT(CASE WHEN status = 'WRITTEN_OFF' THEN 1 END)`,
+        totalValue: sql`COALESCE(SUM(${tools.cost}), 0)`,
+      })
+      .from(tools);
+      
+    const movementsData = await db
+      .select({
+        totalMovements: sql`COUNT(*)`,
+        totalIssues: sql`COUNT(CASE WHEN type = 'ISSUE' THEN 1 END)`,
+        totalReturns: sql`COUNT(CASE WHEN type = 'RETURN' THEN 1 END)`,
+      })
+      .from(toolMovements);
+      
+    return {
+      ...toolsData[0],
+      ...movementsData[0]
+    };
   }
 
   // Helper method to update sheet total progress

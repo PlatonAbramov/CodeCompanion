@@ -383,6 +383,16 @@ export default function DirectorDashboard() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setLocation('/analytics')}
+                data-testid="button-analytics"
+                title="Аналитика"
+                className="text-green-600 hover:text-green-800"
+              >
+                <TrendingUp size={20} />
+              </Button>
               <Button variant="ghost" size="sm">
                 <Bell size={20} />
               </Button>

@@ -38,6 +38,8 @@ import Tools from "@/pages/Tools";
 import AdminPanel from "@/pages/AdminPanel";
 import ImplementationSheets from "@/pages/ImplementationSheets";
 import ImplementationSheetView from "@/pages/ImplementationSheetView";
+import Analytics from "@/pages/Analytics";
+import History from "@/pages/History";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedApp() {
@@ -114,6 +116,8 @@ function AuthenticatedApp() {
       <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />
       <Route path="/projects/:projectId/implementation-sheets" component={ImplementationSheets} />
       <Route path="/implementation-sheets/:sheetId" component={ImplementationSheetView} />
+      <Route path="/analytics" component={(user.role === 'admin' || user.role === 'director') ? Analytics : NotFound} />
+      <Route path="/history/:projectId" component={(user.role === 'admin' || user.role === 'director') ? History : NotFound} />
       <Route component={NotFound} />
     </Switch>
   );

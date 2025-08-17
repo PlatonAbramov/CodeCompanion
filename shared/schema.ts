@@ -25,7 +25,7 @@ export const projects = pgTable("projects", {
   name: text("name").notNull(),
   location: text("location"),
   totalCost: decimal("total_cost", { precision: 12, scale: 2 }).notNull(),
-  status: text("status").default("active"), // 'active' | 'completed' | 'paused'
+  status: text("status").default("active"), // 'active' | 'completed' | 'paused' | 'archived'
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   createdBy: varchar("created_by").references(() => users.id),
@@ -85,6 +85,7 @@ export const documents = pgTable("documents", {
   fileSize: integer("file_size").notNull(), // File size in bytes
   mimeType: text("mime_type").notNull(), // MIME type
   fileUrl: text("file_url").notNull(), // URL to the stored file
+  visibleToClient: boolean("visible_to_client").default(false), // Показывать заказчику
   uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -778,6 +779,66 @@ export const implementationChangeLogsRelations = relations(implementationChangeL
   }),
   changedByUser: one(users, {
     fields: [implementationChangeLogs.changedBy],
+    references: [users.id],
+  }),
+}));
+
+// Таблица истории изменений (аудит лог)
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityType: text("entity_type").notNull(), // 'project' | 'expense' | 'advance' | 'document' | 'tool' | 'contractor' | 'client' | 'user' | 'implementation_item'
+  entityId: varchar("entity_id").notNull(), // ID объекта
+  action: text("action").notNull(), // 'create' | 'update' | 'delete' | 'upload' | 'status_change' | 'progress_change' | 'complete'
+  fieldName: text("field_name"), // Название поля, которое изменилось
+  oldValue: text("old_value"), // Старое значение
+  newValue: text("new_value"), // Новое значение
+  userId: varchar("user_id").references(() => users.id).notNull(), // Кто сделал изменение
+  userName: text("user_name").notNull(), // Имя пользователя для быстрого отображения
+  userRole: text("user_role").notNull(), // Роль пользователя
+  projectId: varchar("project_id").references(() => projects.id), // Привязка к проекту
+  metadata: jsonb("metadata"), // Дополнительные данные
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Email уведомления
+export const emailNotifications = pgTable("email_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  recipientEmail: text("recipient_email").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  eventType: text("event_type").notNull(), // 'photo_uploaded' | 'item_completed' | 'progress_changed'
+  projectId: varchar("project_id").references(() => projects.id),
+  projectName: text("project_name"),
+  itemId: varchar("item_id"), 
+  itemName: text("item_name"),
+  userId: varchar("user_id").references(() => users.id),
+  userName: text("user_name"),
+  userRole: text("user_role"),
+  status: text("status").default("pending"), // 'pending' | 'sent' | 'failed'
+  sentAt: timestamp("sent_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations для новых таблиц
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+  }),
+  project: one(projects, {
+    fields: [auditLogs.projectId],
+    references: [projects.id],
+  }),
+}));
+
+export const emailNotificationsRelations = relations(emailNotifications, ({ one }) => ({
+  project: one(projects, {
+    fields: [emailNotifications.projectId],
+    references: [projects.id],
+  }),
+  user: one(users, {
+    fields: [emailNotifications.userId],
     references: [users.id],
   }),
 }));

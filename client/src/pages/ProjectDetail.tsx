@@ -9,7 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   ArrowLeft, MoreVertical, Download, Eye, Plus, Edit,
-  FileText, Paperclip, Trash2, ChevronDown, ChevronUp
+  FileText, Paperclip, Trash2, ChevronDown, ChevronUp,
+  History, Archive, ArchiveRestore
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -250,6 +251,37 @@ export default function ProjectDetail() {
     deleteProjectMutation.mutate();
     setIsDeleteDialogOpen(false);
   };
+  
+  // Archive/unarchive project mutation
+  const archiveProjectMutation = useMutation({
+    mutationFn: async (archive: boolean) => {
+      const res = await apiRequest(`/api/projects/${projectId}/archive`, {
+        method: 'PATCH',
+        body: JSON.stringify({ archive })
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Успешно",
+        description: project?.status === 'archived' ? "Проект разархивирован" : "Проект архивирован",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+    },
+    onError: (error) => {
+      console.error('Archive project error:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось изменить статус проекта",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const handleArchive = () => {
+    archiveProjectMutation.mutate(project?.status !== 'archived');
+  };
 
   const isAdmin = user?.role === 'admin';
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
@@ -303,6 +335,29 @@ export default function ProjectDetail() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={() => setLocation(`/history/${projectId}`)}
+                    data-testid="menu-history"
+                  >
+                    <History className="h-4 w-4 mr-2" />
+                    История изменений
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleArchive()}
+                    data-testid="menu-archive"
+                  >
+                    {project.status === 'archived' ? (
+                      <>
+                        <ArchiveRestore className="h-4 w-4 mr-2" />
+                        Разархивировать
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="h-4 w-4 mr-2" />
+                        Архивировать
+                      </>
+                    )}
+                  </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={() => setIsDeleteDialogOpen(true)}
                     className="text-red-600 focus:text-red-600"
