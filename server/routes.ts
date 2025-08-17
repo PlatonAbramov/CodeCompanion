@@ -1372,12 +1372,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { employeeIds } = req.body;
       const clientId = req.params.id;
+      const assignedBy = req.session?.user?.id;
       
       if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
         return res.status(400).json({ error: "employeeIds must be a non-empty array" });
       }
 
-      await storage.assignEmployeesToClient(clientId, employeeIds);
+      if (!assignedBy) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      await storage.assignEmployeesToClient(clientId, employeeIds, assignedBy);
       res.json({ success: true, assignedCount: employeeIds.length });
     } catch (error) {
       console.error("Failed to assign employees to client:", error);

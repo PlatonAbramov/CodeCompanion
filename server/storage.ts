@@ -184,7 +184,7 @@ export interface IStorage {
   
   // Client Employees
   getClientEmployees(clientId: string): Promise<User[]>;
-  assignEmployeesToClient(clientId: string, employeeIds: string[]): Promise<void>;
+  assignEmployeesToClient(clientId: string, employeeIds: string[], assignedBy: string): Promise<void>;
   removeEmployeeFromClient(clientId: string, userId: string): Promise<void>;
   
   // Analytics
@@ -1653,7 +1653,7 @@ export class DatabaseStorage implements IStorage {
     return employees;
   }
 
-  async assignEmployeesToClient(clientId: string, employeeIds: string[]): Promise<void> {
+  async assignEmployeesToClient(clientId: string, employeeIds: string[], assignedBy: string): Promise<void> {
     // Batch insert new client-employee relationships, avoiding duplicates
     const existingAssignments = await db
       .select()
@@ -1670,7 +1670,7 @@ export class DatabaseStorage implements IStorage {
       const insertData = newEmployeeIds.map(userId => ({
         clientId,
         userId,
-        assignedBy: 'admin' // Default to admin for now
+        assignedBy
       }));
       
       await db.insert(clientEmployees).values(insertData);
