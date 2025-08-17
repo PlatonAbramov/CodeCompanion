@@ -1194,6 +1194,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get projects for a specific client (for client role users)
+  app.get("/api/clients/:clientId/projects", requireAuth, async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const userId = req.session.user?.id;
+      const userRole = req.session.user?.role;
+      
+      // For client role, find their client record by user ID
+      if (userRole === 'client') {
+        // Get client by user ID (assuming username matches client name or we have a user-client mapping)
+        const allClients = await storage.getAllClients();
+        const userClient = allClients.find(client => 
+          client.name === req.session.user?.name || 
+          client.name === req.session.user?.username
+        );
+        
+        if (!userClient || userClient.id !== clientId) {
+          return res.status(403).json({ error: "Access denied - you can only view your own projects" });
+        }
+      }
+      
+      const projects = await storage.getClientProjects(clientId);
+      res.json(projects);
+    } catch (error) {
+      console.error("Failed to get client projects:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get current user's client projects (for client role)
+  app.get("/api/my-client-projects", requireAuth, async (req, res) => {
+    try {
+      const userRole = req.session.user?.role;
+      
+      if (userRole !== 'client') {
+        return res.status(403).json({ error: "Access denied - only for client users" });
+      }
+      
+      // Find client record matching the logged-in user
+      const allClients = await storage.getAllClients();
+      const userClient = allClients.find(client => 
+        client.name === req.session.user?.name || 
+        client.name === req.session.user?.username
+      );
+      
+      if (!userClient) {
+        return res.json([]); // No projects if user is not linked to a client
+      }
+      
+      const projects = await storage.getClientProjects(userClient.id);
+      res.json(projects);
+    } catch (error) {
+      console.error("Failed to get user's client projects:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/api/clients/:id", requireAuth, async (req, res) => {
     try {
       const client = await storage.getClient(req.params.id);

@@ -66,7 +66,7 @@ function AuthenticatedApp() {
       } else if (user.role === 'master') {
         setLocation('/master');
       } else if (user.role === 'client') {
-        setLocation('/client'); // На случай, если будет страница клиента
+        setLocation('/clients'); // Клиенты идут на страницу своих проектов
       }
     }
   }, [user, isLoading, location, setLocation]);

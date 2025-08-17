@@ -30,8 +30,19 @@ export default function ClientsPage() {
     setLocation('/director');
   };
 
+  // Different behavior for client role users
+  const isClientUser = user?.role === 'client';
+
+  // For client users, get their assigned projects
+  const { data: clientProjects, isLoading: isLoadingProjects } = useQuery({
+    queryKey: ["/api/my-client-projects"],
+    enabled: isClientUser,
+  });
+
+  // For admin/director users, get all clients
   const { data: clients, isLoading } = useQuery({
     queryKey: ["/api/clients"],
+    enabled: !isClientUser,
   });
 
   const form = useForm<InsertClient>({
@@ -153,6 +164,97 @@ export default function ClientsPage() {
     form.reset();
   };
 
+  // Client role specific - render projects view
+  if (isClientUser) {
+    if (isLoadingProjects) {
+      return (
+        <div className="min-h-screen bg-slate-50 p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-lg">Загрузка проектов...</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-slate-50 pb-20">
+        {/* Header for client users */}
+        <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
+          <div className="px-4 py-3">
+            <h1 className="text-xl font-semibold text-slate-900">Мои проекты</h1>
+          </div>
+        </header>
+
+        <div className="container mx-auto p-6 space-y-6">
+          {/* Projects list for client users */}
+          {Array.isArray(clientProjects) && clientProjects.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {clientProjects.map((project: any) => (
+                <Card 
+                  key={project.id} 
+                  className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50"
+                  onClick={() => setLocation(`/projects/${project.projectId}`)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Building2 className="w-5 h-5" />
+                          {project.projectName}
+                        </CardTitle>
+                        {project.location && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {project.location}
+                          </p>
+                        )}
+                      </div>
+                      <Badge variant={project.status === 'active' ? "default" : "secondary"}>
+                        {project.status === 'active' ? "Активный" : "Завершен"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <span className="font-medium">Стоимость:</span>
+                      <span className="ml-2">{Number(project.totalCost).toLocaleString()} AED</span>
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <span className="font-medium">Оплачено:</span>
+                      <span className="ml-2">{Number(project.totalPaid).toLocaleString()} AED</span>
+                    </div>
+                    {project.contractNumber && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <span className="font-medium">Договор:</span>
+                        <span className="ml-2">{project.contractNumber}</span>
+                      </div>
+                    )}
+                    {project.description && (
+                      <div className="text-sm text-muted-foreground">
+                        <span className="font-medium">Описание:</span>
+                        <p className="mt-1">{project.description}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Проектов не найдено</h3>
+              <p className="text-muted-foreground">
+                На вас еще не назначен ни одного проекта
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Admin/Director role - original functionality
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 space-y-6">

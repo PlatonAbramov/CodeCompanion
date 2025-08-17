@@ -30,6 +30,8 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
         setLocation('/director');
       } else if (user.role === 'master') {
         setLocation('/master');
+      } else if (user.role === 'client') {
+        setLocation('/clients');
       }
       return;
     }
@@ -40,6 +42,8 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
         setLocation('/director');
       } else if (user.role === 'master') {
         setLocation('/master');
+      } else if (user.role === 'client') {
+        setLocation('/clients');
       }
       return;
     }
