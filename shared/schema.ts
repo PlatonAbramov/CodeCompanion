@@ -865,7 +865,6 @@ export const emailNotificationsRelations = relations(emailNotifications, ({ one 
 // Админ-панель схемы
 export const createUserSchema = z.object({
   username: z.string().min(3, "Логин должен содержать минимум 3 символа"),
-  email: z.string().email("Некорректный email").optional(),
   name: z.string().min(2, "Имя должно содержать минимум 2 символа"),
   password: z.string().min(6, "Пароль должен содержать минимум 6 символов"),
   role: z.enum(["admin", "director", "master", "client"], { required_error: "Выберите роль" }),

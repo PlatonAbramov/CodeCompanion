@@ -107,7 +107,6 @@ export default function AdminPanel() {
     resolver: zodResolver(createUserSchema),
     defaultValues: {
       username: "",
-      email: "",
       name: "",
       password: "",
       role: "master",
@@ -266,8 +265,7 @@ export default function AdminPanel() {
   const filteredUsers = users?.filter(user => {
     const matchesSearch = !searchTerm || 
       user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
+      user.name.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesFilter = filterStatus === 'all' || 
       (filterStatus === 'active' && user.isActive && !user.isBlocked) ||
@@ -417,19 +415,7 @@ export default function AdminPanel() {
                             )}
                           />
                           
-                          <FormField
-                            control={createUserForm.control}
-                            name="email"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Email (опционально)</FormLabel>
-                                <FormControl>
-                                  <Input {...field} type="email" data-testid="input-email" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+
                           
                           <FormField
                             control={createUserForm.control}
@@ -897,19 +883,7 @@ export default function AdminPanel() {
                   )}
                 />
                 
-                <FormField
-                  control={createUserForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email (необязательно)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="email@example.com" {...field} data-testid="input-create-email" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+
                 
                 <FormField
                   control={createUserForm.control}
