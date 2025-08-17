@@ -335,7 +335,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await db.select().from(users).orderBy(users.name);
+    return await db.select({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      isActive: users.isActive,
+      isBlocked: users.isBlocked,
+      createdAt: users.createdAt,
+      lastLogin: users.lastLogin,
+      createdBy: users.createdBy
+    }).from(users).orderBy(users.name).limit(100);
   }
 
   async deleteUser(id: string): Promise<void> {
@@ -352,7 +363,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllProjects(): Promise<Project[]> {
-    return await db.select().from(projects).orderBy(desc(projects.createdAt));
+    return await db.select({
+      id: projects.id,
+      name: projects.name,
+      location: projects.location,
+      totalCost: projects.totalCost,
+      status: projects.status,
+      startDate: projects.startDate,
+      endDate: projects.endDate,
+      createdBy: projects.createdBy,
+      createdAt: projects.createdAt,
+      updatedAt: projects.updatedAt
+    }).from(projects).orderBy(desc(projects.createdAt)).limit(50);
   }
 
   async getProject(id: string): Promise<Project | undefined> {
@@ -471,7 +493,15 @@ export class DatabaseStorage implements IStorage {
   async getProjectExpenses(projectId: string): Promise<(Expense & { user: { name: string }, contractor?: { name: string, company?: string } })[]> {
     const result = await db
       .select({
-        expense: expenses,
+        id: expenses.id,
+        projectId: expenses.projectId,
+        userId: expenses.userId,
+        category: expenses.category,
+        amount: expenses.amount,
+        description: expenses.description,
+        receiptUrl: expenses.receiptUrl,
+        contractorId: expenses.contractorId,
+        createdAt: expenses.createdAt,
         user: { name: users.name },
         contractor: { name: contractors.name, company: contractors.company }
       })
@@ -479,10 +509,19 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(expenses.userId, users.id))
       .leftJoin(contractors, eq(expenses.contractorId, contractors.id))
       .where(eq(expenses.projectId, projectId))
-      .orderBy(desc(expenses.createdAt));
+      .orderBy(desc(expenses.createdAt))
+      .limit(100);
     
     return result.map(r => ({ 
-      ...r.expense, 
+      id: r.id,
+      projectId: r.projectId,
+      userId: r.userId,
+      category: r.category,
+      amount: r.amount,
+      description: r.description,
+      receiptUrl: r.receiptUrl,
+      contractorId: r.contractorId,
+      createdAt: r.createdAt,
       user: r.user,
       contractor: r.contractor?.name ? { 
         name: r.contractor.name, 
@@ -523,7 +562,8 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(advances)
       .where(eq(advances.projectId, projectId))
-      .orderBy(desc(advances.createdAt));
+      .orderBy(desc(advances.createdAt))
+      .limit(50);
   }
 
   async createAdvance(advance: InsertAdvance): Promise<Advance> {
@@ -541,7 +581,8 @@ export class DatabaseStorage implements IStorage {
     return db.select()
       .from(customerAdvances)
       .where(eq(customerAdvances.projectId, projectId))
-      .orderBy(desc(customerAdvances.createdAt));
+      .orderBy(desc(customerAdvances.createdAt))
+      .limit(50);
   }
 
   async createCustomerAdvance(customerAdvance: InsertCustomerAdvance): Promise<CustomerAdvance> {
@@ -892,7 +933,8 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(ownerInvestments)
       .where(eq(ownerInvestments.projectId, projectId))
-      .orderBy(desc(ownerInvestments.date));
+      .orderBy(desc(ownerInvestments.date))
+      .limit(50);
     return result;
   }
 
@@ -937,7 +979,8 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(documents)
       .where(eq(documents.projectId, projectId))
-      .orderBy(desc(documents.createdAt));
+      .orderBy(desc(documents.createdAt))
+      .limit(50);
     return result;
   }
 

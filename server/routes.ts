@@ -8,6 +8,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from 'url';
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { cache, cacheKeys, invalidateProjectCache, invalidateUserCache, invalidateContractorCache, invalidateClientCache, invalidateToolCache } from "./cache";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -176,9 +177,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User management routes (Director only)
   app.get("/api/users", requireAuth, requireDirector, async (req, res) => {
     try {
+      const cacheKey = cacheKeys.users();
+      
+      // Try cache first (60 seconds)
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
       const users = await storage.getAllUsers();
       // Remove passwords from response
       const safeUsers = users.map(({ password, ...user }) => user);
+      
+      // Cache for 60 seconds
+      cache.set(cacheKey, safeUsers, 60);
+      
       res.json(safeUsers);
     } catch (error) {
       console.error("Get users error:", error);
@@ -190,6 +203,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userData = insertUserSchema.parse(req.body);
       const user = await storage.createUser(userData);
+      
+      // Invalidate users cache
+      invalidateUserCache();
       
       // Remove password from response
       const { password, ...safeUser } = user;
@@ -231,6 +247,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
+      
+      // Try cache first for admin/director
+      const cacheKey = cacheKeys.projects();
+      if (user.role === 'admin' || user.role === 'director') {
+        const cached = cache.get(cacheKey);
+        if (cached) {
+          return res.json(cached);
+        }
+      }
+
       const fullUser = await storage.getUserById(user.id);
       if (!fullUser) {
         return res.status(404).json({ error: "User not found" });
@@ -253,6 +279,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Заказчик видит только свои проекты (где он заказчик)
       else if (fullUser.role === 'client') {
         projects = await storage.getUserProjects(user.id);
+      }
+      
+      // Cache for admin/director (30 seconds)
+      if (user.role === 'admin' || user.role === 'director') {
+        cache.set(cacheKey, projects, 30);
       }
       
       res.json(projects);
@@ -283,6 +314,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: req.session.user!.id
       });
       const project = await storage.createProject(projectData);
+      
+      // Invalidate cache
+      cache.invalidate('projects:');
+      
       res.status(201).json(project);
     } catch (error) {
       console.error("Create project error:", error);
@@ -294,6 +329,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const projectData = insertProjectSchema.partial().parse(req.body);
       const updatedProject = await storage.updateProject(req.params.id, projectData);
+      
+      // Invalidate cache
+      invalidateProjectCache(req.params.id);
+      
       res.json(updatedProject);
     } catch (error) {
       console.error("Update project error:", error);
@@ -303,7 +342,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects/:id/financial-summary", requireAuth, async (req, res) => {
     try {
-      const summary = await storage.getProjectFinancialSummary(req.params.id);
+      const projectId = req.params.id;
+      const cacheKey = cacheKeys.projectFinancialSummary(projectId);
+      
+      // Try cache first (10 seconds)
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
+      const summary = await storage.getProjectFinancialSummary(projectId);
+      
+      // Cache for 10 seconds
+      cache.set(cacheKey, summary, 10);
+      
       res.json(summary);
     } catch (error) {
       console.error("Get financial summary error:", error);
@@ -325,7 +377,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects/:id/expenses", requireAuth, async (req, res) => {
     try {
-      const expenses = await storage.getProjectExpenses(req.params.id);
+      const projectId = req.params.id;
+      const cacheKey = cacheKeys.projectExpenses(projectId);
+      
+      // Try cache first (30 seconds)
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
+      const expenses = await storage.getProjectExpenses(projectId);
+      
+      // Cache for 30 seconds
+      cache.set(cacheKey, expenses, 30);
+      
       res.json(expenses);
     } catch (error) {
       console.error("Get project expenses error:", error);
@@ -340,6 +405,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.session.user!.id
       });
       const expense = await storage.createExpense(expenseData);
+      
+      // Invalidate cache
+      invalidateProjectCache(expenseData.projectId);
       
       // Create audit log for expense creation
       const user = req.session.user!;
@@ -451,6 +519,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: req.session.user!.id
       });
       const advance = await storage.createAdvance(advanceData);
+      
+      // Invalidate cache
+      invalidateProjectCache(advanceData.projectId);
+      
       res.status(201).json(advance);
     } catch (error) {
       console.error("Create advance error:", error);
@@ -801,6 +873,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uploadedBy: req.session.user!.id,
       });
       const document = await storage.createDocument(documentData);
+      
+      // Invalidate cache
+      invalidateProjectCache(documentData.projectId);
+      
       res.status(201).json(document);
     } catch (error) {
       console.error("Create document error:", error);
@@ -910,7 +986,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Contractors routes
   app.get("/api/contractors", requireAuth, async (req, res) => {
     try {
+      const cacheKey = cacheKeys.contractors();
+      
+      // Try cache first (60 seconds)
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
       const contractors = await storage.getAllContractors();
+      
+      // Cache for 60 seconds
+      cache.set(cacheKey, contractors, 60);
+      
       res.json(contractors);
     } catch (error) {
       console.error("Failed to get contractors:", error);
@@ -960,6 +1048,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: req.session?.user?.id
       });
       const contractor = await storage.createContractor(contractorData);
+      
+      // Invalidate cache
+      invalidateContractorCache();
+      
       res.json(contractor);
     } catch (error) {
       console.error("Failed to create contractor:", error);
@@ -1088,7 +1180,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Clients routes
   app.get("/api/clients", requireAuth, async (req, res) => {
     try {
+      const cacheKey = cacheKeys.clients();
+      
+      // Try cache first (60 seconds)
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
       const clients = await storage.getAllClients();
+      
+      // Cache for 60 seconds
+      cache.set(cacheKey, clients, 60);
+      
       res.json(clients);
     } catch (error) {
       console.error("Failed to get clients:", error);
@@ -1149,6 +1253,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: req.session?.user?.id
       });
       const client = await storage.createClient(clientData);
+      
+      // Invalidate cache
+      invalidateClientCache();
+      
       res.json(client);
     } catch (error) {
       console.error("Failed to create client:", error);
@@ -2295,6 +2403,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 4. ANALYTICS DASHBOARD (Аналитика и отчеты)
   app.get("/api/analytics/projects", requireAuth, requireDirector, async (req, res) => {
     try {
+      const cacheKey = cacheKeys.analyticsProjects();
+      
+      // Try cache first (120 seconds - analytics don't need real-time updates)
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
       const { status, startDate, endDate } = req.query;
       
       const filters: any = {};
@@ -2303,6 +2419,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (endDate) filters.endDate = new Date(endDate as string);
       
       const analytics = await storage.getProjectsAnalytics(filters);
+      
+      // Cache for 120 seconds
+      cache.set(cacheKey, analytics, 120);
+      
       res.json(analytics);
     } catch (error) {
       console.error("Failed to get project analytics:", error);
@@ -2312,8 +2432,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/analytics/contractors", requireAuth, requireDirector, async (req, res) => {
     try {
+      const cacheKey = cacheKeys.analyticsContractors();
+      
+      // Try cache first (120 seconds)
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
       const { contractorId } = req.query;
       const analytics = await storage.getContractorAnalytics(contractorId as string);
+      
+      // Cache for 120 seconds
+      cache.set(cacheKey, analytics, 120);
+      
       res.json(analytics);
     } catch (error) {
       console.error("Failed to get contractor analytics:", error);
@@ -2323,8 +2455,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/analytics/clients", requireAuth, requireDirector, async (req, res) => {
     try {
+      const cacheKey = cacheKeys.analyticsClients();
+      
+      // Try cache first (120 seconds)
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
       const { clientId } = req.query;
       const analytics = await storage.getClientAnalytics(clientId as string);
+      
+      // Cache for 120 seconds
+      cache.set(cacheKey, analytics, 120);
+      
       res.json(analytics);
     } catch (error) {
       console.error("Failed to get client analytics:", error);
@@ -2334,7 +2478,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/analytics/tools", requireAuth, requireDirector, async (req, res) => {
     try {
+      const cacheKey = cacheKeys.analyticsTools();
+      
+      // Try cache first (120 seconds)
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
       const analytics = await storage.getToolsAnalytics();
+      
+      // Cache for 120 seconds  
+      cache.set(cacheKey, analytics, 120);
+      
       res.json(analytics);
     } catch (error) {
       console.error("Failed to get tools analytics:", error);
