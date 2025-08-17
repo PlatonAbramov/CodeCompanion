@@ -34,9 +34,10 @@ function Analytics() {
       if (dateRange.from) params.append("startDate", dateRange.from.toISOString());
       if (dateRange.to) params.append("endDate", dateRange.to.toISOString());
       
-      return apiRequest(`/api/analytics/projects?${params.toString()}`, {
+      const res = await apiRequest(`/api/analytics/projects?${params.toString()}`, {
         method: "GET"
       });
+      return res.json();
     }
   });
 
@@ -47,9 +48,10 @@ function Analytics() {
       const params = new URLSearchParams();
       if (selectedContractor) params.append("contractorId", selectedContractor);
       
-      return apiRequest(`/api/analytics/contractors?${params.toString()}`, {
+      const res = await apiRequest(`/api/analytics/contractors?${params.toString()}`, {
         method: "GET"
       });
+      return res.json();
     }
   });
 
@@ -60,9 +62,10 @@ function Analytics() {
       const params = new URLSearchParams();
       if (selectedClient) params.append("clientId", selectedClient);
       
-      return apiRequest(`/api/analytics/clients?${params.toString()}`, {
+      const res = await apiRequest(`/api/analytics/clients?${params.toString()}`, {
         method: "GET"
       });
+      return res.json();
     }
   });
 
@@ -70,22 +73,29 @@ function Analytics() {
   const { data: toolsAnalytics, isLoading: loadingTools } = useQuery({
     queryKey: ["/api/analytics/tools"],
     queryFn: async () => {
-      return apiRequest("/api/analytics/tools", {
+      const res = await apiRequest("/api/analytics/tools", {
         method: "GET"
       });
+      return res.json();
     }
   });
 
   // Fetch all contractors for filter
   const { data: contractors } = useQuery({
     queryKey: ["/api/contractors"],
-    queryFn: async () => apiRequest("/api/contractors", { method: "GET" })
+    queryFn: async () => {
+      const res = await apiRequest("/api/contractors", { method: "GET" });
+      return res.json();
+    }
   });
 
   // Fetch all clients for filter
   const { data: clients } = useQuery({
     queryKey: ["/api/clients"],
-    queryFn: async () => apiRequest("/api/clients", { method: "GET" })
+    queryFn: async () => {
+      const res = await apiRequest("/api/clients", { method: "GET" });
+      return res.json();
+    }
   });
 
   const formatCurrency = (amount: number) => {
