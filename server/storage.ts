@@ -182,6 +182,11 @@ export interface IStorage {
   updateClientPayment(id: string, clientPayment: Partial<InsertClientPayment>): Promise<ClientPayment>;
   deleteClientPayment(id: string): Promise<void>;
   
+  // Client Employees
+  getClientEmployees(clientId: string): Promise<User[]>;
+  assignEmployeesToClient(clientId: string, employeeIds: string[]): Promise<void>;
+  removeEmployeeFromClient(clientId: string, userId: string): Promise<void>;
+  
   // Analytics
   getProjectFinancialSummary(projectId: string): Promise<{
     totalCost: string;
@@ -1620,6 +1625,73 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClientPayment(id: string): Promise<void> {
     await db.delete(clientPayments).where(eq(clientPayments.id, id));
+  }
+
+  // Client Employees implementation
+  async getClientEmployees(clientId: string): Promise<User[]> {
+    // Find all users with role 'client' who are assigned to this client via the userId field
+    const employees = await db
+      .select()
+      .from(users)
+      .where(and(
+        eq(users.role, 'client'),
+        sql`EXISTS (SELECT 1 FROM ${clients} WHERE ${clients.id} = ${clientId} AND ${clients.userId} = ${users.id})`
+      ));
+    
+    return employees;
+  }
+
+  async assignEmployeesToClient(clientId: string, employeeIds: string[]): Promise<void> {
+    // For each employee, create or update a client record linking them to this client
+    // This means we're creating a many-to-many relationship through multiple client records
+    
+    for (const employeeId of employeeIds) {
+      // Check if this user is already assigned to any client
+      const existingClientAssignments = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.userId, employeeId));
+      
+      if (existingClientAssignments.length === 0) {
+        // Get the main client data to create a new client record for this employee
+        const [mainClient] = await db
+          .select()
+          .from(clients)
+          .where(eq(clients.id, clientId));
+        
+        if (mainClient) {
+          // Create a new client record for this employee with similar data
+          await db.insert(clients).values({
+            name: `${mainClient.name} - Employee Assignment`,
+            company: mainClient.company,
+            contactPerson: mainClient.contactPerson,
+            phone: mainClient.phone,
+            email: mainClient.email,
+            address: mainClient.address,
+            isActive: true,
+            userId: employeeId,
+            createdBy: mainClient.createdBy
+          });
+        }
+      } else {
+        // Update existing client assignment to point to the new client
+        await db
+          .update(clients)
+          .set({ userId: employeeId })
+          .where(eq(clients.id, clientId));
+      }
+    }
+  }
+
+  async removeEmployeeFromClient(clientId: string, userId: string): Promise<void> {
+    // Remove the userId link from the client record
+    await db
+      .update(clients)
+      .set({ userId: null })
+      .where(and(
+        eq(clients.id, clientId),
+        eq(clients.userId, userId)
+      ));
   }
 
   // Tools implementation

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, CreditCard, FileText, Calendar, DollarSign, User, TrendingUp } from "lucide-react";
+import { ArrowLeft, Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, CreditCard, FileText, Calendar, DollarSign, User, TrendingUp, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientProjectSchema, insertClientPaymentSchema, type InsertClientProject, type InsertClientPayment } from "@shared/schema";
@@ -27,7 +28,9 @@ export default function ClientDetailPage() {
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isEditProjectDialogOpen, setIsEditProjectDialogOpen] = useState(false);
+  const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
 
   const { data: client, isLoading: clientLoading } = useQuery({
     queryKey: ["/api/clients", clientId],
@@ -51,6 +54,25 @@ export default function ClientDetailPage() {
 
   const { data: allProjects } = useQuery({
     queryKey: ["/api/projects"],
+  });
+
+  // Get all users with role 'client' for employee assignment
+  const { data: clientUsers = [] } = useQuery({
+    queryKey: ["/api/users", "client"],
+    queryFn: async () => {
+      const response = await apiRequest("/api/users?role=client", { method: "GET" });
+      return response.json();
+    },
+  });
+
+  // Get currently assigned employees for this client
+  const { data: assignedEmployees = [] } = useQuery({
+    queryKey: ["/api/clients", clientId, "employees"],
+    queryFn: async () => {
+      const response = await apiRequest(`/api/clients/${clientId}/employees`, { method: "GET" });
+      return response.json();
+    },
+    enabled: !!clientId,
   });
 
   // Safe access to data with defaults
@@ -238,6 +260,64 @@ export default function ClientDetailPage() {
     },
   });
 
+  const assignEmployeesMutation = useMutation({
+    mutationFn: async (employeeIds: string[]) => {
+      const response = await apiRequest(`/api/clients/${clientId}/employees`, {
+        method: "POST",
+        body: JSON.stringify({ employeeIds }),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "employees"] });
+      setIsEmployeeDialogOpen(false);
+      setSelectedEmployees([]);
+      toast({ title: "Сотрудники назначены успешно" });
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось назначить сотрудников",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeEmployeeMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiRequest(`/api/clients/${clientId}/employees/${userId}`, {
+        method: "DELETE",
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "employees"] });
+      toast({ title: "Сотрудник отвязан успешно" });
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отвязать сотрудника",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Employee assignment handlers
+  const handleEmployeeToggle = (userId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedEmployees(prev => [...prev, userId]);
+    } else {
+      setSelectedEmployees(prev => prev.filter(id => id !== userId));
+    }
+  };
+
+  const onEmployeeAssignSubmit = () => {
+    if (selectedEmployees.length > 0) {
+      assignEmployeesMutation.mutate(selectedEmployees);
+    }
+  };
+
   const onProjectSubmit = (data: InsertClientProject) => {
     console.log("Submitting project assignment:", data);
     console.log("Client ID:", clientId);
@@ -406,6 +486,7 @@ export default function ClientDetailPage() {
         <TabsList>
           <TabsTrigger value="projects">Проекты</TabsTrigger>
           <TabsTrigger value="payments">Платежи</TabsTrigger>
+          <TabsTrigger value="employees">Сотрудники</TabsTrigger>
         </TabsList>
 
         <TabsContent value="projects" className="space-y-4">
@@ -803,6 +884,119 @@ export default function ClientDetailPage() {
               <div className="text-center py-8">
                 <CreditCard className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">Платежи не найдены</p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="employees" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-semibold">Сотрудники заказчика</h3>
+            <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Users className="w-4 h-4 mr-2" />
+                  Назначить сотрудников
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Назначить сотрудников заказчика</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Выберите сотрудников с ролью "client" для назначения к заказчику:
+                  </p>
+                  
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {clientUsers.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Пользователи с ролью "client" не найдены
+                      </div>
+                    ) : (
+                      clientUsers.map((user: any) => {
+                        const isAlreadyAssigned = assignedEmployees.some((emp: any) => emp.id === user.id);
+                        const isSelected = selectedEmployees.includes(user.id);
+                        
+                        return (
+                          <div key={user.id} className="flex items-center space-x-3 p-3 border rounded">
+                            <Checkbox
+                              id={`user-${user.id}`}
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handleEmployeeToggle(user.id, checked as boolean)}
+                              disabled={isAlreadyAssigned}
+                            />
+                            <div className="flex-1">
+                              <label htmlFor={`user-${user.id}`} className="text-sm font-medium cursor-pointer">
+                                {user.name}
+                              </label>
+                              <p className="text-xs text-muted-foreground">@{user.username}</p>
+                              {isAlreadyAssigned && (
+                                <Badge variant="secondary" className="text-xs mt-1">
+                                  Уже назначен
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => {
+                        setIsEmployeeDialogOpen(false);
+                        setSelectedEmployees([]);
+                      }}
+                    >
+                      Отмена
+                    </Button>
+                    <Button 
+                      onClick={onEmployeeAssignSubmit}
+                      disabled={selectedEmployees.length === 0 || assignEmployeesMutation.isPending}
+                    >
+                      {assignEmployeesMutation.isPending ? "Назначение..." : `Назначить (${selectedEmployees.length})`}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div className="space-y-4">
+            {assignedEmployees.map((employee: any) => (
+              <Card key={employee.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <User className="w-8 h-8 text-muted-foreground" />
+                      <div>
+                        <h4 className="font-medium">{employee.name}</h4>
+                        <p className="text-sm text-muted-foreground">@{employee.username}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeEmployeeMutation.mutate(employee.id)}
+                      disabled={removeEmployeeMutation.isPending}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Отвязать
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            
+            {(!assignedEmployees || assignedEmployees.length === 0) && (
+              <div className="text-center py-8">
+                <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">Сотрудники не назначены</p>
               </div>
             )}
           </div>

@@ -1351,6 +1351,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Client employees endpoints
+  app.get("/api/clients/:id/employees", requireAuth, async (req, res) => {
+    try {
+      const employees = await storage.getClientEmployees(req.params.id);
+      res.json(employees);
+    } catch (error) {
+      console.error("Failed to get client employees:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/clients/:id/employees", requireAuth, async (req, res) => {
+    try {
+      const { employeeIds } = req.body;
+      const clientId = req.params.id;
+      
+      if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
+        return res.status(400).json({ error: "employeeIds must be a non-empty array" });
+      }
+
+      await storage.assignEmployeesToClient(clientId, employeeIds);
+      res.json({ success: true, assignedCount: employeeIds.length });
+    } catch (error) {
+      console.error("Failed to assign employees to client:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/clients/:id/employees/:userId", requireAuth, async (req, res) => {
+    try {
+      const { id: clientId, userId } = req.params;
+      await storage.removeEmployeeFromClient(clientId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to remove employee from client:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get client projects
   app.get("/api/clients/:id/projects", requireAuth, async (req, res) => {
     try {
