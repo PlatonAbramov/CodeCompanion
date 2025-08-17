@@ -99,10 +99,12 @@ export default function ProjectDetail() {
 
   const { data: financialSummary } = useQuery<FinancialSummary>({
     queryKey: ['/api/projects', projectId, 'financial-summary'],
+    enabled: user?.role === 'admin' || user?.role === 'director',
   });
 
   const { data: expenses = [] } = useQuery<Expense[]>({
     queryKey: ['/api/projects', projectId, 'expenses'],
+    enabled: user?.role === 'admin' || user?.role === 'director',
   });
 
   const { data: documents = [] } = useQuery<Document[]>({
@@ -376,17 +378,31 @@ export default function ProjectDetail() {
       <div className="p-4 pb-20">
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 mb-6">
+          {isAdminOrDirector && (
+            <Button 
+              className="bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md"
+              onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
+            >
+              <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+                <Plus size={16} className="text-white" />
+              </div>
+              Добавить расход
+            </Button>
+          )}
+          
+          {/* Implementation Sheets - accessible to clients */}
           <Button 
-            className="bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md"
-            onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
+            variant="outline"
+            className="px-6 py-3 rounded-full shadow-sm"
+            onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
           >
-            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
-              <Plus size={16} className="text-white" />
+            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
+              <FileText size={16} className="text-green-600" />
             </div>
-            Добавить расход
+            Листы реализации
           </Button>
           
-          {(user?.role === 'admin' || user?.role === 'director') && (
+          {isAdminOrDirector && (
             <>
               <Button 
                 variant="outline"
@@ -399,30 +415,18 @@ export default function ProjectDetail() {
                 Назначить заказчика
               </Button>
               
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline"
-                  className="flex-1 px-6 py-3 rounded-full shadow-sm"
-                  onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
-                >
-                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                    <FileText size={16} className="text-green-600" />
-                  </div>
-                  Листы реализации
-                </Button>
-                <CreateImplementationSheetFromInvoice 
-                  projectId={projectId}
-                  onSheetCreated={() => {
-                    // Обновление при создании листа
-                  }}
-                />
-              </div>
+              <CreateImplementationSheetFromInvoice 
+                projectId={projectId}
+                onSheetCreated={() => {
+                  // Обновление при создании листа
+                }}
+              />
             </>
           )}
         </div>
 
         {/* Financial Summary Card */}
-        {financialSummary && (
+        {financialSummary && isAdminOrDirector && (
           <Card className="mb-6 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <Collapsible open={isFinancialSummaryOpen} onOpenChange={setIsFinancialSummaryOpen}>

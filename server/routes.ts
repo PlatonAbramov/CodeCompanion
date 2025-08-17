@@ -351,14 +351,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.session.user!;
       const projectId = req.params.id;
       
-      // Check access for clients
+      // Block clients from accessing financial data
       if (user.role === 'client') {
-        const userProjects = await storage.getUserProjects(user.id);
-        const hasAccess = userProjects.some(p => p.id === projectId);
-        
-        if (!hasAccess) {
-          return res.status(403).json({ error: "Access denied to this project" });
-        }
+        return res.status(403).json({ error: "Clients cannot access financial summary" });
       }
       
       const cacheKey = cacheKeys.projectFinancialSummary(projectId);
