@@ -5,12 +5,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   ArrowLeft, MoreVertical, Download, Eye, Plus, Edit,
   FileText, Paperclip, Trash2, ChevronDown, ChevronUp,
-  History, Archive, ArchiveRestore
+  History, Archive, ArchiveRestore, Upload
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -30,7 +30,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { FileUploader } from "@/components/FileUploader";
 import { AssignClientModal } from "@/components/AssignClientModal";
-import { CreateImplementationSheetFromInvoice } from "@/components/CreateImplementationSheetFromInvoice";
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface Project {
@@ -88,6 +95,10 @@ export default function ProjectDetail() {
   const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
   const [isAssignClientModalOpen, setIsAssignClientModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isCreateSheetDialogOpen, setIsCreateSheetDialogOpen] = useState(false);
+  const [selectedInvoiceDoc, setSelectedInvoiceDoc] = useState<Document | null>(null);
+  const [sheetName, setSheetName] = useState("");
+  const [parseResult, setParseResult] = useState<any>(null);
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];
@@ -253,6 +264,71 @@ export default function ProjectDetail() {
     deleteProjectMutation.mutate();
     setIsDeleteDialogOpen(false);
   };
+
+  // Create implementation sheet from invoice mutation
+  const createSheetFromInvoiceMutation = useMutation({
+    mutationFn: async (data: { name: string; documentId: string }) => {
+      const response = await fetch(`/api/projects/${projectId}/implementation-sheets/parse-invoice`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw errorData;
+      }
+      
+      return response.json();
+    },
+    onSuccess: (result: any) => {
+      toast({
+        title: "Лист реализации создан",
+        description: `Успешно создан лист "${result.sheet.name}" с ${result.parsedItems} позициями из ${result.format} документа`,
+      });
+      setIsCreateSheetDialogOpen(false);
+      setSheetName("");
+      setSelectedInvoiceDoc(null);
+      setParseResult(null);
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/implementation-sheets`] });
+    },
+    onError: (error: any) => {
+      console.error("Parse error:", error);
+      setParseResult(error);
+      toast({
+        title: "Ошибка создания листа",
+        description: error.error || "Не удалось создать лист реализации из инвойса",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleCreateSheetFromInvoice = (doc: Document) => {
+    if (!doc.fileName.toLowerCase().startsWith('invoice')) {
+      toast({
+        title: "Ошибка",
+        description: "Можно создавать лист реализации только из документов, начинающихся с 'invoice'",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setSelectedInvoiceDoc(doc);
+    setSheetName(`Лист реализации - ${doc.name}`);
+    setIsCreateSheetDialogOpen(true);
+  };
+
+  const handleSubmitCreateSheet = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInvoiceDoc || !sheetName.trim()) return;
+    
+    createSheetFromInvoiceMutation.mutate({
+      name: sheetName.trim(),
+      documentId: selectedInvoiceDoc.id
+    });
+  };
   
   // Archive/unarchive project mutation
   const archiveProjectMutation = useMutation({
@@ -415,12 +491,7 @@ export default function ProjectDetail() {
                 Назначить заказчика
               </Button>
               
-              <CreateImplementationSheetFromInvoice 
-                projectId={projectId}
-                onSheetCreated={() => {
-                  // Обновление при создании листа
-                }}
-              />
+
             </>
           )}
         </div>
@@ -714,6 +785,18 @@ export default function ProjectDetail() {
                       >
                         <Download size={16} />
                       </Button>
+                      {(user?.role === 'admin' || user?.role === 'director') && 
+                       doc.fileName.toLowerCase().startsWith('invoice') && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleCreateSheetFromInvoice(doc)}
+                          className="text-purple-600 hover:bg-purple-50"
+                          title="Создать лист реализации из инвойса"
+                        >
+                          <Upload size={16} />
+                        </Button>
+                      )}
                       {(user?.role === 'admin' || user?.role === 'director') && (
                         <Button 
                           variant="ghost" 
@@ -766,6 +849,110 @@ export default function ProjectDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create Implementation Sheet from Invoice Dialog */}
+      <Dialog open={isCreateSheetDialogOpen} onOpenChange={setIsCreateSheetDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Создать лист реализации из инвойса</DialogTitle>
+            <DialogDescription>
+              Автоматически создать лист реализации на основе загруженного инвойса "{selectedInvoiceDoc?.name}"
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Информация о процессе */}
+            <div className="border rounded-lg p-4">
+              <h4 className="text-lg font-semibold mb-3">Как это работает</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <Badge variant="outline" className="mt-0.5 text-xs">1</Badge>
+                  <span>Система автоматически извлечет таблицу из PDF, XLSX или CSV</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Badge variant="outline" className="mt-0.5 text-xs">2</Badge>
+                  <span>Создаст позиции с наименованием, количеством, ценой и суммой</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Badge variant="outline" className="mt-0.5 text-xs">3</Badge>
+                  <span>Лист реализации будет готов для работы</span>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmitCreateSheet} className="space-y-4">
+              {/* Название листа реализации */}
+              <div className="space-y-2">
+                <Label htmlFor="sheet-name">Название листа реализации</Label>
+                <Input
+                  id="sheet-name"
+                  value={sheetName}
+                  onChange={(e) => setSheetName(e.target.value)}
+                  placeholder="Введите название листа..."
+                  data-testid="input-sheet-name"
+                  required
+                />
+              </div>
+
+              {/* Поддерживаемые форматы */}
+              <Alert>
+                <CheckCircle className="w-4 h-4" />
+                <AlertDescription>
+                  <strong>Поддерживаемые форматы:</strong> PDF, XLSX, XLS, CSV
+                </AlertDescription>
+              </Alert>
+
+              {/* Результат парсинга (ошибки) */}
+              {parseResult && parseResult.error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription>
+                    <div className="space-y-1">
+                      <div className="font-medium">{parseResult.error}</div>
+                      {parseResult.details && (
+                        <ul className="list-disc list-inside text-sm space-y-1">
+                          {parseResult.details.map((detail: string, index: number) => (
+                            <li key={index}>{detail}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {parseResult.suggestColumnMapping && (
+                        <div className="mt-2 text-sm">
+                          <div className="font-medium">Рекомендации:</div>
+                          <ul className="list-disc list-inside space-y-1">
+                            <li>Проверьте, что файл содержит таблицу с данными</li>
+                            <li>Убедитесь, что есть колонки с наименованием работ</li>
+                            <li>Попробуйте другой формат файла (XLSX вместо PDF)</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Кнопки */}
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateSheetDialogOpen(false)}
+                  data-testid="button-cancel"
+                >
+                  Отмена
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createSheetFromInvoiceMutation.isPending || !selectedInvoiceDoc || !sheetName.trim()}
+                  data-testid="button-create-sheet"
+                >
+                  {createSheetFromInvoiceMutation.isPending ? "Создание..." : "Создать лист"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
