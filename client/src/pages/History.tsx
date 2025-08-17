@@ -102,12 +102,14 @@ function History() {
       'revenue': 'Доход',
       'advance': 'Аванс',
       'customer_advance': 'Аванс от заказчика',
+      'owner_investment': 'Инвестиция владельца',
       'document': 'Документ',
       'tool': 'Инструмент',
       'contractor': 'Подрядчик',
       'client': 'Заказчик',
       'user': 'Пользователь',
-      'implementation_item': 'Элемент реализации'
+      'implementation_item': 'Элемент реализации',
+      'photo': 'Фото/Видео'
     };
     return labels[entityType] || entityType;
   };

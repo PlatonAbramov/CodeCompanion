@@ -340,6 +340,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.session.user!.id
       });
       const expense = await storage.createExpense(expenseData);
+      
+      // Create audit log for expense creation
+      const user = req.session.user!;
+      await storage.createAuditLog({
+        entityType: 'expense',
+        entityId: expense.id,
+        action: 'create',
+        fieldName: 'amount',
+        oldValue: null,
+        newValue: expenseData.amount,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: expenseData.projectId
+      });
+      
       res.status(201).json(expense);
     } catch (error) {
       console.error("Create expense error:", error);
@@ -365,6 +381,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uploadedBy: req.session.user!.id
       });
       const document = await storage.createDocument(documentData);
+      
+      // Create audit log for document creation
+      const user = req.session.user!;
+      await storage.createAuditLog({
+        entityType: 'document',
+        entityId: document.id,
+        action: 'upload',
+        fieldName: 'name',
+        oldValue: null,
+        newValue: documentData.name,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: documentData.projectId
+      });
+      
       res.status(201).json(document);
     } catch (error) {
       console.error("Create document error:", error);
@@ -374,7 +406,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/documents/:id", requireAuth, async (req, res) => {
     try {
+      const document = await storage.getDocument(req.params.id);
       await storage.deleteDocument(req.params.id);
+      
+      // Create audit log for document deletion
+      const user = req.session.user!;
+      if (document) {
+        await storage.createAuditLog({
+          entityType: 'document',
+          entityId: req.params.id,
+          action: 'delete',
+          fieldName: 'name',
+          oldValue: document.name,
+          newValue: null,
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          projectId: document.projectId
+        });
+      }
+      
       res.json({ message: "Document deleted successfully" });
     } catch (error) {
       console.error("Delete document error:", error);
@@ -425,6 +476,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: req.session.user!.id
       });
       const customerAdvance = await storage.createCustomerAdvance(customerAdvanceData);
+      
+      // Create audit log for customer advance creation
+      const user = req.session.user!;
+      await storage.createAuditLog({
+        entityType: 'customer_advance',
+        entityId: customerAdvance.id,
+        action: 'create',
+        fieldName: 'amount',
+        oldValue: null,
+        newValue: customerAdvanceData.amount,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: customerAdvanceData.projectId
+      });
+      
       res.status(201).json(customerAdvance);
     } catch (error) {
       console.error("Create customer advance error:", error);
@@ -491,12 +558,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/customer-advances/:id", requireAuth, requireDirector, async (req, res) => {
     try {
+      const oldAdvance = await storage.getCustomerAdvance(req.params.id);
       const customerAdvanceData = {
         ...req.body,
         amount: req.body.amount.toString(),
         date: new Date(req.body.date)
       };
       const customerAdvance = await storage.updateCustomerAdvance(req.params.id, customerAdvanceData);
+      
+      // Create audit log for customer advance update
+      const user = req.session.user!;
+      if (oldAdvance && customerAdvanceData.amount !== oldAdvance.amount) {
+        await storage.createAuditLog({
+          entityType: 'customer_advance',
+          entityId: req.params.id,
+          action: 'update',
+          fieldName: 'amount',
+          oldValue: oldAdvance.amount,
+          newValue: customerAdvanceData.amount,
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          projectId: oldAdvance.projectId
+        });
+      }
+      
       res.json(customerAdvance);
     } catch (error) {
       console.error("Update customer advance error:", error);
@@ -531,7 +617,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/customer-advances/:id", requireAuth, requireDirector, async (req, res) => {
     try {
+      const oldAdvance = await storage.getCustomerAdvance(req.params.id);
       await storage.deleteCustomerAdvance(req.params.id);
+      
+      // Create audit log for customer advance deletion
+      const user = req.session.user!;
+      if (oldAdvance) {
+        await storage.createAuditLog({
+          entityType: 'customer_advance',
+          entityId: req.params.id,
+          action: 'delete',
+          fieldName: 'amount',
+          oldValue: oldAdvance.amount,
+          newValue: null,
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          projectId: oldAdvance.projectId
+        });
+      }
+      
       res.json({ message: "Customer advance deleted successfully" });
     } catch (error) {
       console.error("Delete customer advance error:", error);
@@ -605,6 +710,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const ownerInvestment = await storage.createOwnerInvestment(validatedData);
+      
+      // Create audit log for owner investment creation
+      const user = req.session.user!;
+      await storage.createAuditLog({
+        entityType: 'owner_investment',
+        entityId: ownerInvestment.id,
+        action: 'create',
+        fieldName: 'amount',
+        oldValue: null,
+        newValue: validatedData.amount,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: req.params.projectId
+      });
+      
       res.status(201).json(ownerInvestment);
     } catch (error) {
       console.error("Error creating owner investment:", error);
@@ -614,8 +735,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/owner-investments/:id", requireAuth, async (req, res) => {
     try {
+      const oldInvestment = await storage.getOwnerInvestment(req.params.id);
       const validatedData = insertOwnerInvestmentSchema.partial().parse(req.body);
       const ownerInvestment = await storage.updateOwnerInvestment(req.params.id, validatedData);
+      
+      // Create audit log for owner investment update
+      const user = req.session.user!;
+      if (validatedData.amount && oldInvestment) {
+        await storage.createAuditLog({
+          entityType: 'owner_investment',
+          entityId: req.params.id,
+          action: 'update',
+          fieldName: 'amount',
+          oldValue: oldInvestment.amount,
+          newValue: validatedData.amount,
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          projectId: oldInvestment.projectId
+        });
+      }
+      
       res.json(ownerInvestment);
     } catch (error) {
       console.error("Error updating owner investment:", error);
@@ -625,7 +765,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/owner-investments/:id", requireAuth, async (req, res) => {
     try {
+      const oldInvestment = await storage.getOwnerInvestment(req.params.id);
       await storage.deleteOwnerInvestment(req.params.id);
+      
+      // Create audit log for owner investment deletion
+      const user = req.session.user!;
+      if (oldInvestment) {
+        await storage.createAuditLog({
+          entityType: 'owner_investment',
+          entityId: req.params.id,
+          action: 'delete',
+          fieldName: 'amount',
+          oldValue: oldInvestment.amount,
+          newValue: null,
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          projectId: oldInvestment.projectId
+        });
+      }
+      
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting owner investment:", error);
@@ -1874,6 +2033,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uploadedBy: req.session.user!.id
       });
       
+      // Create audit log for photo upload
+      const user = req.session.user!;
+      const item = await storage.getImplementationItem(itemId);
+      if (item) {
+        const sheet = await storage.getImplementationSheet(item.sheetId);
+        if (sheet) {
+          await storage.createAuditLog({
+            entityType: 'photo',
+            entityId: photo.id,
+            action: 'upload',
+            fieldName: 'url',
+            oldValue: null,
+            newValue: photo.photoUrl,
+            userId: user.id,
+            userName: user.name,
+            userRole: user.role,
+            projectId: sheet.projectId
+          });
+        }
+      }
+      
       res.json(photo);
     } catch (error) {
       console.error("Failed to create implementation photo:", error);
@@ -1891,7 +2071,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Только администраторы и директора могут удалять фотографии" });
       }
       
+      // Get photo info before deletion for audit log
+      const photo = await storage.getImplementationPhoto(photoId);
       await storage.deleteImplementationPhoto(photoId, req.session.user!.id);
+      
+      // Create audit log for photo deletion
+      const user = req.session.user!;
+      if (photo) {
+        const item = await storage.getImplementationItem(photo.itemId);
+        if (item) {
+          const sheet = await storage.getImplementationSheet(item.sheetId);
+          if (sheet) {
+            await storage.createAuditLog({
+              entityType: 'photo',
+              entityId: photoId,
+              action: 'delete',
+              fieldName: 'url',
+              oldValue: photo.photoUrl,
+              newValue: null,
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              projectId: sheet.projectId
+            });
+          }
+        }
+      }
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete implementation photo:", error);

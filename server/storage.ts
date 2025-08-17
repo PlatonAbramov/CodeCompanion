@@ -241,6 +241,7 @@ export interface IStorage {
   
   // Implementation photos
   getImplementationPhotos(itemId: string): Promise<ImplementationPhoto[]>;
+  getImplementationPhoto(id: string): Promise<ImplementationPhoto | undefined>;
   createImplementationPhoto(data: InsertImplementationPhoto): Promise<ImplementationPhoto>;
   deleteImplementationPhoto(id: string, userId: string): Promise<void>;
   
@@ -1996,6 +1997,14 @@ export class DatabaseStorage implements IStorage {
       .from(implementationPhotos)
       .where(eq(implementationPhotos.itemId, itemId))
       .orderBy(desc(implementationPhotos.uploadedAt));
+  }
+
+  async getImplementationPhoto(id: string): Promise<ImplementationPhoto | undefined> {
+    const [photo] = await db
+      .select()
+      .from(implementationPhotos)
+      .where(eq(implementationPhotos.id, id));
+    return photo || undefined;
   }
 
   async createImplementationPhoto(data: InsertImplementationPhoto): Promise<ImplementationPhoto> {
