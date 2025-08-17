@@ -90,7 +90,7 @@ function AuthenticatedApp() {
     <Switch>
       <Route path="/director" component={(user.role === 'admin' || user.role === 'director') ? DirectorDashboard : NotFound} />
       <Route path="/master" component={user.role === 'master' ? MasterDashboard : NotFound} />
-      <Route path="/project/:id" component={ProjectDetail} />
+      <Route path="/projects/:id" component={ProjectDetail} />
       <Route path="/add-expense" component={AddExpense} />
       <Route path="/add-advance/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddAdvance : NotFound} />
       <Route path="/add-customer-advance/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddCustomerAdvance : NotFound} />
@@ -111,7 +111,7 @@ function AuthenticatedApp() {
       <Route path="/contractors" component={(user.role === 'admin' || user.role === 'director') ? Contractors : NotFound} />
       <Route path="/contractor/:id" component={(user.role === 'admin' || user.role === 'director') ? ContractorDetail : NotFound} />
       <Route path="/contractor/:contractorId/project/:assignmentId" component={(user.role === 'admin' || user.role === 'director') ? EditContractorProject : NotFound} />
-      <Route path="/clients" component={(user.role === 'admin' || user.role === 'director') ? Clients : NotFound} />
+      <Route path="/clients" component={(user.role === 'admin' || user.role === 'director' || user.role === 'client') ? Clients : NotFound} />
       <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
       <Route path="/tools" component={(user.role === 'admin' || user.role === 'director') ? Tools : NotFound} />
       <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />
