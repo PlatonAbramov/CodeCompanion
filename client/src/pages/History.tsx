@@ -99,7 +99,9 @@ function History() {
     const labels: Record<string, string> = {
       'project': 'Проект',
       'expense': 'Расход',
+      'revenue': 'Доход',
       'advance': 'Аванс',
+      'customer_advance': 'Аванс от заказчика',
       'document': 'Документ',
       'tool': 'Инструмент',
       'contractor': 'Подрядчик',
@@ -147,13 +149,15 @@ function History() {
             {/* Entity Type Filter */}
             <Select value={entityTypeFilter} onValueChange={setEntityTypeFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Все типы объектов" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Все типы</SelectItem>
                 <SelectItem value="project">Проекты</SelectItem>
                 <SelectItem value="expense">Расходы</SelectItem>
+                <SelectItem value="revenue">Доходы</SelectItem>
                 <SelectItem value="advance">Авансы</SelectItem>
+                <SelectItem value="customer_advance">Авансы от заказчиков</SelectItem>
                 <SelectItem value="document">Документы</SelectItem>
                 <SelectItem value="implementation_item">Элементы реализации</SelectItem>
                 <SelectItem value="contractor">Подрядчики</SelectItem>
@@ -164,7 +168,7 @@ function History() {
             {/* User Filter */}
             <Select value={userFilter} onValueChange={setUserFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Все пользователи" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Все пользователи</SelectItem>
