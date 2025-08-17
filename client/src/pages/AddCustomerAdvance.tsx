@@ -87,7 +87,7 @@ export default function AddCustomerAdvance() {
 
   const goBack = () => {
     if (projectId) {
-      setLocation(`/project/${projectId}`);
+      setLocation(`/projects/${projectId}`);
     } else if (user?.role === 'admin' || user?.role === 'director') {
       setLocation('/director');
     } else {

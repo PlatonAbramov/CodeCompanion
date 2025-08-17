@@ -44,7 +44,7 @@ export default function ExpensesList() {
   });
 
   const goBack = () => {
-    setLocation(`/project/${projectId}`);
+    setLocation(`/projects/${projectId}`);
   };
 
   const formatCurrency = (amount: string) => {

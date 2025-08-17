@@ -157,7 +157,7 @@ export default function OwnerInvestmentsList() {
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={() => setLocation(`/project/${projectId}`)}
+              onClick={() => setLocation(`/projects/${projectId}`)}
               className="mr-3"
             >
               <ArrowLeft size={20} />

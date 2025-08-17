@@ -66,9 +66,9 @@ export default function AddRevenue() {
   const goBack = () => {
     // If we have a projectId, go back to that project's detail page
     if (projectIdFromUrl) {
-      setLocation(`/project/${projectIdFromUrl}`);
+      setLocation(`/projects/${projectIdFromUrl}`);
     } else if (formData.projectId) {
-      setLocation(`/project/${formData.projectId}`);
+      setLocation(`/projects/${formData.projectId}`);
     } else if (user?.role === 'admin' || user?.role === 'director') {
       setLocation('/director');
     } else {

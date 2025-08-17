@@ -666,7 +666,7 @@ export default function DirectorDashboard() {
               <ProjectCard 
                 key={project.id} 
                 project={project} 
-                onClick={() => setLocation(`/project/${project.id}`)}
+                onClick={() => setLocation(`/projects/${project.id}`)}
                 onEdit={openEditModal}
                 isExpanded={expandedProjects.has(project.id)}
                 onToggleExpand={() => toggleProjectExpansion(project.id)}

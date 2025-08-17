@@ -74,7 +74,7 @@ export default function AdvancesList() {
   });
 
   const goBack = () => {
-    setLocation(`/project/${projectId}`);
+    setLocation(`/projects/${projectId}`);
   };
 
   const formatCurrency = (amount: string) => {

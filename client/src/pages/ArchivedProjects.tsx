@@ -73,7 +73,7 @@ function ProjectCard({
         <div className="flex items-center justify-between mb-3">
           <h3 
             className="font-semibold text-lg text-slate-900 cursor-pointer hover:text-primary"
-            onClick={() => setLocation(`/project/${project.id}`)}
+            onClick={() => setLocation(`/projects/${project.id}`)}
           >
             {project.name}
           </h3>
