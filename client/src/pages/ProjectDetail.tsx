@@ -147,6 +147,7 @@ export default function ProjectDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'documents'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
       toast({
         title: t('success') || 'Success',
         description: t('documentsUploaded') || 'Documents uploaded successfully',
@@ -293,6 +294,7 @@ export default function ProjectDetail() {
       setSelectedInvoiceDoc(null);
       setParseResult(null);
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/implementation-sheets`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
     },
     onError: (error: any) => {
       console.error("Parse error:", error);

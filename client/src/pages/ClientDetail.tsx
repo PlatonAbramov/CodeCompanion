@@ -149,6 +149,7 @@ export default function ClientDetailPage() {
       console.log("Invalidating queries and closing dialog...");
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
       setIsProjectDialogOpen(false);
       projectForm.reset();
       toast({ title: "Проект назначен успешно" });
@@ -202,6 +203,7 @@ export default function ClientDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
       setIsEditProjectDialogOpen(false);
       setEditingProject(null);
       editProjectForm.reset();
@@ -249,6 +251,7 @@ export default function ClientDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
       toast({ title: "Проект отвязан успешно" });
     },
     onError: () => {

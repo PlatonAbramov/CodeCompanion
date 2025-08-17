@@ -177,6 +177,7 @@ export default function ImplementationSheetView() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/implementation-items/${selectedItem?.id}/photos`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
       toast({
         title: language === 'ru' ? "Фото добавлено" : "Photo added",
       });

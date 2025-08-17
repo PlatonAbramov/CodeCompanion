@@ -49,6 +49,7 @@ export default function ImplementationSheets() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/implementation-sheets`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
       toast({
         title: language === 'ru' ? "Лист реализации создан" : "Implementation sheet created",
       });
