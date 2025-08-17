@@ -1968,15 +1968,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check user access to project
-      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
+      const user = req.session.user!;
+      const isAdminOrDirector = user.role === 'admin' || user.role === 'director';
+      
       if (!isAdminOrDirector) {
-        const userProject = await storage.getUserProject(req.session.user!.id, sheet.projectId);
-        if (!userProject) {
+        const userProjects = await storage.getUserProjects(user.id);
+        const hasAccess = userProjects.some(p => p.id === sheet.projectId);
+        
+        if (!hasAccess) {
           return res.status(403).json({ error: "Доступ запрещен" });
         }
       }
       
       const items = await storage.getImplementationItems(sheetId);
+      
+      // For clients, filter to show only visible items and photos
+      if (user.role === 'client') {
+        const visibleItems = await Promise.all(items.map(async (item) => {
+          if (!item.visibleToClient) return null;
+          
+          const photos = await storage.getImplementationPhotos(item.id);
+          const visiblePhotos = photos.filter(photo => photo.visibleToClient);
+          
+          return { ...item, photos: visiblePhotos };
+        }));
+        
+        const filteredItems = visibleItems.filter(item => item !== null);
+        return res.json({ ...sheet, items: filteredItems });
+      }
+      
       res.json({ ...sheet, items });
     } catch (error) {
       console.error("Failed to get implementation sheet:", error);

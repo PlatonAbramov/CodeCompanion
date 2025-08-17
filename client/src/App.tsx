@@ -61,8 +61,7 @@ function AuthenticatedApp() {
     }
 
     // User is authenticated - redirect from root/login/invalid pages
-    if (location === '/' || (location === '/login' && user) || 
-        (user.role === 'client' && location !== '/client-projects' && !location.startsWith('/projects/'))) {
+    if (location === '/' || (location === '/login' && user)) {
       if (user.role === 'admin' || user.role === 'director') {
         setLocation('/director');
       } else if (user.role === 'master') {
@@ -71,6 +70,17 @@ function AuthenticatedApp() {
         console.log('Redirecting client from', location, 'to /client-projects');
         setLocation('/client-projects');
       }
+    }
+    
+    // For clients, allow access to implementation sheets and projects only
+    if (user?.role === 'client' && 
+        !location.startsWith('/client-projects') && 
+        !location.startsWith('/projects/') && 
+        !location.startsWith('/implementation-sheets/') &&
+        location !== '/' && 
+        location !== '/login') {
+      console.log('Redirecting client from', location, 'to /client-projects');
+      setLocation('/client-projects');
     }
   }, [user, isLoading, location, setLocation]);
 
