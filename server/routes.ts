@@ -213,6 +213,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/users", requireAuth, requireDirector, async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
+      
+      // Hash the password before storing
+      if (userData.password) {
+        userData.password = await bcrypt.hash(userData.password, 10);
+      }
+      
       const user = await storage.createUser(userData);
       
       // Invalidate users cache
