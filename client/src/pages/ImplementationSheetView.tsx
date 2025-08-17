@@ -361,19 +361,29 @@ export default function ImplementationSheetView() {
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 {/* Статус завершения */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="flex-shrink-0 h-8 w-8"
-                  onClick={() => handleToggleComplete(item)}
-                  data-testid={`button-toggle-${item.id}`}
-                >
-                  {item.isCompleted ? (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <Circle className="h-5 w-5" />
-                  )}
-                </Button>
+                {isAdminOrDirector ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="flex-shrink-0 h-8 w-8"
+                    onClick={() => handleToggleComplete(item)}
+                    data-testid={`button-toggle-${item.id}`}
+                  >
+                    {item.isCompleted ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <Circle className="h-5 w-5" />
+                    )}
+                  </Button>
+                ) : (
+                  <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center">
+                    {item.isCompleted ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <Circle className="h-5 w-5 text-gray-400" />
+                    )}
+                  </div>
+                )}
 
                 <div className="flex-1 min-w-0">
                   {/* Название и стоимость в одной строке */}
