@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, decimal, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, decimal, boolean, jsonb, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -175,6 +175,16 @@ export const clientPayments = pgTable("client_payments", {
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const clientEmployees = pgTable("client_employees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => clients.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(), // сотрудник с ролью client
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  assignedBy: varchar("assigned_by").references(() => users.id).notNull(),
+}, (table) => ({
+  uniqueClientUser: unique().on(table.clientId, table.userId),
+}));
 
 export const tools = pgTable("tools", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -611,6 +621,11 @@ export const insertClientPaymentSchema = createInsertSchema(clientPayments).omit
   ]),
 });
 
+export const insertClientEmployeeSchema = createInsertSchema(clientEmployees).omit({
+  id: true,
+  assignedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -640,6 +655,9 @@ export type ClientProject = typeof clientProjects.$inferSelect;
 export type InsertClientProject = z.infer<typeof insertClientProjectSchema>;
 export type ClientPayment = typeof clientPayments.$inferSelect;
 export type InsertClientPayment = z.infer<typeof insertClientPaymentSchema>;
+
+export type ClientEmployee = typeof clientEmployees.$inferSelect;
+export type InsertClientEmployee = z.infer<typeof insertClientEmployeeSchema>;
 
 // Tool schemas
 export const insertToolSchema = createInsertSchema(tools).omit({

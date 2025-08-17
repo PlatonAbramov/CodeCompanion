@@ -1,6 +1,6 @@
 import { 
   users, projects, expenses, documents, advances, customerAdvances, userProjects, revenues, ownerInvestments,
-  contractors, contractorProjects, clients, clientProjects, clientPayments,
+  contractors, contractorProjects, clients, clientProjects, clientPayments, clientEmployees,
   tools, toolMovements, toolPersons, userSessions, loginAttempts, adminActions,
   implementationSheets, implementationItems, implementationPhotos, implementationChangeLogs,
   auditLogs, emailNotifications,
@@ -11,7 +11,7 @@ import {
   type OwnerInvestment, type InsertOwnerInvestment,
   type Contractor, type InsertContractor, type ContractorProject, type InsertContractorProject,
   type Client, type InsertClient, type ClientProject, type InsertClientProject,
-  type ClientPayment, type InsertClientPayment,
+  type ClientPayment, type InsertClientPayment, type ClientEmployee, type InsertClientEmployee,
   type Tool, type InsertTool, type ToolMovement, type InsertToolMovement,
   type ToolPerson, type InsertToolPerson,
   type UserSession, type InsertUserSession, type LoginAttempt, type InsertLoginAttempt,
@@ -1629,68 +1629,61 @@ export class DatabaseStorage implements IStorage {
 
   // Client Employees implementation
   async getClientEmployees(clientId: string): Promise<User[]> {
-    // Find all users with role 'client' who are assigned to this client via the userId field
+    // Find all users assigned to this client through the clientEmployees table
     const employees = await db
-      .select()
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        name: users.name,
+        role: users.role,
+        isActive: users.isActive,
+        isBlocked: users.isBlocked,
+        tempPassword: users.tempPassword,
+        mustChangePassword: users.mustChangePassword,
+        createdAt: users.createdAt,
+        lastLogin: users.lastLogin,
+        createdBy: users.createdBy,
+        password: users.password,
+      })
       .from(users)
-      .where(and(
-        eq(users.role, 'client'),
-        sql`EXISTS (SELECT 1 FROM ${clients} WHERE ${clients.id} = ${clientId} AND ${clients.userId} = ${users.id})`
-      ));
+      .innerJoin(clientEmployees, eq(users.id, clientEmployees.userId))
+      .where(eq(clientEmployees.clientId, clientId));
     
     return employees;
   }
 
   async assignEmployeesToClient(clientId: string, employeeIds: string[]): Promise<void> {
-    // For each employee, create or update a client record linking them to this client
-    // This means we're creating a many-to-many relationship through multiple client records
+    // Batch insert new client-employee relationships, avoiding duplicates
+    const existingAssignments = await db
+      .select()
+      .from(clientEmployees)
+      .where(and(
+        eq(clientEmployees.clientId, clientId),
+        inArray(clientEmployees.userId, employeeIds)
+      ));
     
-    for (const employeeId of employeeIds) {
-      // Check if this user is already assigned to any client
-      const existingClientAssignments = await db
-        .select()
-        .from(clients)
-        .where(eq(clients.userId, employeeId));
+    const existingUserIds = existingAssignments.map(a => a.userId);
+    const newEmployeeIds = employeeIds.filter(id => !existingUserIds.includes(id));
+    
+    if (newEmployeeIds.length > 0) {
+      const insertData = newEmployeeIds.map(userId => ({
+        clientId,
+        userId,
+        assignedBy: 'admin' // Default to admin for now
+      }));
       
-      if (existingClientAssignments.length === 0) {
-        // Get the main client data to create a new client record for this employee
-        const [mainClient] = await db
-          .select()
-          .from(clients)
-          .where(eq(clients.id, clientId));
-        
-        if (mainClient) {
-          // Create a new client record for this employee with similar data
-          await db.insert(clients).values({
-            name: `${mainClient.name} - Employee Assignment`,
-            company: mainClient.company,
-            contactPerson: mainClient.contactPerson,
-            phone: mainClient.phone,
-            email: mainClient.email,
-            address: mainClient.address,
-            isActive: true,
-            userId: employeeId,
-            createdBy: mainClient.createdBy
-          });
-        }
-      } else {
-        // Update existing client assignment to point to the new client
-        await db
-          .update(clients)
-          .set({ userId: employeeId })
-          .where(eq(clients.id, clientId));
-      }
+      await db.insert(clientEmployees).values(insertData);
     }
   }
 
   async removeEmployeeFromClient(clientId: string, userId: string): Promise<void> {
-    // Remove the userId link from the client record
+    // Remove the client-employee relationship
     await db
-      .update(clients)
-      .set({ userId: null })
+      .delete(clientEmployees)
       .where(and(
-        eq(clients.id, clientId),
-        eq(clients.userId, userId)
+        eq(clientEmployees.clientId, clientId),
+        eq(clientEmployees.userId, userId)
       ));
   }
 
