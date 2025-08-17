@@ -9,9 +9,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertClientSchema, type Client, type InsertClient } from "@shared/schema";
+import { insertClientSchema, type Client, type InsertClient, type User } from "@shared/schema";
 import { Link, useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -55,6 +56,16 @@ export default function ClientsPage() {
     enabled: !isClientUser,
   });
 
+  // Get all users with role 'client' for selection
+  const { data: clientUsers = [] } = useQuery<User[]>({
+    queryKey: ["/api/users", "client"],
+    queryFn: async () => {
+      const response = await apiRequest("/api/users?role=client", { method: "GET" });
+      return response.json();
+    },
+    enabled: !isClientUser,
+  });
+
   const form = useForm<InsertClient>({
     resolver: zodResolver(insertClientSchema),
     defaultValues: {
@@ -64,6 +75,7 @@ export default function ClientsPage() {
       email: "",
       address: "",
       contactPerson: "",
+      userId: undefined,
       isActive: true,
     },
   });
@@ -149,6 +161,7 @@ export default function ClientsPage() {
       email: client.email || "",
       address: client.address || "",
       contactPerson: client.contactPerson || "",
+      userId: client.userId || undefined,
       isActive: client.isActive,
     });
     setIsDialogOpen(true);
@@ -419,6 +432,31 @@ export default function ClientsPage() {
                       <FormControl>
                         <Input placeholder="Имя контактного лица" {...field} value={field.value || ""} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="userId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Связанный пользователь</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Выберите пользователя с правами заказчика" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">Не назначен</SelectItem>
+                          {clientUsers.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.name} ({user.username})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

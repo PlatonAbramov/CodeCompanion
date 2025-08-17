@@ -143,6 +143,7 @@ export const clients = pgTable("clients", {
   email: text("email"),
   address: text("address"),
   contactPerson: text("contact_person"), // Контактное лицо
+  userId: varchar("user_id").references(() => users.id), // Связанный пользователь с ролью client
   documentUrls: jsonb("document_urls").default("[]"), // Массив URL документов
   isActive: boolean("is_active").default(true),
   createdBy: varchar("created_by").references(() => users.id),

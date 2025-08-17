@@ -177,6 +177,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User management routes (Director only)
   app.get("/api/users", requireAuth, requireDirector, async (req, res) => {
     try {
+      const { role } = req.query;
+      
+      if (role) {
+        // Get users by specific role
+        const users = await storage.getAllUsers();
+        const filteredUsers = users.filter(user => user.role === role);
+        // Remove passwords from response
+        const safeUsers = filteredUsers.map(({ password, ...user }) => user);
+        return res.json(safeUsers);
+      }
+      
       const cacheKey = cacheKeys.users();
       
       // Try cache first (60 seconds)
@@ -1275,17 +1286,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/my-client-projects", requireAuth, async (req, res) => {
     try {
       const userRole = req.session.user?.role;
+      const userId = req.session.user?.id;
       
       if (userRole !== 'client') {
         return res.status(403).json({ error: "Access denied - only for client users" });
       }
       
-      // Find client record matching the logged-in user
+      // First try to find client record linked to this user via userId field
       const allClients = await storage.getAllClients();
-      const userClient = allClients.find(client => 
-        client.name === req.session.user?.name || 
-        client.name === req.session.user?.username
-      );
+      let userClient = allClients.find(client => client.userId === userId);
+      
+      // Fallback to old method if no direct userId link found
+      if (!userClient) {
+        userClient = allClients.find(client => 
+          client.name === req.session.user?.name || 
+          client.name === req.session.user?.username
+        );
+      }
       
       if (!userClient) {
         return res.json([]); // No projects if user is not linked to a client
@@ -1353,6 +1370,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       const client = await storage.createClient(clientData);
       
+      // If a user is linked to this client, automatically assign all client projects to the user
+      if (clientData.userId) {
+        try {
+          const clientProjects = await storage.getClientProjects(client.id);
+          for (const project of clientProjects) {
+            // Check if user-project relation already exists
+            const existingUserProjects = await storage.getUserProjects(clientData.userId);
+            const hasProject = existingUserProjects.some(up => up.id === project.projectId);
+            
+            if (!hasProject) {
+              // Create user-project relation
+              await storage.assignUserToProject({
+                userId: clientData.userId,
+                projectId: project.projectId
+              });
+            }
+          }
+        } catch (assignError) {
+          console.error("Failed to auto-assign projects to user:", assignError);
+          // Don't fail the client creation if project assignment fails
+        }
+      }
+      
       // Invalidate cache
       invalidateClientCache();
       
@@ -1366,6 +1406,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/clients/:id", requireAuth, async (req, res) => {
     try {
       const client = await storage.updateClient(req.params.id, req.body);
+      
+      // If a new user is linked to this client, automatically assign all client projects to the user
+      if (req.body.userId) {
+        try {
+          const clientProjects = await storage.getClientProjects(req.params.id);
+          for (const project of clientProjects) {
+            // Check if user-project relation already exists
+            const existingUserProjects = await storage.getUserProjects(req.body.userId);
+            const hasProject = existingUserProjects.some(up => up.id === project.projectId);
+            
+            if (!hasProject) {
+              // Create user-project relation
+              await storage.assignUserToProject({
+                userId: req.body.userId,
+                projectId: project.projectId
+              });
+            }
+          }
+        } catch (assignError) {
+          console.error("Failed to auto-assign projects to user:", assignError);
+          // Don't fail the client update if project assignment fails
+        }
+      }
+      
       res.json(client);
     } catch (error) {
       console.error("Failed to update client:", error);
