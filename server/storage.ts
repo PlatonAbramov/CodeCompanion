@@ -2030,10 +2030,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteImplementationItem(id: string): Promise<void> {
+    // Get item to get sheet ID for progress update
+    const [item] = await db.select().from(implementationItems).where(eq(implementationItems.id, id));
+    
     // Delete related data first
     await db.delete(implementationPhotos).where(eq(implementationPhotos.itemId, id));
     await db.delete(implementationChangeLogs).where(eq(implementationChangeLogs.itemId, id));
     await db.delete(implementationItems).where(eq(implementationItems.id, id));
+    
+    // Update sheet total progress if item existed
+    if (item) {
+      await this.updateSheetProgress(item.sheetId);
+    }
   }
 
   // Implementation photos
@@ -2258,14 +2266,23 @@ export class DatabaseStorage implements IStorage {
       totalPayments = Number(paymentsData[0]?.total || 0);
     }
     
-    // Get average progress from implementation sheets
+    // Get average progress from implementation sheets (average across ALL projects)
     let averageProgress = 0;
     if (projectIds.length > 0) {
+      // Calculate progress for each project (0 if no implementation sheet exists)
       const progressData = await db
-        .select({ avg: sql`COALESCE(AVG(${implementationSheets.totalProgress}), 0)` })
-        .from(implementationSheets)
-        .where(inArray(implementationSheets.projectId, projectIds));
-      averageProgress = Number(progressData[0]?.avg || 0);
+        .select({ 
+          projectId: projects.id,
+          avgProgress: sql`COALESCE(AVG(${implementationSheets.totalProgress}), 0)`
+        })
+        .from(projects)
+        .leftJoin(implementationSheets, eq(projects.id, implementationSheets.projectId))
+        .where(inArray(projects.id, projectIds))
+        .groupBy(projects.id);
+      
+      // Calculate overall average including projects with 0% progress
+      const totalProgress = progressData.reduce((sum, p) => sum + Number(p.avgProgress), 0);
+      averageProgress = totalProgress / progressData.length;
     }
     
     return {
