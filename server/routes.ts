@@ -20,7 +20,7 @@ import {
   insertClientPaymentSchema, insertToolSchema, insertToolMovementSchema,
   createUserSchema,
   type InsertContractorProject, type InsertClientProject, type InsertClientPayment,
-  type InsertTool, type InsertToolMovement, type CreateUser
+  type InsertTool, type InsertToolMovement, type CreateUser, type ClientEmployee
 } from "@shared/schema";
 
 // Extend session data type
@@ -1298,23 +1298,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied - only for client users" });
       }
       
-      // First try to find client record linked to this user via userId field
-      const allClients = await storage.getAllClients();
-      let userClient = allClients.find(client => client.userId === userId);
+      // Find client through client_employees table
+      const clientEmployee = await storage.getClientEmployeeByUserId(userId!);
       
-      // Fallback to old method if no direct userId link found
-      if (!userClient) {
-        userClient = allClients.find(client => 
-          client.name === req.session.user?.name || 
-          client.name === req.session.user?.username
-        );
-      }
-      
-      if (!userClient) {
+      if (!clientEmployee) {
         return res.json([]); // No projects if user is not linked to a client
       }
       
-      const projects = await storage.getClientProjects(userClient.id);
+      const projects = await storage.getClientProjects(clientEmployee.clientId);
       res.json(projects);
     } catch (error) {
       console.error("Failed to get user's client projects:", error);
@@ -1851,7 +1842,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const user = await storage.createUser({
         username: validatedData.username,
-        email: validatedData.email || null,
         name: validatedData.name,
         password: hashedPassword,
         role: validatedData.role,

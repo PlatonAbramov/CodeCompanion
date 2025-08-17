@@ -1679,6 +1679,16 @@ export class DatabaseStorage implements IStorage {
     return employees;
   }
 
+  async getClientEmployeeByUserId(userId: string): Promise<ClientEmployee | undefined> {
+    // Find the client employee relationship for a specific user
+    const [clientEmployee] = await db
+      .select()
+      .from(clientEmployees)
+      .where(eq(clientEmployees.userId, userId));
+    
+    return clientEmployee;
+  }
+
   async assignEmployeesToClient(clientId: string, employeeIds: string[], assignedBy: string): Promise<void> {
     // Batch insert new client-employee relationships, avoiding duplicates
     const existingAssignments = await db
