@@ -471,10 +471,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ error: "Access denied to this project" });
         }
         
-        // For clients, only return visible documents
+        // For clients, return ALL documents (they can view but not edit/delete)
         const documents = await storage.getProjectDocuments(projectId);
-        const visibleDocuments = documents.filter(doc => doc.visibleToClient);
-        return res.json(visibleDocuments);
+        return res.json(documents);
       }
       
       const documents = await storage.getProjectDocuments(projectId);
@@ -2280,13 +2279,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userProjects = await storage.getUserProjects(user.id);
         const hasAccess = userProjects.some(p => p.id === sheet.projectId);
         
-        if (!hasAccess || !item.visibleToClient) {
+        if (!hasAccess) {
           return res.status(403).json({ error: "Access denied" });
         }
         
+        // For clients, return ALL photos (they can view but not edit/delete)
         const photos = await storage.getImplementationPhotos(itemId);
-        const visiblePhotos = photos.filter(photo => photo.visibleToClient);
-        return res.json(visiblePhotos);
+        return res.json(photos);
       }
       
       const photos = await storage.getImplementationPhotos(itemId);
