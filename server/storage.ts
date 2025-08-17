@@ -360,9 +360,31 @@ export class DatabaseStorage implements IStorage {
     await db.delete(userProjects).where(eq(userProjects.userId, id));
     await db.delete(userSessions).where(eq(userSessions.userId, id));
     await db.delete(loginAttempts).where(eq(loginAttempts.userId, id));
+    await db.delete(clientEmployees).where(eq(clientEmployees.userId, id));
     
     // Удаляем админ-действия где этот пользователь был целью
     await db.delete(adminActions).where(eq(adminActions.targetUserId, id));
+    
+    // Обновляем createdBy в связанных таблицах на null где это разрешено схемой
+    await db.update(projects).set({ createdBy: null }).where(eq(projects.createdBy, id));
+    await db.update(clientProjects).set({ createdBy: null }).where(eq(clientProjects.createdBy, id));
+    // Удаляем документы пользователя (не можем обновить uploadedBy на null, так как это обязательное поле)
+    await db.delete(documents).where(eq(documents.uploadedBy, id));
+    await db.update(advances).set({ createdBy: null }).where(eq(advances.createdBy, id));
+    await db.update(customerAdvances).set({ createdBy: null }).where(eq(customerAdvances.createdBy, id));
+    await db.update(revenues).set({ createdBy: null }).where(eq(revenues.createdBy, id));
+    await db.update(ownerInvestments).set({ createdBy: null }).where(eq(ownerInvestments.createdBy, id));
+    await db.update(contractors).set({ createdBy: null }).where(eq(contractors.createdBy, id));
+    await db.update(clients).set({ createdBy: null }).where(eq(clients.createdBy, id));
+    await db.update(clientPayments).set({ createdBy: null }).where(eq(clientPayments.createdBy, id));
+    await db.update(tools).set({ createdBy: null }).where(eq(tools.createdBy, id));
+    await db.update(toolMovements).set({ createdBy: null }).where(eq(toolMovements.createdBy, id));
+    await db.update(implementationSheets).set({ createdBy: null }).where(eq(implementationSheets.createdBy, id));
+    await db.update(implementationItems).set({ lastUpdatedBy: null }).where(eq(implementationItems.lastUpdatedBy, id));
+    await db.update(implementationChangeLogs).set({ changedBy: null }).where(eq(implementationChangeLogs.changedBy, id));
+    
+    // Удаляем расходы пользователя (не можем обновить userId на null, так как это обязательное поле)
+    await db.delete(expenses).where(eq(expenses.userId, id));
     
     // Удаляем самого пользователя
     await db.delete(users).where(eq(users.id, id));
