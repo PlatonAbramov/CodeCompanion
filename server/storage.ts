@@ -389,6 +389,9 @@ export class DatabaseStorage implements IStorage {
     await db.update(expenses).set({ userId: null }).where(eq(expenses.userId, id));
     await db.update(documents).set({ uploadedBy: null }).where(eq(documents.uploadedBy, id));
     
+    // Обнуляем ссылку на пользователя в clients (если он был контактным лицом)
+    await db.update(clients).set({ userId: null }).where(eq(clients.userId, id));
+    
     // Удаляем самого пользователя
     await db.delete(users).where(eq(users.id, id));
   }
