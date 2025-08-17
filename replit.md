@@ -33,6 +33,7 @@ Preferred communication style: Simple, everyday language.
 - **Role-Based Access Control**: Four tiers (Admin, Director, Master, Client) with specific permissions enforced via middleware.
 - **User Creation**: Admin-only user creation; no public registration.
 - **Password Security**: Bcrypt hashing.
+- **Client User Permissions**: Client users have standardized read-only access to assigned projects, implementation sheets, and photos, but cannot edit content or change completion status.
 
 ## File Management
 - **Upload System**: Uppy integrated with Google Cloud Storage for receipts, documents, and implementation sheet photos/videos.
