@@ -811,7 +811,7 @@ export const auditLogs = pgTable("audit_logs", {
   fieldName: text("field_name"), // Название поля, которое изменилось
   oldValue: text("old_value"), // Старое значение
   newValue: text("new_value"), // Новое значение
-  userId: varchar("user_id").references(() => users.id).notNull(), // Кто сделал изменение
+  userId: varchar("user_id").references(() => users.id), // Кто сделал изменение (может быть null если пользователь удален)
   userName: text("user_name").notNull(), // Имя пользователя для быстрого отображения
   userRole: text("user_role").notNull(), // Роль пользователя
   projectId: varchar("project_id").references(() => projects.id), // Привязка к проекту

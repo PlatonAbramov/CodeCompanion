@@ -365,6 +365,9 @@ export class DatabaseStorage implements IStorage {
     // Удаляем админ-действия где этот пользователь был целью
     await db.delete(adminActions).where(eq(adminActions.targetUserId, id));
     
+    // Обнуляем ссылки на пользователя в audit_logs (сохраняем логи, но убираем ссылку на пользователя)
+    await db.update(auditLogs).set({ userId: sql`null` }).where(eq(auditLogs.userId, id));
+    
     // Обновляем ссылки на пользователя на null, сохраняя все данные
     await db.update(projects).set({ createdBy: null }).where(eq(projects.createdBy, id));
     await db.update(clientProjects).set({ createdBy: null }).where(eq(clientProjects.createdBy, id));
