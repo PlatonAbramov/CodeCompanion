@@ -471,6 +471,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserProjects(userId: string): Promise<Project[]> {
+    // First check if this is a client user
+    const user = await this.getUserById(userId);
+    if (!user) return [];
+    
+    // For clients, find the client record first, then get projects
+    if (user.role === 'client') {
+      // Find client record matching the logged-in user
+      const allClients = await this.getAllClients();
+      const userClient = allClients.find(client => 
+        client.name === user.name || 
+        client.name === user.username
+      );
+      
+      if (!userClient) {
+        return []; // No projects if user is not linked to a client
+      }
+      
+      const clientProjectsList = await db
+        .select({ project: projects })
+        .from(clientProjects)
+        .innerJoin(projects, eq(clientProjects.projectId, projects.id))
+        .where(eq(clientProjects.clientId, userClient.id));
+      
+      return clientProjectsList.map(cp => cp.project);
+    }
+    
+    // For masters and others, check userProjects table
     const userProjectsList = await db
       .select({ project: projects })
       .from(userProjects)

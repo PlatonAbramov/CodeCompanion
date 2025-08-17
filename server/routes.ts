@@ -1674,6 +1674,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const requireAnyRole = requireRole(["admin", "director", "master", "client"]);
 
   // Админ-панель: статистика
+
+
   app.get("/api/admin/stats", requireAdmin, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
