@@ -25,12 +25,14 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [initialScale, setInitialScale] = useState(1);
 
   // Сброс масштаба и позиции при смене фото
   useEffect(() => {
     setScale(1);
     setRotation(0);
     setPosition({ x: 0, y: 0 });
+    setInitialScale(1);
   }, [photo.id]);
 
   const handleZoomIn = () => {
@@ -39,6 +41,11 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
 
   const handleZoomOut = () => {
     setScale(prev => Math.max(prev / 1.5, 0.1));
+  };
+
+  const handleFitToScreen = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
   };
 
   const handleRotate = () => {
@@ -51,8 +58,31 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
     setPosition({ x: 0, y: 0 });
   };
 
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const container = img.parentElement;
+    if (!container) return;
+
+    // Получаем размеры контейнера (viewport)
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+
+    // Получаем естественные размеры изображения
+    const imgWidth = img.naturalWidth;
+    const imgHeight = img.naturalHeight;
+
+    // Вычисляем масштаб для вписывания в экран с отступами
+    const scaleX = (containerWidth * 0.9) / imgWidth;
+    const scaleY = (containerHeight * 0.9) / imgHeight;
+    const fitScale = Math.min(scaleX, scaleY, 1); // Не увеличиваем, только уменьшаем
+
+    setInitialScale(fitScale);
+    setScale(fitScale);
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (scale > 1) {
+    if (scale > initialScale) {
       setIsDragging(true);
       setDragStart({
         x: e.clientX - position.x,
@@ -62,7 +92,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && scale > 1) {
+    if (isDragging && scale > initialScale) {
       setPosition({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y
@@ -97,7 +127,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
         handleRotate();
         break;
       case '0':
-        handleReset();
+        handleFitToScreen();
         break;
     }
   };
@@ -140,7 +170,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
             </Button>
             
             <span className="text-white text-sm min-w-[3rem] text-center">
-              {Math.round(scale * 100)}%
+              {Math.round((scale / initialScale) * 100)}%
             </span>
             
             <Button
@@ -251,11 +281,14 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
           <img
             src={photo.photoUrl}
             alt={photo.caption || ''}
-            className="max-w-full max-h-full object-contain transition-transform duration-200"
+            className="transition-transform duration-200"
             style={{
               transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
-              cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'pointer'
+              cursor: scale > initialScale ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
+              maxWidth: 'none',
+              maxHeight: 'none'
             }}
+            onLoad={handleImageLoad}
             draggable={false}
           />
         )}
@@ -276,7 +309,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
           <div>← → навигация</div>
           <div>+ - масштаб</div>
           <div>R поворот</div>
-          <div>0 сброс</div>
+          <div>0 по размеру</div>
         </div>
       )}
     </div>
