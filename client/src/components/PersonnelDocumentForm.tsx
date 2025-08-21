@@ -137,14 +137,32 @@ export function PersonnelDocumentForm({
   };
   
   const handleFileUpload = async () => {
-    // Get presigned URL
-    const response = await apiRequest("/api/objects/upload", {
-      method: "POST",
-    });
-    return {
-      method: "PUT" as const,
-      url: (response as any).uploadURL,
-    };
+    try {
+      // Get presigned URL
+      console.log("Getting upload URL...");
+      const response = await apiRequest("/api/objects/upload", {
+        method: "POST",
+      });
+      const data = await response.json();
+      console.log("Upload response data:", data);
+      
+      if (!data || !data.uploadURL) {
+        throw new Error("No upload URL received from server");
+      }
+      
+      return {
+        method: "PUT" as const,
+        url: data.uploadURL,
+      };
+    } catch (error) {
+      console.error("Failed to get upload URL:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось получить URL для загрузки",
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
   
   const handleFileComplete = async (result: any) => {

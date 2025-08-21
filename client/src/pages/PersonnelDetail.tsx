@@ -226,13 +226,24 @@ export function PersonnelDetail() {
   const handlePhotoUpload = async () => {
     try {
       // Get presigned URL
+      console.log("Getting photo upload URL...");
       const response = await apiRequest("/api/objects/upload", {
         method: "POST",
       });
-      console.log("Photo upload response:", response);
+      const data = await response.json();
+      console.log("Photo upload response data:", data);
+      
+      if (!data || !data.uploadURL) {
+        console.error("Invalid response data:", data);
+        throw new Error("No upload URL received from server");
+      }
+      
+      const uploadURL = data.uploadURL;
+      console.log("Extracted uploadURL:", uploadURL);
+      
       return {
         method: "PUT" as const,
-        url: (response as any).uploadURL,
+        url: uploadURL,
       };
     } catch (error) {
       console.error("Photo upload error:", error);
