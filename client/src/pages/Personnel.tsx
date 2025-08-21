@@ -51,7 +51,13 @@ export function Personnel() {
   const isAdmin = user?.role === 'admin';
   const canView = user?.role === 'admin' || user?.role === 'director';
   
-  // Check access
+  // Call all hooks before any conditional returns
+  const { data: personnel = [], isLoading } = useQuery<Personnel[]>({
+    queryKey: ["/api/personnel"],
+    enabled: canView,
+  });
+  
+  // Check access after all hooks
   if (!canView) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -63,11 +69,6 @@ export function Personnel() {
       </div>
     );
   }
-  
-  const { data: personnel = [], isLoading } = useQuery<Personnel[]>({
-    queryKey: ["/api/personnel"],
-    enabled: canView,
-  });
   
   // Calculate work experience
   const calculateExperience = (startDate: string) => {
