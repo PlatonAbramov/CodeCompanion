@@ -306,6 +306,7 @@ export const personnelAdvances = pgTable("personnel_advances", {
   fileUrl: text("file_url"), // Optional receipt/proof file
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+  status: varchar("status").default("active").notNull(), // Status: active, cancelled
   cancelledAt: timestamp("cancelled_at"), // When advance was cancelled
   cancelledBy: varchar("cancelled_by").references(() => users.id), // Who cancelled
   cancellationReason: text("cancellation_reason"), // Reason for cancellation

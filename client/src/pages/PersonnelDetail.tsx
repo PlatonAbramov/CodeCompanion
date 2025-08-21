@@ -849,7 +849,15 @@ export function PersonnelDetail() {
               
               {/* Add Advance Button */}
               {(isAdmin || user?.role === 'director') && (
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances`] });
+                    }}
+                  >
+                    Обновить
+                  </Button>
                   <Button onClick={() => setShowAdvanceForm(true)}>
                     <Plus className="w-4 h-4 mr-2" />
                     Добавить аванс
