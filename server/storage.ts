@@ -2607,21 +2607,47 @@ export class DatabaseStorage implements IStorage {
     return person;
   }
   
-  async createPersonnel(data: InsertPersonnel): Promise<Personnel> {
+  async createPersonnel(data: any): Promise<Personnel> {
     const insertData = {
-      ...data,
-      salary: data.salary ? String(data.salary) : null
+      firstName: data.firstName,
+      lastName: data.lastName,
+      middleName: data.middleName,
+      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+      phone: data.phoneNumber,
+      email: data.email,
+      emiratesId: data.emiratesId,
+      emiratesIdIssueDate: data.emiratesIdIssueDate ? new Date(data.emiratesIdIssueDate) : null,
+      emiratesIdExpiryDate: data.emiratesIdExpiryDate ? new Date(data.emiratesIdExpiryDate) : null,
+      specialization: data.position, // Map position to specialization
+      startDate: data.hireDate ? new Date(data.hireDate) : new Date(), // Map hireDate to startDate
+      salary: data.salary ? String(data.salary) : null,
+      status: data.status || 'active',
+      createdBy: data.createdBy,
     };
     const [person] = await db.insert(personnel).values(insertData).returning();
     return person;
   }
   
-  async updatePersonnel(id: string, data: Partial<InsertPersonnel>): Promise<Personnel> {
-    const updateData = {
-      ...data,
-      salary: data.salary !== undefined ? String(data.salary) : undefined,
+  async updatePersonnel(id: string, data: any): Promise<Personnel> {
+    const updateData: any = {
       updatedAt: new Date()
     };
+    
+    // Map form fields to database fields
+    if (data.firstName !== undefined) updateData.firstName = data.firstName;
+    if (data.lastName !== undefined) updateData.lastName = data.lastName;
+    if (data.middleName !== undefined) updateData.middleName = data.middleName;
+    if (data.dateOfBirth !== undefined) updateData.dateOfBirth = data.dateOfBirth ? new Date(data.dateOfBirth) : null;
+    if (data.phoneNumber !== undefined) updateData.phone = data.phoneNumber;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.emiratesId !== undefined) updateData.emiratesId = data.emiratesId;
+    if (data.emiratesIdIssueDate !== undefined) updateData.emiratesIdIssueDate = data.emiratesIdIssueDate ? new Date(data.emiratesIdIssueDate) : null;
+    if (data.emiratesIdExpiryDate !== undefined) updateData.emiratesIdExpiryDate = data.emiratesIdExpiryDate ? new Date(data.emiratesIdExpiryDate) : null;
+    if (data.position !== undefined) updateData.specialization = data.position; // Map position to specialization
+    if (data.hireDate !== undefined) updateData.startDate = data.hireDate ? new Date(data.hireDate) : null; // Map hireDate to startDate
+    if (data.salary !== undefined) updateData.salary = data.salary ? String(data.salary) : null;
+    if (data.status !== undefined) updateData.status = data.status;
+    
     const [person] = await db
       .update(personnel)
       .set(updateData)
