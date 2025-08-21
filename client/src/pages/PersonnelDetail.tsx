@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link, useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -77,6 +77,24 @@ export function PersonnelDetail() {
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
   const [showDocDeleteDialog, setShowDocDeleteDialog] = useState(false);
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
+
+  // Handle Escape key to close modals
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (selectedPhoto) {
+          setSelectedPhoto(null);
+        } else if (selectedDocument) {
+          setSelectedDocument(null);
+        }
+      }
+    };
+
+    if (selectedPhoto || selectedDocument) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [selectedPhoto, selectedDocument]);
   
   const isAdmin = user?.role === 'admin';
   const canView = user?.role === 'admin' || user?.role === 'director';
@@ -380,7 +398,7 @@ export function PersonnelDetail() {
                         src={`/objects/${person.photoUrl.split('/').slice(-2).join('/')}`}
                         alt={`${person.lastName} ${person.firstName}`}
                         className="w-32 h-32 rounded-full object-cover mb-4 cursor-pointer"
-                        onClick={() => setSelectedPhoto(person.photoUrl)}
+                        onClick={() => setSelectedPhoto(person.photoUrl || null)}
                         onError={(e) => {
                           console.error("Photo load error for:", person.photoUrl);
                           // Hide image on error
@@ -389,7 +407,7 @@ export function PersonnelDetail() {
                       />
                       <div 
                         className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer mb-4"
-                        onClick={() => setSelectedPhoto(person.photoUrl)}
+                        onClick={() => setSelectedPhoto(person.photoUrl || null)}
                       >
                         <Plus className="w-8 h-8 text-white" />
                       </div>
@@ -623,7 +641,7 @@ export function PersonnelDetail() {
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
-                                    onClick={() => setSelectedDocument(doc.fileUrl)}
+                                    onClick={() => setSelectedDocument(doc.fileUrl || null)}
                                   >
                                     <Eye className="w-4 h-4" />
                                   </Button>
@@ -748,10 +766,13 @@ export function PersonnelDetail() {
 
       {/* Photo Viewer Modal */}
       {selectedPhoto && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-          <div className="relative max-w-4xl max-h-4xl">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <Button
-              className="absolute top-4 right-4 bg-black bg-opacity-50 hover:bg-opacity-75"
+              className="absolute top-4 right-4 bg-black bg-opacity-50 hover:bg-opacity-75 z-10"
               variant="ghost"
               size="icon"
               onClick={() => setSelectedPhoto(null)}
@@ -778,10 +799,13 @@ export function PersonnelDetail() {
 
       {/* Document Viewer Modal */}
       {selectedDocument && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-          <div className="relative w-full h-full max-w-6xl max-h-6xl p-8">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedDocument(null)}
+        >
+          <div className="relative w-full h-full max-w-6xl" onClick={(e) => e.stopPropagation()}>
             <Button
-              className="absolute top-4 right-4 bg-black bg-opacity-50 hover:bg-opacity-75 z-10"
+              className="absolute top-2 right-2 bg-black bg-opacity-50 hover:bg-opacity-75 z-10"
               variant="ghost"
               size="icon"
               onClick={() => setSelectedDocument(null)}
@@ -790,7 +814,7 @@ export function PersonnelDetail() {
             </Button>
             <iframe
               src={`/objects/${selectedDocument.split('/').slice(-2).join('/')}`}
-              className="w-full h-full border-none"
+              className="w-full h-full border-none rounded"
               title="Документ"
               onError={() => {
                 console.error("Document load error for:", selectedDocument);

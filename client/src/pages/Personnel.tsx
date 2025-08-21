@@ -11,7 +11,7 @@ import { Plus, Search, User, Calendar, Phone, Mail, Briefcase, AlertTriangle } f
 import { format, differenceInDays, differenceInYears, differenceInMonths } from "date-fns";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { PersonnelForm } from "@/components/PersonnelForm";
+// import { PersonnelForm } from "@/components/PersonnelForm";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface Personnel {
@@ -129,13 +129,13 @@ export function Personnel() {
   }, [personnel]);
   
   const handleEdit = (person: Personnel) => {
-    setSelectedPerson(person);
-    setShowForm(true);
+    // TODO: Implement personnel edit form
+    console.log('Edit personnel form not yet implemented for:', person);
   };
   
   const handleCreate = () => {
-    setSelectedPerson(null);
-    setShowForm(true);
+    // TODO: Implement personnel creation form
+    console.log('Create personnel form not yet implemented');
   };
   
   // Check access after all hooks
@@ -236,15 +236,23 @@ export function Personnel() {
                     <div className="flex items-center gap-3">
                       {person.photoUrl ? (
                         <img 
-                          src={person.photoUrl} 
+                          src={`/objects/${person.photoUrl.split('/').slice(-2).join('/')}`}
                           alt={`${person.lastName} ${person.firstName}`}
                           className="w-12 h-12 rounded-full object-cover"
+                          onError={(e) => {
+                            // Hide image and show placeholder on error
+                            const target = e.currentTarget as HTMLImageElement;
+                            target.style.display = 'none';
+                            const nextElement = target.nextElementSibling as HTMLElement;
+                            if (nextElement) {
+                              nextElement.style.display = 'flex';
+                            }
+                          }}
                         />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                          <User className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                      )}
+                      ) : null}
+                      <div className={`w-12 h-12 rounded-full bg-muted flex items-center justify-center ${person.photoUrl ? 'hidden' : ''}`}>
+                        <User className="w-6 h-6 text-muted-foreground" />
+                      </div>
                       <div>
                         <h3 className="font-semibold">
                           {person.lastName} {person.firstName}
