@@ -247,8 +247,31 @@ export function PersonnelDetail() {
   
   const handlePhotoComplete = async (result: any) => {
     if (result.successful && result.successful.length > 0) {
-      const uploadURL = result.successful[0].uploadURL;
-      await uploadPhotoMutation.mutateAsync(uploadURL);
+      const file = result.successful[0];
+      const uploadURL = file.uploadURL;
+      console.log("Photo complete - file data:", file);
+      console.log("Photo complete - uploadURL:", uploadURL);
+      
+      try {
+        await uploadPhotoMutation.mutateAsync(uploadURL);
+        toast({
+          title: "Успешно",
+          description: "Фото загружено",
+        });
+      } catch (error) {
+        console.error("Photo upload mutation error:", error);
+        toast({
+          title: "Ошибка",
+          description: "Не удалось сохранить фото",
+          variant: "destructive",
+        });
+      }
+    } else {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить фото",
+        variant: "destructive",
+      });
     }
   };
   

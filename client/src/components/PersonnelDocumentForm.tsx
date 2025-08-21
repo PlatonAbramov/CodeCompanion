@@ -113,6 +113,15 @@ export function PersonnelDocumentForm({
   });
   
   const onSubmit = (data: DocumentFormData) => {
+    if (!fileUrl && !document) {
+      toast({
+        title: "Ошибка",
+        description: "Сначала загрузите файл",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const submitData = { 
       ...data, 
       fileUrl,

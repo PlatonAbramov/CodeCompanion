@@ -1015,7 +1015,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get upload URL for object storage
   app.post("/api/objects/upload", requireAuth, async (req, res) => {
     try {
+      console.log("Getting upload URL for user:", req.session.user?.id);
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      console.log("Generated upload URL:", uploadURL);
       res.json({ uploadURL });
     } catch (error) {
       console.error("Failed to get upload URL:", error);
@@ -1035,6 +1037,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error searching for public object:", error);
       return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Set object ACL policy for uploaded files  
+  app.post("/api/objects/acl", requireAuth, async (req, res) => {
+    try {
+      const { objectUrl, visibility = 'private' } = req.body;
+      const userId = req.session.user?.id;
+      
+      const aclPolicy = {
+        owner: userId,
+        visibility,
+      };
+      
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(objectUrl, aclPolicy);
+      res.json({ objectPath });
+    } catch (error) {
+      console.error("Failed to set ACL policy:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
@@ -2013,20 +2034,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Set object ACL policy - use existing objectStorageService
-  app.post("/api/objects/acl", requireAuth, async (req, res) => {
-    try {
-      const { objectUrl, visibility } = req.body;
-      const userId = req.session.user?.id;
-      
-      const objectPath = objectStorageService.normalizeObjectEntityPath(objectUrl);
-      
-      res.json({ objectPath });
-    } catch (error) {
-      console.error("Failed to set object ACL:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
+  // Remove duplicate ACL endpoint (already added above)
 
   // Implementation sheets endpoints
   

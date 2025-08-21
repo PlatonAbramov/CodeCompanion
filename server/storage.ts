@@ -2699,9 +2699,19 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updatePersonnelDocument(id: string, data: Partial<InsertPersonnelDocument>): Promise<PersonnelDocument> {
+    const updateData: any = { ...data };
+    
+    // Convert date strings to Date objects  
+    if (data.issueDate && typeof data.issueDate === 'string') {
+      updateData.issueDate = new Date(data.issueDate);
+    }
+    if (data.expiryDate && typeof data.expiryDate === 'string') {
+      updateData.expiryDate = new Date(data.expiryDate);
+    }
+    
     const [doc] = await db
       .update(personnelDocuments)
-      .set(data)
+      .set(updateData)
       .where(eq(personnelDocuments.id, id))
       .returning();
     return doc;
