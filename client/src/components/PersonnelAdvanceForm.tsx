@@ -103,10 +103,12 @@ export function PersonnelAdvanceForm({
   });
   
   const handleSubmit = (data: AdvanceFormData) => {
-    createMutation.mutate({
+    const submitData = {
       ...data,
       fileUrl: fileUrl || undefined,
-    });
+      projectId: data.projectId && data.projectId !== "none" ? data.projectId : undefined,
+    };
+    createMutation.mutate(submitData);
   };
   
   const handleClose = () => {
@@ -194,6 +196,7 @@ export function PersonnelAdvanceForm({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="none">Без привязки к проекту</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}

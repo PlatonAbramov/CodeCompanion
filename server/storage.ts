@@ -2772,6 +2772,11 @@ export class DatabaseStorage implements IStorage {
       insertData.date = new Date(data.date);
     }
     
+    // Handle empty project ID - set to null instead of empty string
+    if (insertData.projectId === '') {
+      insertData.projectId = null;
+    }
+    
     const [advance] = await db
       .insert(personnelAdvances)
       .values(insertData)
