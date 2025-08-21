@@ -2,34 +2,41 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 
 const personnelSchema = z.object({
   firstName: z.string().min(1, "Имя обязательно"),
   lastName: z.string().min(1, "Фамилия обязательна"),
   middleName: z.string().optional(),
   dateOfBirth: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email("Неверный формат email").optional().or(z.literal("")),
+  phoneNumber: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
   emiratesId: z.string().optional(),
   emiratesIdIssueDate: z.string().optional(),
   emiratesIdExpiryDate: z.string().optional(),
-  specialization: z.string().min(1, "Специализация обязательна"),
-  startDate: z.string().min(1, "Дата начала работы обязательна"),
-  salary: z.union([
-    z.number(),
-    z.string().transform((val) => parseFloat(val || "0"))
-  ]).optional(),
-  status: z.enum(["active", "dismissed", "vacation"]).default("active"),
-  photoUrl: z.string().optional(),
+  position: z.string().min(1, "Должность обязательна"),
+  hireDate: z.string().min(1, "Дата приема обязательна"),
+  salary: z.coerce.number().optional(),
+  status: z.enum(["active", "inactive", "vacation", "terminated"]),
+  passportNumber: z.string().optional(),
+  nationality: z.string().optional(),
+  address: z.string().optional(),
+  emergencyContact: z.string().optional(),
+  visa: z.string().optional(),
+  contractInfo: z.string().optional(),
 });
 
 type PersonnelFormData = z.infer<typeof personnelSchema>;
@@ -43,36 +50,30 @@ interface PersonnelFormProps {
 
 export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFormProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const queryClient = useQueryClient();
   
   const form = useForm<PersonnelFormData>({
     resolver: zodResolver(personnelSchema),
-    defaultValues: person ? {
-      firstName: person.firstName,
-      lastName: person.lastName,
-      middleName: person.middleName || "",
-      dateOfBirth: person.dateOfBirth ? person.dateOfBirth.split('T')[0] : "",
-      phone: person.phone || "",
-      email: person.email || "",
-      emiratesId: person.emiratesId || "",
-      emiratesIdIssueDate: person.emiratesIdIssueDate ? person.emiratesIdIssueDate.split('T')[0] : "",
-      emiratesIdExpiryDate: person.emiratesIdExpiryDate ? person.emiratesIdExpiryDate.split('T')[0] : "",
-      specialization: person.specialization,
-      startDate: person.startDate.split('T')[0],
-      salary: person.salary ? parseFloat(person.salary) : undefined,
-      status: person.status || "active",
-      photoUrl: person.photoUrl || "",
-    } : {
-      firstName: "",
-      lastName: "",
-      middleName: "",
-      phone: "",
-      email: "",
-      emiratesId: "",
-      specialization: "",
-      startDate: new Date().toISOString().split('T')[0],
-      status: "active",
+    defaultValues: {
+      firstName: person?.firstName || "",
+      lastName: person?.lastName || "",
+      middleName: person?.middleName || "",
+      dateOfBirth: person?.dateOfBirth || "",
+      phoneNumber: person?.phoneNumber || "",
+      email: person?.email || "",
+      emiratesId: person?.emiratesId || "",
+      emiratesIdIssueDate: person?.emiratesIdIssueDate || "",
+      emiratesIdExpiryDate: person?.emiratesIdExpiryDate || "",
+      position: person?.position || "",
+      hireDate: person?.hireDate || "",
+      salary: person?.salary || undefined,
+      status: person?.status || "active",
+      passportNumber: person?.passportNumber || "",
+      nationality: person?.nationality || "",
+      address: person?.address || "",
+      emergencyContact: person?.emergencyContact || "",
+      visa: person?.visa || "",
+      contractInfo: person?.contractInfo || "",
     }
   });
   
@@ -84,11 +85,13 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/personnel"] });
       toast({
         title: "Успешно",
         description: "Сотрудник добавлен",
       });
       onSuccess();
+      form.reset();
     },
     onError: (error) => {
       toast({
@@ -107,6 +110,7 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/personnel"] });
       toast({
         title: "Успешно",
         description: "Данные сотрудника обновлены",
@@ -132,7 +136,7 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
   
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
             {person ? "Редактировать сотрудника" : "Добавить сотрудника"}
@@ -140,19 +144,109 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
         </SheetHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-6">
             {/* Personal Information */}
             <div className="space-y-4">
-              <h3 className="font-medium">Личные данные</h3>
+              <h3 className="text-lg font-semibold">Личная информация</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Фамилия *</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Имя *</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="middleName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Отчество</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="dateOfBirth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Дата рождения</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Телефон</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="+971 50 123 4567" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               
               <FormField
                 control={form.control}
-                name="lastName"
+                name="nationality"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Фамилия *</FormLabel>
+                    <FormLabel>Гражданство</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={!isAdmin} />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -161,12 +255,12 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
               
               <FormField
                 control={form.control}
-                name="firstName"
+                name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Имя *</FormLabel>
+                    <FormLabel>Адрес проживания</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={!isAdmin} />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -175,54 +269,12 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
               
               <FormField
                 control={form.control}
-                name="middleName"
+                name="emergencyContact"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Отчество</FormLabel>
+                    <FormLabel>Экстренный контакт</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={!isAdmin} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="dateOfBirth"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Дата рождения</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} disabled={!isAdmin} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Телефон</FormLabel>
-                    <FormControl>
-                      <Input {...field} disabled={!isAdmin} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} disabled={!isAdmin} />
+                      <Input {...field} placeholder="Имя и телефон" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -230,18 +282,32 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
               />
             </div>
             
-            {/* Emirates ID */}
+            {/* Documents */}
             <div className="space-y-4">
-              <h3 className="font-medium">Emirates ID</h3>
+              <h3 className="text-lg font-semibold">Документы</h3>
+              
+              <FormField
+                control={form.control}
+                name="passportNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Номер паспорта</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
               <FormField
                 control={form.control}
                 name="emiratesId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Номер Emirates ID</FormLabel>
+                    <FormLabel>Emirates ID</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={!isAdmin} />
+                      <Input {...field} placeholder="784-1990-1234567-1" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -254,9 +320,9 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
                   name="emiratesIdIssueDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Дата выдачи</FormLabel>
+                      <FormLabel>Дата выдачи Emirates ID</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} disabled={!isAdmin} />
+                        <Input type="date" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -268,67 +334,93 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
                   name="emiratesIdExpiryDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Дата окончания</FormLabel>
+                      <FormLabel>Дата истечения Emirates ID</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} disabled={!isAdmin} />
+                        <Input type="date" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
+              
+              <FormField
+                control={form.control}
+                name="visa"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Информация о визе</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} placeholder="Тип визы, срок действия" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             
-            {/* Work Information */}
+            {/* Employment */}
             <div className="space-y-4">
-              <h3 className="font-medium">Рабочая информация</h3>
+              <h3 className="text-lg font-semibold">Трудоустройство</h3>
               
               <FormField
                 control={form.control}
-                name="specialization"
+                name="position"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Специализация *</FormLabel>
-                    <FormControl>
-                      <Input {...field} disabled={!isAdmin} />
-                    </FormControl>
+                    <FormLabel>Должность *</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите должность" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Электрик">Электрик</SelectItem>
+                        <SelectItem value="Сантехник">Сантехник</SelectItem>
+                        <SelectItem value="Плотник">Плотник</SelectItem>
+                        <SelectItem value="Маляр">Маляр</SelectItem>
+                        <SelectItem value="Разнорабочий">Разнорабочий</SelectItem>
+                        <SelectItem value="Мастер">Мастер</SelectItem>
+                        <SelectItem value="Прораб">Прораб</SelectItem>
+                        <SelectItem value="Менеджер">Менеджер</SelectItem>
+                        <SelectItem value="Водитель">Водитель</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Дата начала работы *</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} disabled={!isAdmin} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="salary"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Зарплата (AED)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        {...field} 
-                        disabled={!isAdmin}
-                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="hireDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Дата приема *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="salary"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Зарплата (AED)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               
               <FormField
                 control={form.control}
@@ -336,44 +428,54 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Статус</FormLabel>
-                    <Select 
-                      value={field.value} 
-                      onValueChange={field.onChange}
-                      disabled={!isAdmin}
-                    >
+                    <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="active">Активен</SelectItem>
-                        <SelectItem value="dismissed">Уволен</SelectItem>
-                        <SelectItem value="vacation">Отпуск</SelectItem>
+                        <SelectItem value="active">Активный</SelectItem>
+                        <SelectItem value="inactive">Неактивный</SelectItem>
+                        <SelectItem value="vacation">В отпуске</SelectItem>
+                        <SelectItem value="terminated">Уволен</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              
+              <FormField
+                control={form.control}
+                name="contractInfo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Информация о контракте</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} placeholder="Тип контракта, условия" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             
-            {/* Actions */}
-            {isAdmin && (
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={onClose}>
-                  Отмена
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                >
-                  {createMutation.isPending || updateMutation.isPending 
-                    ? "Сохранение..." 
-                    : person ? "Сохранить" : "Добавить"}
-                </Button>
-              </div>
-            )}
+            <div className="flex gap-4">
+              <Button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {createMutation.isPending || updateMutation.isPending
+                  ? "Сохранение..."
+                  : person
+                  ? "Сохранить изменения"
+                  : "Добавить сотрудника"}
+              </Button>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Отмена
+              </Button>
+            </div>
           </form>
         </Form>
       </SheetContent>

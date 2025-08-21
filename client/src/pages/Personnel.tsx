@@ -57,19 +57,6 @@ export function Personnel() {
     enabled: canView,
   });
   
-  // Check access after all hooks
-  if (!canView) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Card className="max-w-md">
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">Нет доступа к разделу "Персонал"</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-  
   // Calculate work experience
   const calculateExperience = (startDate: string) => {
     const start = new Date(startDate);
@@ -150,6 +137,19 @@ export function Personnel() {
     setSelectedPerson(null);
     setShowForm(true);
   };
+  
+  // Check access after all hooks
+  if (!canView) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="max-w-md">
+          <CardContent className="p-6">
+            <p className="text-center text-muted-foreground">Нет доступа к разделу "Персонал"</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   
   if (isLoading) {
     return (
