@@ -51,18 +51,8 @@ export default function ClientProjects() {
     <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header for client users */}
       <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3 flex justify-between items-center">
+        <div className="px-4 py-3">
           <h1 className="text-xl font-semibold text-slate-900">Мои проекты</h1>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={async () => {
-              await apiRequest('/api/auth/logout', { method: 'POST' });
-              setLocation('/login');
-            }}
-          >
-            Выйти
-          </Button>
         </div>
       </header>
 
