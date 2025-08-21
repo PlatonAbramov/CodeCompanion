@@ -58,15 +58,15 @@ export function PersonnelForm({ person, open, onClose, onSuccess }: PersonnelFor
       firstName: person?.firstName || "",
       lastName: person?.lastName || "",
       middleName: person?.middleName || "",
-      dateOfBirth: person?.dateOfBirth || "",
-      phoneNumber: person?.phoneNumber || "",
+      dateOfBirth: person?.dateOfBirth ? format(new Date(person.dateOfBirth), 'yyyy-MM-dd') : "",
+      phoneNumber: person?.phone || "", // Map from database field
       email: person?.email || "",
       emiratesId: person?.emiratesId || "",
-      emiratesIdIssueDate: person?.emiratesIdIssueDate || "",
-      emiratesIdExpiryDate: person?.emiratesIdExpiryDate || "",
-      position: person?.position || "",
-      hireDate: person?.hireDate || "",
-      salary: person?.salary || undefined,
+      emiratesIdIssueDate: person?.emiratesIdIssueDate ? format(new Date(person.emiratesIdIssueDate), 'yyyy-MM-dd') : "",
+      emiratesIdExpiryDate: person?.emiratesIdExpiryDate ? format(new Date(person.emiratesIdExpiryDate), 'yyyy-MM-dd') : "",
+      position: person?.specialization || "", // Map from database field
+      hireDate: person?.startDate ? format(new Date(person.startDate), 'yyyy-MM-dd') : "", // Map from database field
+      salary: person?.salary ? Number(person.salary) : undefined,
       status: person?.status || "active",
       passportNumber: person?.passportNumber || "",
       nationality: person?.nationality || "",

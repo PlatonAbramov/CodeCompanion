@@ -2682,9 +2682,12 @@ export class DatabaseStorage implements IStorage {
       personnelId: data.personnelId,
       documentType: data.documentType,
       documentNumber: data.documentNumber,
+      fileName: data.fileName || 'document.pdf', // Required field
+      fileSize: data.fileSize || 0, // Required field  
+      mimeType: data.mimeType || 'application/pdf', // Required field
       fileUrl: data.fileUrl,
+      comment: data.comment,
       uploadedBy: data.uploadedBy,
-      uploadedAt: new Date(),
     };
     
     // Convert date strings to Date objects

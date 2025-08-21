@@ -39,6 +39,9 @@ export function PersonnelDocumentForm({
 }: PersonnelDocumentFormProps) {
   const { toast } = useToast();
   const [fileUrl, setFileUrl] = useState(document?.fileUrl || "");
+  const [fileName, setFileName] = useState(document?.fileName || "");
+  const [fileSize, setFileSize] = useState(document?.fileSize || 0);
+  const [mimeType, setMimeType] = useState(document?.mimeType || "");
   
   const form = useForm<DocumentFormData>({
     resolver: zodResolver(documentSchema),
@@ -61,7 +64,13 @@ export function PersonnelDocumentForm({
     mutationFn: async (data: DocumentFormData) => {
       return await apiRequest(`/api/personnel/${personnelId}/documents`, {
         method: "POST",
-        body: JSON.stringify({ ...data, fileUrl }),
+        body: JSON.stringify({ 
+          ...data, 
+          fileUrl,
+          fileName,
+          fileSize,
+          mimeType
+        }),
       });
     },
     onSuccess: () => {
@@ -104,7 +113,13 @@ export function PersonnelDocumentForm({
   });
   
   const onSubmit = (data: DocumentFormData) => {
-    const submitData = { ...data, fileUrl };
+    const submitData = { 
+      ...data, 
+      fileUrl,
+      fileName,
+      fileSize,
+      mimeType
+    };
     if (document) {
       updateMutation.mutate(submitData);
     } else {
@@ -125,8 +140,15 @@ export function PersonnelDocumentForm({
   
   const handleFileComplete = async (result: any) => {
     if (result.successful && result.successful.length > 0) {
-      const uploadURL = result.successful[0].uploadURL;
+      const file = result.successful[0];
+      const uploadURL = file.uploadURL;
       setFileUrl(uploadURL);
+      
+      // Store file metadata for document creation
+      setFileName(file.name || 'document');
+      setFileSize(file.size || 0);
+      setMimeType(file.type || 'application/octet-stream');
+      
       toast({
         title: "Успешно",
         description: "Файл загружен",

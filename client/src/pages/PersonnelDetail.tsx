@@ -224,14 +224,25 @@ export function PersonnelDetail() {
   };
   
   const handlePhotoUpload = async () => {
-    // Get presigned URL
-    const response = await apiRequest("/api/objects/upload", {
-      method: "POST",
-    });
-    return {
-      method: "PUT" as const,
-      url: response.uploadURL,
-    };
+    try {
+      // Get presigned URL
+      const response = await apiRequest("/api/objects/upload", {
+        method: "POST",
+      });
+      console.log("Photo upload response:", response);
+      return {
+        method: "PUT" as const,
+        url: (response as any).uploadURL,
+      };
+    } catch (error) {
+      console.error("Photo upload error:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось получить URL для загрузки",
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
   
   const handlePhotoComplete = async (result: any) => {
