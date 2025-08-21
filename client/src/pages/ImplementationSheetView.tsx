@@ -16,13 +16,14 @@ import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, Plus, Camera, Trash2, Edit, Save, X, 
   Eye, EyeOff, CheckCircle, Circle, Image as ImageIcon,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, MessageSquare
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { ObjectStorageService } from "@/lib/objectStorage";
 import { PhotoViewer } from "@/components/PhotoViewer";
+import { ImplementationItemComments } from "@/components/ImplementationItemComments";
 
 interface ImplementationItem {
   id: string;
@@ -74,6 +75,7 @@ export default function ImplementationSheetView() {
   const [editProgress, setEditProgress] = useState(0);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number>(0);
+  const [selectedItemForComments, setSelectedItemForComments] = useState<ImplementationItem | null>(null);
   
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
   const objectStorageService = new ObjectStorageService();
@@ -496,6 +498,17 @@ export default function ImplementationSheetView() {
                       {language === 'ru' ? 'Фото' : 'Photos'}
                     </Button>
                     
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-xs px-2"
+                      onClick={() => setSelectedItemForComments(item)}
+                      data-testid={`button-view-comments-${item.id}`}
+                    >
+                      <MessageSquare className="h-3 w-3 mr-1" />
+                      {language === 'ru' ? 'Комментарии' : 'Comments'}
+                    </Button>
+                    
                     {/* Функция добавления фото только для админов и директоров */}
                     {isAdminOrDirector && (
                       uploadingItemId === item.id ? (
@@ -663,6 +676,24 @@ export default function ImplementationSheetView() {
               currentIndex={currentPhotoIndex}
               onNavigate={navigateToPhoto}
               onClose={() => setSelectedPhoto(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Comments dialog */}
+      <Dialog open={!!selectedItemForComments} onOpenChange={() => setSelectedItemForComments(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ru' ? 'Комментарии' : 'Comments'}: {selectedItemForComments?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedItemForComments && sheet && (
+            <ImplementationItemComments 
+              itemId={selectedItemForComments.id}
+              projectId={sheet.projectId}
             />
           )}
         </DialogContent>

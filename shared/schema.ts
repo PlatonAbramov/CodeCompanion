@@ -729,6 +729,19 @@ export const implementationItems = pgTable("implementation_items", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const implementationItemComments = pgTable("implementation_item_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").references(() => implementationItems.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(), // Для быстрого доступа
+  authorId: varchar("author_id").references(() => users.id).notNull(),
+  text: text("text").notNull(),
+  visibleToClient: boolean("visible_to_client").default(false), // false = внутренний, true = для заказчика
+  isDeleted: boolean("is_deleted").default(false), // Мягкое удаление для истории
+  deletedBy: varchar("deleted_by").references(() => users.id),
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const implementationPhotos = pgTable("implementation_photos", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itemId: varchar("item_id").references(() => implementationItems.id).notNull(),
@@ -778,6 +791,26 @@ export const implementationItemsRelations = relations(implementationItems, ({ on
   }),
   photos: many(implementationPhotos),
   changeLogs: many(implementationChangeLogs),
+  comments: many(implementationItemComments),
+}));
+
+export const implementationItemCommentsRelations = relations(implementationItemComments, ({ one }) => ({
+  item: one(implementationItems, {
+    fields: [implementationItemComments.itemId],
+    references: [implementationItems.id],
+  }),
+  project: one(projects, {
+    fields: [implementationItemComments.projectId],
+    references: [projects.id],
+  }),
+  author: one(users, {
+    fields: [implementationItemComments.authorId],
+    references: [users.id],
+  }),
+  deletedByUser: one(users, {
+    fields: [implementationItemComments.deletedBy],
+    references: [users.id],
+  }),
 }));
 
 export const implementationPhotosRelations = relations(implementationPhotos, ({ one }) => ({
@@ -922,6 +955,17 @@ export const insertImplementationItemSchema = createInsertSchema(implementationI
   ]).optional(),
 });
 
+export const insertImplementationItemCommentSchema = createInsertSchema(implementationItemComments).omit({
+  id: true,
+  createdAt: true,
+  isDeleted: true,
+  deletedBy: true,
+  deletedAt: true,
+}).extend({
+  text: z.string().min(1, "Текст комментария обязателен"),
+  visibleToClient: z.boolean().default(false),
+});
+
 export const insertImplementationPhotoSchema = createInsertSchema(implementationPhotos).omit({
   id: true,
   uploadedAt: true,
@@ -941,3 +985,5 @@ export type ImplementationPhoto = typeof implementationPhotos.$inferSelect;
 export type InsertImplementationPhoto = z.infer<typeof insertImplementationPhotoSchema>;
 export type ImplementationChangeLog = typeof implementationChangeLogs.$inferSelect;
 export type InsertImplementationChangeLog = z.infer<typeof insertImplementationChangeLogSchema>;
+export type ImplementationItemComment = typeof implementationItemComments.$inferSelect;
+export type InsertImplementationItemComment = z.infer<typeof insertImplementationItemCommentSchema>;

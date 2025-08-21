@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import multer from "multer";
@@ -18,10 +19,11 @@ import {
   insertRevenueSchema, insertOwnerInvestmentSchema, insertContractorSchema,
   insertContractorProjectSchema, insertClientSchema, insertClientProjectSchema,
   insertClientPaymentSchema, insertToolSchema, insertToolMovementSchema,
-  createUserSchema,
+  createUserSchema, implementationItemComments,
   type InsertContractorProject, type InsertClientProject, type InsertClientPayment,
   type InsertTool, type InsertToolMovement, type CreateUser, type ClientEmployee
 } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 // Extend session data type
 declare module 'express-session' {
@@ -2569,6 +2571,220 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(logs);
     } catch (error) {
       console.error("Failed to get implementation change logs:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get comments for implementation item
+  app.get("/api/implementation-items/:itemId/comments", requireAuth, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const user = req.session.user!;
+      
+      // Get item to check access
+      const item = await storage.getImplementationItem(itemId);
+      if (!item) {
+        return res.status(404).json({ error: "Позиция не найдена" });
+      }
+      
+      const sheet = await storage.getImplementationSheet(item.sheetId);
+      if (!sheet) {
+        return res.status(404).json({ error: "Лист реализации не найден" });
+      }
+      
+      // Check user access
+      const isAdminOrDirector = user.role === 'admin' || user.role === 'director';
+      
+      if (!isAdminOrDirector) {
+        if (user.role === 'client') {
+          // For client users, check via client_employees table
+          const clientEmployee = await storage.getClientEmployeeByUserId(user.id);
+          if (!clientEmployee) {
+            return res.status(403).json({ error: "No client assignment found" });
+          }
+          
+          const clientProjects = await storage.getClientProjects(clientEmployee.clientId);
+          const hasAccess = clientProjects.some(cp => cp.projectId === sheet.projectId);
+          
+          if (!hasAccess) {
+            return res.status(403).json({ error: "Доступ запрещен" });
+          }
+        } else {
+          // For master users, check via user_projects table
+          const userProjects = await storage.getUserProjects(user.id);
+          const hasAccess = userProjects.some(p => p.id === sheet.projectId);
+          
+          if (!hasAccess) {
+            return res.status(403).json({ error: "Доступ запрещен" });
+          }
+        }
+      }
+      
+      // Get all comments
+      const allComments = await storage.getImplementationItemComments(itemId);
+      
+      // Filter comments based on user role
+      let comments = allComments;
+      if (user.role === 'client') {
+        // Clients see only comments marked as visible to client
+        comments = allComments.filter(c => c.visibleToClient);
+      }
+      
+      res.json(comments);
+    } catch (error) {
+      console.error("Failed to get implementation item comments:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Add comment to implementation item
+  app.post("/api/implementation-items/:itemId/comments", requireAuth, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const { text, visibleToClient } = req.body;
+      const user = req.session.user!;
+      
+      // Get item to check access
+      const item = await storage.getImplementationItem(itemId);
+      if (!item) {
+        return res.status(404).json({ error: "Позиция не найдена" });
+      }
+      
+      const sheet = await storage.getImplementationSheet(item.sheetId);
+      if (!sheet) {
+        return res.status(404).json({ error: "Лист реализации не найден" });
+      }
+      
+      // Check user access and permissions
+      const isAdmin = user.role === 'admin';
+      const isDirector = user.role === 'director';
+      const isClient = user.role === 'client';
+      const isMaster = user.role === 'master';
+      
+      // Permission logic:
+      // Admin: Can add any comment
+      // Director: Can add comments to projects they manage
+      // Master: Can add comments to projects they're assigned to
+      // Client: Can only add comments marked as "for client"
+      
+      if (!isAdmin) {
+        if (isDirector) {
+          // Directors can add comments to all projects (they manage them)
+        } else if (isMaster) {
+          // Masters check via user_projects
+          const userProjects = await storage.getUserProjects(user.id);
+          const hasAccess = userProjects.some(p => p.id === sheet.projectId);
+          
+          if (!hasAccess) {
+            return res.status(403).json({ error: "Вы можете добавлять комментарии только к своим проектам" });
+          }
+        } else if (isClient) {
+          // Clients check via client_employees
+          const clientEmployee = await storage.getClientEmployeeByUserId(user.id);
+          if (!clientEmployee) {
+            return res.status(403).json({ error: "No client assignment found" });
+          }
+          
+          const clientProjects = await storage.getClientProjects(clientEmployee.clientId);
+          const hasAccess = clientProjects.some(cp => cp.projectId === sheet.projectId);
+          
+          if (!hasAccess) {
+            return res.status(403).json({ error: "Доступ запрещен" });
+          }
+          
+          // Clients can only add comments that are visible to client
+          if (!visibleToClient) {
+            return res.status(403).json({ error: "Клиенты могут добавлять только комментарии для заказчика" });
+          }
+        }
+      }
+      
+      // Create comment
+      const comment = await storage.createImplementationItemComment({
+        itemId,
+        projectId: sheet.projectId,
+        authorId: user.id,
+        text,
+        visibleToClient: visibleToClient || false
+      });
+      
+      // Get author info
+      const commentWithAuthor = {
+        ...comment,
+        author: user
+      };
+      
+      // Create audit log
+      await storage.createAuditLog({
+        entityType: 'comment',
+        entityId: comment.id,
+        action: 'create',
+        newValue: text,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: sheet.projectId,
+        metadata: {
+          itemId,
+          visibleToClient: comment.visibleToClient
+        }
+      });
+      
+      res.json(commentWithAuthor);
+    } catch (error) {
+      console.error("Failed to add implementation item comment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete comment
+  app.delete("/api/implementation-item-comments/:commentId", requireAuth, async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      const user = req.session.user!;
+      
+      // Get comment to check permissions
+      const comments = await db
+        .select()
+        .from(implementationItemComments)
+        .where(eq(implementationItemComments.id, commentId))
+        .limit(1);
+      
+      const comment = comments[0];
+      if (!comment) {
+        return res.status(404).json({ error: "Комментарий не найден" });
+      }
+      
+      // Only admin or comment author can delete
+      const isAdmin = user.role === 'admin';
+      const isAuthor = comment.authorId === user.id;
+      
+      if (!isAdmin && !isAuthor) {
+        return res.status(403).json({ error: "Вы можете удалять только свои комментарии" });
+      }
+      
+      // Soft delete
+      await storage.deleteImplementationItemComment(commentId, user.id);
+      
+      // Create audit log
+      await storage.createAuditLog({
+        entityType: 'comment',
+        entityId: commentId,
+        action: 'delete',
+        oldValue: comment.text,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: comment.projectId,
+        metadata: {
+          itemId: comment.itemId,
+          visibleToClient: comment.visibleToClient
+        }
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete implementation item comment:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

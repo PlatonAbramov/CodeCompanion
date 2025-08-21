@@ -3,6 +3,7 @@ import {
   contractors, contractorProjects, clients, clientProjects, clientPayments, clientEmployees,
   tools, toolMovements, toolPersons, userSessions, loginAttempts, adminActions,
   implementationSheets, implementationItems, implementationPhotos, implementationChangeLogs,
+  implementationItemComments,
   auditLogs, emailNotifications,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
@@ -17,7 +18,8 @@ import {
   type UserSession, type InsertUserSession, type LoginAttempt, type InsertLoginAttempt,
   type AdminAction, type InsertAdminAction,
   type ImplementationSheet, type InsertImplementationSheet, type ImplementationItem, type InsertImplementationItem,
-  type ImplementationPhoto, type InsertImplementationPhoto, type ImplementationChangeLog, type InsertImplementationChangeLog
+  type ImplementationPhoto, type InsertImplementationPhoto, type ImplementationChangeLog, type InsertImplementationChangeLog,
+  type ImplementationItemComment, type InsertImplementationItemComment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -252,6 +254,11 @@ export interface IStorage {
   // Implementation change logs
   createImplementationChangeLog(data: InsertImplementationChangeLog): Promise<ImplementationChangeLog>;
   getImplementationChangeLogs(itemId: string): Promise<ImplementationChangeLog[]>;
+  
+  // Implementation item comments
+  getImplementationItemComments(itemId: string): Promise<(ImplementationItemComment & { author: User })[]>;
+  createImplementationItemComment(data: InsertImplementationItemComment): Promise<ImplementationItemComment>;
+  deleteImplementationItemComment(id: string, userId: string): Promise<void>;
   
   // Audit Logs
   createAuditLog(log: {
@@ -2234,6 +2241,56 @@ export class DatabaseStorage implements IStorage {
       .from(implementationChangeLogs)
       .where(eq(implementationChangeLogs.itemId, itemId))
       .orderBy(desc(implementationChangeLogs.changedAt));
+  }
+
+  // Implementation item comments
+  async getImplementationItemComments(itemId: string): Promise<(ImplementationItemComment & { author: User })[]> {
+    const comments = await db
+      .select({
+        id: implementationItemComments.id,
+        itemId: implementationItemComments.itemId,
+        projectId: implementationItemComments.projectId,
+        authorId: implementationItemComments.authorId,
+        text: implementationItemComments.text,
+        visibleToClient: implementationItemComments.visibleToClient,
+        isDeleted: implementationItemComments.isDeleted,
+        deletedBy: implementationItemComments.deletedBy,
+        deletedAt: implementationItemComments.deletedAt,
+        createdAt: implementationItemComments.createdAt,
+        author: users
+      })
+      .from(implementationItemComments)
+      .leftJoin(users, eq(implementationItemComments.authorId, users.id))
+      .where(and(
+        eq(implementationItemComments.itemId, itemId),
+        eq(implementationItemComments.isDeleted, false)
+      ))
+      .orderBy(desc(implementationItemComments.createdAt));
+    
+    return comments.map(c => ({
+      ...c,
+      author: c.author!
+    }));
+  }
+
+  async createImplementationItemComment(data: InsertImplementationItemComment): Promise<ImplementationItemComment> {
+    const [comment] = await db
+      .insert(implementationItemComments)
+      .values(data)
+      .returning();
+    return comment;
+  }
+
+  async deleteImplementationItemComment(id: string, userId: string): Promise<void> {
+    // Soft delete with audit trail
+    await db
+      .update(implementationItemComments)
+      .set({
+        isDeleted: true,
+        deletedBy: userId,
+        deletedAt: new Date()
+      })
+      .where(eq(implementationItemComments.id, id));
   }
   
   // Audit Log Implementation
