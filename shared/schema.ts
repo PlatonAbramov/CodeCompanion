@@ -295,6 +295,22 @@ export const personnelDocuments = pgTable("personnel_documents", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Personnel advances table for tracking employee advances
+export const personnelAdvances = pgTable("personnel_advances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  personnelId: varchar("personnel_id").references(() => personnel.id, { onDelete: "cascade" }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Amount in AED
+  date: timestamp("date").notNull(), // Date of advance
+  reason: text("reason"), // Reason/comment for advance
+  projectId: varchar("project_id").references(() => projects.id), // Optional project link
+  fileUrl: text("file_url"), // Optional receipt/proof file
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  cancelledAt: timestamp("cancelled_at"), // When advance was cancelled
+  cancelledBy: varchar("cancelled_by").references(() => users.id), // Who cancelled
+  cancellationReason: text("cancellation_reason"), // Reason for cancellation
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   projects: many(projects),
@@ -497,6 +513,26 @@ export const toolMovementsRelations = relations(toolMovements, ({ one }) => ({
   }),
 }));
 
+// Personnel advances relations
+export const personnelAdvancesRelations = relations(personnelAdvances, ({ one }) => ({
+  personnel: one(personnel, {
+    fields: [personnelAdvances.personnelId],
+    references: [personnel.id],
+  }),
+  project: one(projects, {
+    fields: [personnelAdvances.projectId],
+    references: [projects.id],
+  }),
+  createdByUser: one(users, {
+    fields: [personnelAdvances.createdBy],
+    references: [users.id],
+  }),
+  cancelledByUser: one(users, {
+    fields: [personnelAdvances.cancelledBy],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -666,6 +702,24 @@ export const insertClientEmployeeSchema = createInsertSchema(clientEmployees).om
   assignedAt: true,
 });
 
+// Personnel advances insert schema
+export const insertPersonnelAdvanceSchema = createInsertSchema(personnelAdvances).omit({
+  id: true,
+  createdAt: true,
+  cancelledAt: true,
+  cancelledBy: true,
+  cancellationReason: true,
+}).extend({
+  amount: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str))
+  ]),
+  date: z.union([
+    z.date(), 
+    z.string().transform((str) => new Date(str))
+  ]),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -698,6 +752,10 @@ export type InsertClientPayment = z.infer<typeof insertClientPaymentSchema>;
 
 export type ClientEmployee = typeof clientEmployees.$inferSelect;
 export type InsertClientEmployee = z.infer<typeof insertClientEmployeeSchema>;
+
+// Personnel advance type (other personnel types are defined later)
+export type PersonnelAdvance = typeof personnelAdvances.$inferSelect;
+export type InsertPersonnelAdvance = z.infer<typeof insertPersonnelAdvanceSchema>;
 
 // Tool schemas
 export const insertToolSchema = createInsertSchema(tools).omit({
@@ -871,6 +929,7 @@ export const personnelRelations = relations(personnel, ({ one, many }) => ({
     references: [users.id],
   }),
   documents: many(personnelDocuments),
+  advances: many(personnelAdvances),
 }));
 
 export const personnelDocumentsRelations = relations(personnelDocuments, ({ one }) => ({

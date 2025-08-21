@@ -16,6 +16,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { PersonnelForm } from "@/components/PersonnelForm";
 import { PersonnelDocumentForm } from "@/components/PersonnelDocumentForm";
+import { PersonnelAdvanceForm } from "@/components/PersonnelAdvanceForm";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -61,6 +62,22 @@ interface PersonnelDocument {
   uploadedBy: string;
 }
 
+interface PersonnelAdvance {
+  id: string;
+  personnelId: string;
+  amount: string;
+  date: string;
+  description?: string;
+  fileUrl?: string;
+  projectId?: string;
+  status: string;
+  createdBy: string;
+  createdAt: string;
+  cancelledBy?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+}
+
 export function PersonnelDetail() {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -77,6 +94,8 @@ export function PersonnelDetail() {
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
   const [showDocDeleteDialog, setShowDocDeleteDialog] = useState(false);
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
+  const [showAdvanceForm, setShowAdvanceForm] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
 
   // Handle Escape key to close modals
   useEffect(() => {
@@ -107,6 +126,21 @@ export function PersonnelDetail() {
   
   const { data: documents = [], isLoading: isLoadingDocs } = useQuery<PersonnelDocument[]>({
     queryKey: [`/api/personnel/${personnelId}/documents`],
+    enabled: !!personnelId && canView,
+  });
+  
+  const { data: advances = [], isLoading: isLoadingAdvances } = useQuery<PersonnelAdvance[]>({
+    queryKey: [`/api/personnel/${personnelId}/advances`],
+    enabled: !!personnelId && canView,
+  });
+  
+  const { data: advancesSummary } = useQuery<{
+    totalAdvances: number;
+    salary: number;
+    toPay: number;
+    carryOver: number;
+  }>({
+    queryKey: [`/api/personnel/${personnelId}/advances/summary`, selectedMonth.toISOString()],
     enabled: !!personnelId && canView,
   });
   
@@ -146,6 +180,31 @@ export function PersonnelDetail() {
         description: "Документ удален",
       });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/documents`] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Cancel advance mutation
+  const cancelAdvanceMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      return await apiRequest(`/api/personnel/advances/${id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Успешно",
+        description: "Аванс отменен",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances/summary`] });
     },
     onError: (error) => {
       toast({
@@ -240,6 +299,13 @@ export function PersonnelDetail() {
       deleteDocMutation.mutate(docToDelete);
       setShowDocDeleteDialog(false);
       setDocToDelete(null);
+    }
+  };
+  
+  const handleCancelAdvance = (advanceId: string) => {
+    const reason = prompt("Укажите причину отмены аванса:");
+    if (reason) {
+      cancelAdvanceMutation.mutate({ id: advanceId, reason });
     }
   };
   
@@ -478,13 +544,17 @@ export function PersonnelDetail() {
         {/* Right Column - Detailed Info */}
         <div className="lg:col-span-2">
           <Tabs defaultValue="info">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="info">Информация</TabsTrigger>
               <TabsTrigger value="documents">
                 Документы
                 {documents.some(d => getDocumentStatus(d.expiryDate) !== 'normal') && (
                   <AlertTriangle className="w-3 h-3 ml-1 text-destructive" />
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="advances">
+                Авансы
+                <DollarSign className="w-3 h-3 ml-1" />
               </TabsTrigger>
             </TabsList>
             
@@ -696,6 +766,136 @@ export function PersonnelDetail() {
                 </Card>
               )}
             </TabsContent>
+            
+            <TabsContent value="advances" className="space-y-4">
+              {/* Advances Summary */}
+              {advancesSummary && person.salary && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">Расчет зарплаты</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="month"
+                          value={selectedMonth.toISOString().slice(0, 7)}
+                          onChange={(e) => setSelectedMonth(new Date(e.target.value))}
+                          className="px-2 py-1 border rounded"
+                        />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Зарплата</p>
+                        <p className="text-lg font-medium">{advancesSummary.salary.toFixed(2)} AED</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Взято авансов</p>
+                        <p className="text-lg font-medium text-red-600">
+                          {advancesSummary.totalAdvances.toFixed(2)} AED
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Долг с прошлого месяца</p>
+                        <p className="text-lg font-medium text-orange-600">
+                          {advancesSummary.carryOver.toFixed(2)} AED
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">К выплате</p>
+                        <p className="text-lg font-medium text-green-600">
+                          {advancesSummary.toPay.toFixed(2)} AED
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Add Advance Button */}
+              {(isAdmin || user?.role === 'director') && (
+                <div className="flex justify-end">
+                  <Button onClick={() => setShowAdvanceForm(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Добавить аванс
+                  </Button>
+                </div>
+              )}
+              
+              {/* Advances List */}
+              {isLoadingAdvances ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">Загрузка...</p>
+                  </CardContent>
+                </Card>
+              ) : advances.length > 0 ? (
+                <div className="space-y-2">
+                  {advances.map((advance) => (
+                    <Card key={advance.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-lg">
+                                {parseFloat(advance.amount).toFixed(2)} AED
+                              </p>
+                              {advance.status === 'cancelled' && (
+                                <Badge variant="destructive">Отменен</Badge>
+                              )}
+                            </div>
+                            
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {format(new Date(advance.date), 'dd.MM.yyyy')}
+                            </p>
+                            
+                            {advance.description && (
+                              <p className="text-sm mt-2">{advance.description}</p>
+                            )}
+                            
+                            {advance.cancellationReason && (
+                              <p className="text-sm text-red-600 mt-2">
+                                Причина отмены: {advance.cancellationReason}
+                              </p>
+                            )}
+                            
+                            {advance.fileUrl && (
+                              <a 
+                                href={`/objects/${advance.fileUrl.split('/').slice(-2).join('/')}`}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mt-2"
+                              >
+                                <FileText className="w-3 h-3" />
+                                Документ
+                              </a>
+                            )}
+                          </div>
+                          
+                          {isAdmin && advance.status === 'active' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCancelAdvance(advance.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">Авансы не найдены</p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
           </Tabs>
         </div>
       </div>
@@ -726,6 +926,19 @@ export function PersonnelDetail() {
             setShowDocForm(false);
             setSelectedDoc(null);
             queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/documents`] });
+          }}
+        />
+      )}
+      
+      {showAdvanceForm && (
+        <PersonnelAdvanceForm
+          personnelId={personnelId!}
+          open={showAdvanceForm}
+          onClose={() => setShowAdvanceForm(false)}
+          onSuccess={() => {
+            setShowAdvanceForm(false);
+            queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances`] });
+            queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances/summary`] });
           }}
         />
       )}

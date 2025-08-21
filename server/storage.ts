@@ -4,7 +4,7 @@ import {
   tools, toolMovements, toolPersons, userSessions, loginAttempts, adminActions,
   implementationSheets, implementationItems, implementationPhotos, implementationChangeLogs,
   implementationItemComments,
-  personnel, personnelDocuments,
+  personnel, personnelDocuments, personnelAdvances,
   auditLogs, emailNotifications,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
@@ -21,7 +21,8 @@ import {
   type ImplementationSheet, type InsertImplementationSheet, type ImplementationItem, type InsertImplementationItem,
   type ImplementationPhoto, type InsertImplementationPhoto, type ImplementationChangeLog, type InsertImplementationChangeLog,
   type ImplementationItemComment, type InsertImplementationItemComment,
-  type Personnel, type InsertPersonnel, type PersonnelDocument, type InsertPersonnelDocument
+  type Personnel, type InsertPersonnel, type PersonnelDocument, type InsertPersonnelDocument,
+  type PersonnelAdvance, type InsertPersonnelAdvance
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -332,6 +333,18 @@ export interface IStorage {
   createPersonnelDocument(data: InsertPersonnelDocument): Promise<PersonnelDocument>;
   updatePersonnelDocument(id: string, data: Partial<InsertPersonnelDocument>): Promise<PersonnelDocument>;
   deletePersonnelDocument(id: string): Promise<void>;
+  
+  // Personnel Advances
+  getPersonnelAdvances(personnelId: string, month?: Date): Promise<PersonnelAdvance[]>;
+  getPersonnelAdvance(id: string): Promise<PersonnelAdvance | undefined>;
+  createPersonnelAdvance(data: InsertPersonnelAdvance): Promise<PersonnelAdvance>;
+  cancelPersonnelAdvance(id: string, userId: string, reason: string): Promise<PersonnelAdvance>;
+  getPersonnelAdvancesSummary(personnelId: string, month: Date): Promise<{
+    totalAdvances: number;
+    salary: number;
+    toPay: number;
+    carryOver: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2719,6 +2732,121 @@ export class DatabaseStorage implements IStorage {
   
   async deletePersonnelDocument(id: string): Promise<void> {
     await db.delete(personnelDocuments).where(eq(personnelDocuments.id, id));
+  }
+
+  // Personnel Advances Implementation
+  async getPersonnelAdvances(personnelId: string, month?: Date): Promise<PersonnelAdvance[]> {
+    let query = db
+      .select()
+      .from(personnelAdvances)
+      .where(eq(personnelAdvances.personnelId, personnelId))
+      .$dynamic();
+    
+    if (month) {
+      const startOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
+      const endOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59);
+      query = query.where(
+        and(
+          sql`${personnelAdvances.date} >= ${startOfMonth}`,
+          sql`${personnelAdvances.date} <= ${endOfMonth}`
+        )
+      );
+    }
+    
+    return await query.orderBy(desc(personnelAdvances.date));
+  }
+
+  async getPersonnelAdvance(id: string): Promise<PersonnelAdvance | undefined> {
+    const [advance] = await db
+      .select()
+      .from(personnelAdvances)
+      .where(eq(personnelAdvances.id, id));
+    return advance;
+  }
+
+  async createPersonnelAdvance(data: InsertPersonnelAdvance): Promise<PersonnelAdvance> {
+    const [advance] = await db
+      .insert(personnelAdvances)
+      .values(data)
+      .returning();
+    return advance;
+  }
+
+  async cancelPersonnelAdvance(id: string, userId: string, reason: string): Promise<PersonnelAdvance> {
+    const [advance] = await db
+      .update(personnelAdvances)
+      .set({
+        status: 'cancelled',
+        cancelledBy: userId,
+        cancelledAt: new Date(),
+        cancellationReason: reason
+      })
+      .where(eq(personnelAdvances.id, id))
+      .returning();
+    return advance;
+  }
+
+  async getPersonnelAdvancesSummary(personnelId: string, month: Date): Promise<{
+    totalAdvances: number;
+    salary: number;
+    toPay: number;
+    carryOver: number;
+  }> {
+    // Get personnel salary
+    const person = await this.getPersonnel(personnelId);
+    const salary = person?.salary ? parseFloat(person.salary) : 0;
+    
+    // Get advances for the month
+    const startOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
+    const endOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59);
+    
+    const advances = await db
+      .select({
+        total: sql`COALESCE(SUM(${personnelAdvances.amount}), 0)`
+      })
+      .from(personnelAdvances)
+      .where(
+        and(
+          eq(personnelAdvances.personnelId, personnelId),
+          eq(personnelAdvances.status, 'active'),
+          sql`${personnelAdvances.date} >= ${startOfMonth}`,
+          sql`${personnelAdvances.date} <= ${endOfMonth}`
+        )
+      );
+    
+    const totalAdvances = Number(advances[0]?.total || 0);
+    
+    // Get carry over from previous month
+    const prevMonth = new Date(month.getFullYear(), month.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(month.getFullYear(), month.getMonth(), 0, 23, 59, 59);
+    
+    const prevAdvances = await db
+      .select({
+        total: sql`COALESCE(SUM(${personnelAdvances.amount}), 0)`
+      })
+      .from(personnelAdvances)
+      .where(
+        and(
+          eq(personnelAdvances.personnelId, personnelId),
+          eq(personnelAdvances.status, 'active'),
+          sql`${personnelAdvances.date} >= ${prevMonth}`,
+          sql`${personnelAdvances.date} <= ${prevMonthEnd}`
+        )
+      );
+    
+    const prevTotal = Number(prevAdvances[0]?.total || 0);
+    const carryOver = Math.max(0, prevTotal - salary);
+    
+    // Calculate to pay (considering carry over)
+    const totalDebt = totalAdvances + carryOver;
+    const toPay = Math.max(0, salary - totalDebt);
+    
+    return {
+      totalAdvances,
+      salary,
+      toPay,
+      carryOver
+    };
   }
 }
 

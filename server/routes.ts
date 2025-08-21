@@ -3218,6 +3218,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Personnel Advances routes
+  // Get personnel advances (Admin and Foreman can view)
+  app.get("/api/personnel/:personnelId/advances", requireAuth, requireAdminOrForeman, async (req, res) => {
+    try {
+      const { month } = req.query;
+      const monthDate = month ? new Date(month as string) : undefined;
+      const advances = await storage.getPersonnelAdvances(req.params.personnelId, monthDate);
+      res.json(advances);
+    } catch (error) {
+      console.error("Failed to get personnel advances:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get personnel advances summary (Admin and Foreman can view)
+  app.get("/api/personnel/:personnelId/advances/summary", requireAuth, requireAdminOrForeman, async (req, res) => {
+    try {
+      const { month } = req.query;
+      if (!month) {
+        return res.status(400).json({ error: "Month parameter is required" });
+      }
+      const monthDate = new Date(month as string);
+      const summary = await storage.getPersonnelAdvancesSummary(req.params.personnelId, monthDate);
+      res.json(summary);
+    } catch (error) {
+      console.error("Failed to get personnel advances summary:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create personnel advance (Admin and Foreman can add)
+  app.post("/api/personnel/:personnelId/advances", requireAuth, requireAdminOrForeman, async (req, res) => {
+    try {
+      const advance = await storage.createPersonnelAdvance({
+        ...req.body,
+        personnelId: req.params.personnelId,
+        createdBy: req.session.user!.id,
+        status: 'active'
+      });
+      res.json(advance);
+    } catch (error) {
+      console.error("Failed to create personnel advance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Cancel personnel advance (Admin only can cancel)
+  app.post("/api/personnel/advances/:id/cancel", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { reason } = req.body;
+      if (!reason) {
+        return res.status(400).json({ error: "Cancellation reason is required" });
+      }
+      const advance = await storage.cancelPersonnelAdvance(
+        req.params.id,
+        req.session.user!.id,
+        reason
+      );
+      res.json(advance);
+    } catch (error) {
+      console.error("Failed to cancel personnel advance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
