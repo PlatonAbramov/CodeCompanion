@@ -3283,6 +3283,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete personnel advance (Admin only can delete)
+  app.delete("/api/personnel/advances/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      await storage.deletePersonnelAdvance(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete personnel advance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

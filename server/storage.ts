@@ -2798,6 +2798,10 @@ export class DatabaseStorage implements IStorage {
     return advance;
   }
 
+  async deletePersonnelAdvance(id: string): Promise<void> {
+    await db.delete(personnelAdvances).where(eq(personnelAdvances.id, id));
+  }
+
   async getPersonnelAdvancesSummary(personnelId: string, month: Date): Promise<{
     totalAdvances: number;
     salary: number;

@@ -96,6 +96,8 @@ export function PersonnelDetail() {
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
   const [showAdvanceForm, setShowAdvanceForm] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [showAdvanceDeleteDialog, setShowAdvanceDeleteDialog] = useState(false);
+  const [advanceToDelete, setAdvanceToDelete] = useState<string | null>(null);
 
   // Handle Escape key to close modals
   useEffect(() => {
@@ -214,6 +216,30 @@ export function PersonnelDetail() {
       });
     },
   });
+
+  // Delete advance mutation
+  const deleteAdvanceMutation = useMutation({
+    mutationFn: async (advanceId: string) => {
+      return await apiRequest(`/api/personnel/advances/${advanceId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Успешно",
+        description: "Аванс удален",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances/summary`] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
   
   // Upload photo mutation
   const uploadPhotoMutation = useMutation({
@@ -306,6 +332,14 @@ export function PersonnelDetail() {
     const reason = prompt("Укажите причину отмены аванса:");
     if (reason) {
       cancelAdvanceMutation.mutate({ id: advanceId, reason });
+    }
+  };
+
+  const handleDeleteAdvance = () => {
+    if (advanceToDelete) {
+      deleteAdvanceMutation.mutate(advanceToDelete);
+      setShowAdvanceDeleteDialog(false);
+      setAdvanceToDelete(null);
     }
   };
   
@@ -874,14 +908,29 @@ export function PersonnelDetail() {
                           </div>
                           
                           {isAdmin && advance.status === 'active' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleCancelAdvance(advance.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCancelAdvance(advance.id)}
+                                className="text-orange-600 hover:text-orange-700"
+                                title="Отменить аванс"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setAdvanceToDelete(advance.id);
+                                  setShowAdvanceDeleteDialog(true);
+                                }}
+                                className="text-red-600 hover:text-red-700"
+                                title="Удалить аванс"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </CardContent>
@@ -971,6 +1020,23 @@ export function PersonnelDetail() {
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteDoc}>
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={showAdvanceDeleteDialog} onOpenChange={setShowAdvanceDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить аванс?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие необратимо. Аванс будет полностью удален из системы.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAdvance}>
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>
