@@ -79,19 +79,7 @@ export function PersonnelDetail() {
   const isAdmin = user?.role === 'admin';
   const canView = user?.role === 'admin' || user?.role === 'director';
   
-  // Check access
-  if (!canView) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Card className="max-w-md">
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">Нет доступа к разделу "Персонал"</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-  
+  // Call all hooks before any conditional returns
   const { data: person, isLoading: isLoadingPerson } = useQuery<Personnel>({
     queryKey: [`/api/personnel/${personnelId}`],
     enabled: !!personnelId && canView,
@@ -252,6 +240,19 @@ export function PersonnelDetail() {
       await uploadPhotoMutation.mutateAsync(uploadURL);
     }
   };
+  
+  // Check access after all hooks
+  if (!canView) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="max-w-md">
+          <CardContent className="p-6">
+            <p className="text-center text-muted-foreground">Нет доступа к разделу "Персонал"</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   
   if (isLoadingPerson || isLoadingDocs) {
     return (

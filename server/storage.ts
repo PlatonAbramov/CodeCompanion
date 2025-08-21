@@ -2647,6 +2647,7 @@ export class DatabaseStorage implements IStorage {
     if (data.hireDate !== undefined) updateData.startDate = data.hireDate ? new Date(data.hireDate) : null; // Map hireDate to startDate
     if (data.salary !== undefined) updateData.salary = data.salary ? String(data.salary) : null;
     if (data.status !== undefined) updateData.status = data.status;
+    if (data.photoUrl !== undefined) updateData.photoUrl = data.photoUrl;
     
     const [person] = await db
       .update(personnel)
@@ -2677,7 +2678,20 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createPersonnelDocument(data: InsertPersonnelDocument): Promise<PersonnelDocument> {
-    const [doc] = await db.insert(personnelDocuments).values(data).returning();
+    const insertData: any = {
+      personnelId: data.personnelId,
+      documentType: data.documentType,
+      documentNumber: data.documentNumber,
+      fileUrl: data.fileUrl,
+      uploadedBy: data.uploadedBy,
+      uploadedAt: new Date(),
+    };
+    
+    // Convert date strings to Date objects
+    if (data.issueDate) insertData.issueDate = new Date(data.issueDate);
+    if (data.expiryDate) insertData.expiryDate = new Date(data.expiryDate);
+    
+    const [doc] = await db.insert(personnelDocuments).values(insertData).returning();
     return doc;
   }
   
