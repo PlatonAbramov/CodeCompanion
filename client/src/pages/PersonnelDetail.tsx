@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   ArrowLeft, Edit, Trash2, Plus, User, Phone, Mail, 
   Calendar, Briefcase, FileText, AlertTriangle, Download,
-  Upload, DollarSign, MapPin
+  Upload, DollarSign, MapPin, Eye, X
 } from "lucide-react";
 import { format, differenceInDays, differenceInYears, differenceInMonths } from "date-fns";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -73,6 +73,8 @@ export function PersonnelDetail() {
   const [showDocForm, setShowDocForm] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<PersonnelDocument | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
   const [showDocDeleteDialog, setShowDocDeleteDialog] = useState(false);
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
   
@@ -371,17 +373,33 @@ export function PersonnelDetail() {
           <Card>
             <CardContent className="p-6">
               <div className="flex flex-col items-center">
-                {person.photoUrl ? (
-                  <img 
-                    src={person.photoUrl} 
-                    alt={`${person.lastName} ${person.firstName}`}
-                    className="w-32 h-32 rounded-full object-cover mb-4"
-                  />
-                ) : (
-                  <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <User className="w-16 h-16 text-muted-foreground" />
-                  </div>
-                )}
+                <div className="relative group">
+                  {person.photoUrl ? (
+                    <div className="relative">
+                      <img 
+                        src={`/objects/${person.photoUrl.split('/').slice(-2).join('/')}`}
+                        alt={`${person.lastName} ${person.firstName}`}
+                        className="w-32 h-32 rounded-full object-cover mb-4 cursor-pointer"
+                        onClick={() => setSelectedPhoto(person.photoUrl)}
+                        onError={(e) => {
+                          console.error("Photo load error for:", person.photoUrl);
+                          // Hide image on error
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <div 
+                        className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer mb-4"
+                        onClick={() => setSelectedPhoto(person.photoUrl)}
+                      >
+                        <Plus className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center mb-4">
+                      <User className="w-16 h-16 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
                 
                 {isAdmin && (
                   <ObjectUploader
@@ -601,15 +619,24 @@ export function PersonnelDetail() {
                               )}
                               
                               {doc.fileUrl && (
-                                <a 
-                                  href={doc.fileUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                >
-                                  <Button variant="ghost" size="sm">
-                                    <Download className="w-4 h-4" />
+                                <>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => setSelectedDocument(doc.fileUrl)}
+                                  >
+                                    <Eye className="w-4 h-4" />
                                   </Button>
-                                </a>
+                                  <a 
+                                    href={`/objects/${doc.fileUrl.split('/').slice(-2).join('/')}`}
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Button variant="ghost" size="sm">
+                                      <Download className="w-4 h-4" />
+                                    </Button>
+                                  </a>
+                                </>
                               )}
                               
                               {isAdmin && (
@@ -718,6 +745,66 @@ export function PersonnelDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Photo Viewer Modal */}
+      {selectedPhoto && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+          <div className="relative max-w-4xl max-h-4xl">
+            <Button
+              className="absolute top-4 right-4 bg-black bg-opacity-50 hover:bg-opacity-75"
+              variant="ghost"
+              size="icon"
+              onClick={() => setSelectedPhoto(null)}
+            >
+              <X className="w-6 h-6 text-white" />
+            </Button>
+            <img
+              src={`/objects/${selectedPhoto.split('/').slice(-2).join('/')}`}
+              alt="Фото сотрудника"
+              className="max-w-full max-h-full object-contain"
+              onError={(e) => {
+                console.error("Full photo load error for:", selectedPhoto);
+                toast({
+                  title: "Ошибка",
+                  description: "Не удалось загрузить фото",
+                  variant: "destructive",
+                });
+                setSelectedPhoto(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Document Viewer Modal */}
+      {selectedDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+          <div className="relative w-full h-full max-w-6xl max-h-6xl p-8">
+            <Button
+              className="absolute top-4 right-4 bg-black bg-opacity-50 hover:bg-opacity-75 z-10"
+              variant="ghost"
+              size="icon"
+              onClick={() => setSelectedDocument(null)}
+            >
+              <X className="w-6 h-6 text-white" />
+            </Button>
+            <iframe
+              src={`/objects/${selectedDocument.split('/').slice(-2).join('/')}`}
+              className="w-full h-full border-none"
+              title="Документ"
+              onError={() => {
+                console.error("Document load error for:", selectedDocument);
+                toast({
+                  title: "Ошибка",
+                  description: "Не удалось загрузить документ",
+                  variant: "destructive",
+                });
+                setSelectedDocument(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
