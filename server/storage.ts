@@ -2765,9 +2765,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPersonnelAdvance(data: InsertPersonnelAdvance): Promise<PersonnelAdvance> {
+    const insertData: any = { ...data };
+    
+    // Convert date string to Date object
+    if (data.date && typeof data.date === 'string') {
+      insertData.date = new Date(data.date);
+    }
+    
     const [advance] = await db
       .insert(personnelAdvances)
-      .values(data)
+      .values(insertData)
       .returning();
     return advance;
   }
