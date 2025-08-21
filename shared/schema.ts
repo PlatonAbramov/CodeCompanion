@@ -257,6 +257,44 @@ export const adminActions = pgTable("admin_actions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Personnel (Employee) management tables
+export const personnel = pgTable("personnel", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  middleName: text("middle_name"),
+  dateOfBirth: timestamp("date_of_birth"),
+  phone: text("phone"),
+  email: text("email"),
+  emiratesId: text("emirates_id"), // ID number
+  emiratesIdIssueDate: timestamp("emirates_id_issue_date"),
+  emiratesIdExpiryDate: timestamp("emirates_id_expiry_date"),
+  specialization: text("specialization").notNull(),
+  startDate: timestamp("start_date").notNull(), // Date started working
+  salary: decimal("salary", { precision: 12, scale: 2 }), // AED amount
+  status: text("status").default("active"), // 'active' | 'dismissed' | 'vacation'
+  photoUrl: text("photo_url"), // Main photo
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const personnelDocuments = pgTable("personnel_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  personnelId: varchar("personnel_id").references(() => personnel.id, { onDelete: "cascade" }).notNull(),
+  documentType: text("document_type").notNull(), // 'emirates_id' | 'passport' | 'visa' | 'contract' | 'other'
+  documentNumber: text("document_number"),
+  issueDate: timestamp("issue_date"),
+  expiryDate: timestamp("expiry_date"),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size").notNull(),
+  mimeType: text("mime_type").notNull(),
+  fileUrl: text("file_url").notNull(),
+  comment: text("comment"),
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   projects: many(projects),
@@ -271,6 +309,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   clients: many(clients),
   clientProjects: many(clientProjects),
   clientPayments: many(clientPayments),
+  personnel: many(personnel),
+  personnelDocuments: many(personnelDocuments),
   createdByUser: one(users, {
     fields: [users.createdBy],
     references: [users.id],
@@ -824,6 +864,26 @@ export const implementationPhotosRelations = relations(implementationPhotos, ({ 
   }),
 }));
 
+// Personnel relations
+export const personnelRelations = relations(personnel, ({ one, many }) => ({
+  createdByUser: one(users, {
+    fields: [personnel.createdBy],
+    references: [users.id],
+  }),
+  documents: many(personnelDocuments),
+}));
+
+export const personnelDocumentsRelations = relations(personnelDocuments, ({ one }) => ({
+  person: one(personnel, {
+    fields: [personnelDocuments.personnelId],
+    references: [personnel.id],
+  }),
+  uploadedByUser: one(users, {
+    fields: [personnelDocuments.uploadedBy],
+    references: [users.id],
+  }),
+}));
+
 export const implementationChangeLogsRelations = relations(implementationChangeLogs, ({ one }) => ({
   item: one(implementationItems, {
     fields: [implementationChangeLogs.itemId],
@@ -985,5 +1045,53 @@ export type ImplementationPhoto = typeof implementationPhotos.$inferSelect;
 export type InsertImplementationPhoto = z.infer<typeof insertImplementationPhotoSchema>;
 export type ImplementationChangeLog = typeof implementationChangeLogs.$inferSelect;
 export type InsertImplementationChangeLog = z.infer<typeof insertImplementationChangeLogSchema>;
+
+// Personnel schemas
+export const insertPersonnelSchema = createInsertSchema(personnel).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  salary: z.union([
+    z.number(),
+    z.string().transform((str) => parseFloat(str || "0"))
+  ]).optional(),
+  startDate: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str))
+  ]),
+  dateOfBirth: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str))
+  ]).optional(),
+  emiratesIdIssueDate: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str))
+  ]).optional(),
+  emiratesIdExpiryDate: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str))
+  ]).optional(),
+});
+
+export const insertPersonnelDocumentSchema = createInsertSchema(personnelDocuments).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  issueDate: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str))
+  ]).optional(),
+  expiryDate: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str))
+  ]).optional(),
+});
+
+// Personnel types
+export type Personnel = typeof personnel.$inferSelect;
+export type InsertPersonnel = z.infer<typeof insertPersonnelSchema>;
+export type PersonnelDocument = typeof personnelDocuments.$inferSelect;
+export type InsertPersonnelDocument = z.infer<typeof insertPersonnelDocumentSchema>;
 export type ImplementationItemComment = typeof implementationItemComments.$inferSelect;
 export type InsertImplementationItemComment = z.infer<typeof insertImplementationItemCommentSchema>;

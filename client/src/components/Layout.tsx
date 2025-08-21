@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
-import { Home, Users, Receipt, Wrench, Users as StaffIcon, LogOut } from "lucide-react";
+import { Home, Users, Receipt, Wrench, Users as StaffIcon, LogOut, UserCheck } from "lucide-react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -103,6 +103,20 @@ export function Layout({ children }: LayoutProps) {
                     <span className="text-xs mt-1">Инструменты</span>
                   </div>
                 </Link>
+
+                {/* Персонал (только для admin/director) */}
+                {(user?.role === 'admin' || user?.role === 'director') && (
+                  <Link href="/personnel" data-testid="nav-personnel">
+                    <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
+                      location.startsWith('/personnel') 
+                        ? 'text-blue-600 bg-blue-50' 
+                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                    }`}>
+                      <UserCheck size={20} />
+                      <span className="text-xs mt-1">Персонал</span>
+                    </div>
+                  </Link>
+                )}
 
                 {/* Сотрудники (только для admin/director) */}
                 {(user?.role === 'admin' || user?.role === 'director') && (

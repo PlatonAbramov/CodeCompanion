@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
@@ -3075,6 +3075,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Email notification queued" });
     } catch (error) {
       console.error("Failed to create email notification:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // 6. PERSONNEL MANAGEMENT (Управление персоналом)
+  // Middleware for Admin or Foreman access
+  const requireAdminOrForeman: RequestHandler = (req, res, next) => {
+    const user = req.session.user;
+    if (!user || (user.role !== 'admin' && user.role !== 'director')) {
+      return res.status(403).json({ error: "Access denied. Admin or Director role required." });
+    }
+    next();
+  };
+  
+  // Get all personnel (Admin & Foreman can view)
+  app.get("/api/personnel", requireAuth, requireAdminOrForeman, async (req, res) => {
+    try {
+      const personnel = await storage.getAllPersonnel();
+      res.json(personnel);
+    } catch (error) {
+      console.error("Failed to get personnel:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Get single personnel (Admin & Foreman can view)
+  app.get("/api/personnel/:id", requireAuth, requireAdminOrForeman, async (req, res) => {
+    try {
+      const person = await storage.getPersonnel(req.params.id);
+      if (!person) {
+        return res.status(404).json({ error: "Personnel not found" });
+      }
+      res.json(person);
+    } catch (error) {
+      console.error("Failed to get personnel:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Create personnel (Admin only)
+  app.post("/api/personnel", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const person = await storage.createPersonnel({
+        ...req.body,
+        createdBy: req.session.user!.id
+      });
+      res.json(person);
+    } catch (error) {
+      console.error("Failed to create personnel:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Update personnel (Admin only)
+  app.put("/api/personnel/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const person = await storage.updatePersonnel(req.params.id, req.body);
+      res.json(person);
+    } catch (error) {
+      console.error("Failed to update personnel:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Delete personnel (Admin only)
+  app.delete("/api/personnel/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      await storage.deletePersonnel(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete personnel:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Get personnel documents (Admin & Foreman can view)
+  app.get("/api/personnel/:personnelId/documents", requireAuth, requireAdminOrForeman, async (req, res) => {
+    try {
+      const documents = await storage.getPersonnelDocuments(req.params.personnelId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Failed to get personnel documents:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Create personnel document (Admin only)
+  app.post("/api/personnel/:personnelId/documents", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const doc = await storage.createPersonnelDocument({
+        ...req.body,
+        personnelId: req.params.personnelId,
+        uploadedBy: req.session.user!.id
+      });
+      res.json(doc);
+    } catch (error) {
+      console.error("Failed to create personnel document:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Update personnel document (Admin only)
+  app.put("/api/personnel/documents/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const doc = await storage.updatePersonnelDocument(req.params.id, req.body);
+      res.json(doc);
+    } catch (error) {
+      console.error("Failed to update personnel document:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Delete personnel document (Admin only)
+  app.delete("/api/personnel/documents/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      await storage.deletePersonnelDocument(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete personnel document:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Upload personnel photo
+  app.post("/api/personnel/:id/photo", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { photoUrl } = req.body;
+      const person = await storage.updatePersonnel(req.params.id, { photoUrl });
+      res.json(person);
+    } catch (error) {
+      console.error("Failed to upload personnel photo:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

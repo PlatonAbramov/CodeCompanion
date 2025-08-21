@@ -4,6 +4,7 @@ import {
   tools, toolMovements, toolPersons, userSessions, loginAttempts, adminActions,
   implementationSheets, implementationItems, implementationPhotos, implementationChangeLogs,
   implementationItemComments,
+  personnel, personnelDocuments,
   auditLogs, emailNotifications,
   type User, type InsertUser, type Project, type InsertProject,
   type Expense, type InsertExpense, type Document, type InsertDocument,
@@ -19,7 +20,8 @@ import {
   type AdminAction, type InsertAdminAction,
   type ImplementationSheet, type InsertImplementationSheet, type ImplementationItem, type InsertImplementationItem,
   type ImplementationPhoto, type InsertImplementationPhoto, type ImplementationChangeLog, type InsertImplementationChangeLog,
-  type ImplementationItemComment, type InsertImplementationItemComment
+  type ImplementationItemComment, type InsertImplementationItemComment,
+  type Personnel, type InsertPersonnel, type PersonnelDocument, type InsertPersonnelDocument
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -316,6 +318,20 @@ export interface IStorage {
   getContractorAnalytics(contractorId?: string): Promise<any[]>;
   getClientAnalytics(clientId?: string): Promise<any[]>;
   getToolsAnalytics(): Promise<any>;
+  
+  // Personnel
+  getAllPersonnel(): Promise<(Personnel & { documents?: PersonnelDocument[] })[]>;
+  getPersonnel(id: string): Promise<Personnel | undefined>;
+  createPersonnel(data: InsertPersonnel): Promise<Personnel>;
+  updatePersonnel(id: string, data: Partial<InsertPersonnel>): Promise<Personnel>;
+  deletePersonnel(id: string): Promise<void>;
+  
+  // Personnel Documents
+  getPersonnelDocuments(personnelId: string): Promise<PersonnelDocument[]>;
+  getPersonnelDocument(id: string): Promise<PersonnelDocument | undefined>;
+  createPersonnelDocument(data: InsertPersonnelDocument): Promise<PersonnelDocument>;
+  updatePersonnelDocument(id: string, data: Partial<InsertPersonnelDocument>): Promise<PersonnelDocument>;
+  deletePersonnelDocument(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2565,6 +2581,91 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(implementationSheets.id, sheetId));
+  }
+  
+  // Personnel methods
+  async getAllPersonnel(): Promise<(Personnel & { documents?: PersonnelDocument[] })[]> {
+    const personnelList = await db.select().from(personnel).orderBy(personnel.lastName, personnel.firstName);
+    
+    // Get documents for each person
+    const personnelWithDocs = await Promise.all(
+      personnelList.map(async (person) => {
+        const docs = await db
+          .select()
+          .from(personnelDocuments)
+          .where(eq(personnelDocuments.personnelId, person.id))
+          .orderBy(personnelDocuments.documentType);
+        return { ...person, documents: docs };
+      })
+    );
+    
+    return personnelWithDocs;
+  }
+  
+  async getPersonnel(id: string): Promise<Personnel | undefined> {
+    const [person] = await db.select().from(personnel).where(eq(personnel.id, id));
+    return person;
+  }
+  
+  async createPersonnel(data: InsertPersonnel): Promise<Personnel> {
+    const insertData = {
+      ...data,
+      salary: data.salary ? String(data.salary) : null
+    };
+    const [person] = await db.insert(personnel).values(insertData).returning();
+    return person;
+  }
+  
+  async updatePersonnel(id: string, data: Partial<InsertPersonnel>): Promise<Personnel> {
+    const updateData = {
+      ...data,
+      salary: data.salary !== undefined ? String(data.salary) : undefined,
+      updatedAt: new Date()
+    };
+    const [person] = await db
+      .update(personnel)
+      .set(updateData)
+      .where(eq(personnel.id, id))
+      .returning();
+    return person;
+  }
+  
+  async deletePersonnel(id: string): Promise<void> {
+    // Delete documents first (cascade)
+    await db.delete(personnelDocuments).where(eq(personnelDocuments.personnelId, id));
+    await db.delete(personnel).where(eq(personnel.id, id));
+  }
+  
+  // Personnel Documents methods
+  async getPersonnelDocuments(personnelId: string): Promise<PersonnelDocument[]> {
+    return await db
+      .select()
+      .from(personnelDocuments)
+      .where(eq(personnelDocuments.personnelId, personnelId))
+      .orderBy(personnelDocuments.documentType, personnelDocuments.expiryDate);
+  }
+  
+  async getPersonnelDocument(id: string): Promise<PersonnelDocument | undefined> {
+    const [doc] = await db.select().from(personnelDocuments).where(eq(personnelDocuments.id, id));
+    return doc;
+  }
+  
+  async createPersonnelDocument(data: InsertPersonnelDocument): Promise<PersonnelDocument> {
+    const [doc] = await db.insert(personnelDocuments).values(data).returning();
+    return doc;
+  }
+  
+  async updatePersonnelDocument(id: string, data: Partial<InsertPersonnelDocument>): Promise<PersonnelDocument> {
+    const [doc] = await db
+      .update(personnelDocuments)
+      .set(data)
+      .where(eq(personnelDocuments.id, id))
+      .returning();
+    return doc;
+  }
+  
+  async deletePersonnelDocument(id: string): Promise<void> {
+    await db.delete(personnelDocuments).where(eq(personnelDocuments.id, id));
   }
 }
 

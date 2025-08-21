@@ -44,6 +44,8 @@ import ArchivedProjects from "@/pages/ArchivedProjects";
 import NotFound from "@/pages/not-found";
 import TestClient from "@/pages/TestClient";
 import ClientProjects from "@/pages/ClientProjects";
+import { Personnel } from "@/pages/Personnel";
+import { PersonnelDetail } from "@/pages/PersonnelDetail";
 
 function AuthenticatedApp() {
   const { user, isLoading } = useAuth();
@@ -134,6 +136,8 @@ function AuthenticatedApp() {
       <Route path="/test-client" component={TestClient} />
       <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
       <Route path="/tools" component={(user.role === 'admin' || user.role === 'director') ? Tools : NotFound} />
+      <Route path="/personnel" component={(user.role === 'admin' || user.role === 'director') ? Personnel : NotFound} />
+      <Route path="/personnel/:id" component={(user.role === 'admin' || user.role === 'director') ? PersonnelDetail : NotFound} />
       <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />
       <Route path="/projects/:projectId/implementation-sheets" component={ImplementationSheets} />
       <Route path="/implementation-sheets/:sheetId" component={ImplementationSheetView} />
