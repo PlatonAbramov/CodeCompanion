@@ -762,27 +762,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/customer-advances/:id", requireAuth, requireDirector, async (req, res) => {
+  app.delete("/api/customer-advances/:id", requireAuth, async (req, res) => {
     try {
-      const oldAdvance = await storage.getCustomerAdvance(req.params.id);
+      // Only admin and director can delete customer advances
+      const userRole = req.session.user!.role;
+      if (userRole !== 'admin' && userRole !== 'director') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       await storage.deleteCustomerAdvance(req.params.id);
       
       // Create audit log for customer advance deletion
       const user = req.session.user!;
-      if (oldAdvance) {
-        await storage.createAuditLog({
-          entityType: 'customer_advance',
-          entityId: req.params.id,
-          action: 'delete',
-          fieldName: 'amount',
-          oldValue: oldAdvance.amount,
-          newValue: null,
-          userId: user.id,
-          userName: user.name,
-          userRole: user.role,
-          projectId: oldAdvance.projectId
-        });
-      }
+      await storage.createAuditLog({
+        entityType: 'customer_advance',
+        entityId: req.params.id,
+        action: 'delete',
+        fieldName: 'amount',
+        oldValue: '0',
+        newValue: undefined,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: undefined
+      });
       
       res.json({ message: "Customer advance deleted successfully" });
     } catch (error) {
@@ -791,9 +794,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/expenses/:id", requireAuth, requireDirector, async (req, res) => {
+  app.delete("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
+      // Only admin and director can delete expenses
+      const userRole = req.session.user!.role;
+      if (userRole !== 'admin' && userRole !== 'director') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       await storage.deleteExpense(req.params.id);
+      
+      // Create audit log for expense deletion
+      const user = req.session.user!;
+      await storage.createAuditLog({
+        entityType: 'expense',
+        entityId: req.params.id,
+        action: 'delete',
+        fieldName: 'amount',
+        oldValue: '0',
+        newValue: undefined,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: undefined
+      });
+      
       res.json({ message: "Expense deleted successfully" });
     } catch (error) {
       console.error("Delete expense error:", error);
@@ -912,25 +937,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/owner-investments/:id", requireAuth, async (req, res) => {
     try {
-      const oldInvestment = await storage.getOwnerInvestment(req.params.id);
+      // Only admin and director can delete owner investments
+      const userRole = req.session.user!.role;
+      if (userRole !== 'admin' && userRole !== 'director') {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       await storage.deleteOwnerInvestment(req.params.id);
       
       // Create audit log for owner investment deletion
       const user = req.session.user!;
-      if (oldInvestment) {
-        await storage.createAuditLog({
-          entityType: 'owner_investment',
-          entityId: req.params.id,
-          action: 'delete',
-          fieldName: 'amount',
-          oldValue: oldInvestment.amount,
-          newValue: null,
-          userId: user.id,
-          userName: user.name,
-          userRole: user.role,
-          projectId: oldInvestment.projectId
-        });
-      }
+      await storage.createAuditLog({
+        entityType: 'owner_investment',
+        entityId: req.params.id,
+        action: 'delete',
+        fieldName: 'amount',
+        oldValue: '0',
+        newValue: undefined,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: undefined
+      });
       
       res.status(204).send();
     } catch (error) {
