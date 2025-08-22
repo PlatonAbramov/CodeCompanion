@@ -19,7 +19,7 @@ import {
   insertRevenueSchema, insertOwnerInvestmentSchema, insertContractorSchema,
   insertContractorProjectSchema, insertClientSchema, insertClientProjectSchema,
   insertClientPaymentSchema, insertToolSchema, insertToolMovementSchema,
-  createUserSchema, implementationItemComments,
+  createUserSchema, implementationItemComments, users,
   type InsertContractorProject, type InsertClientProject, type InsertClientPayment,
   type InsertTool, type InsertToolMovement, type CreateUser, type ClientEmployee
 } from "@shared/schema";
