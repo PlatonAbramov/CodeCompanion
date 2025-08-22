@@ -246,6 +246,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Diagnostic endpoint to check production user
+  app.get("/api/check-user", async (req, res) => {
+    try {
+      const user = await storage.getUserByUsername('platonabramov90@gmail.com');
+      if (!user) {
+        return res.json({ found: false });
+      }
+      
+      // Test password with current hash
+      const testPassword = await bcrypt.compare('123456', user.password);
+      
+      res.json({ 
+        found: true,
+        userId: user.id,
+        username: user.username,
+        role: user.role,
+        isActive: user.isActive,
+        passwordTest: testPassword,
+        passwordHashStart: user.password.substring(0, 20) + "...",
+        environment: {
+          NODE_ENV: process.env.NODE_ENV,
+          REPLIT_DEPLOYMENT: process.env.REPLIT_DEPLOYMENT
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // User management routes (Director only)
   app.get("/api/users", requireAuth, requireDirector, async (req, res) => {
     try {
