@@ -842,13 +842,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clear all relevant caches comprehensively
       if (expense?.projectId) {
         invalidateProjectCache(expense.projectId);
-        cache.del(cacheKeys.projectFinancialSummary(expense.projectId));
-        cache.del(cacheKeys.projectExpenses(expense.projectId));
-        cache.del(cacheKeys.project(expense.projectId));
+        invalidateCache(cacheKeys.projectFinancialSummary(expense.projectId));
+        invalidateCache(cacheKeys.projectExpenses(expense.projectId));
+        invalidateCache(cacheKeys.project(expense.projectId));
       }
-      cache.del(cacheKeys.projects());
-      cache.del('financial-overview');
-      cache.del(cacheKeys.analyticsProjects());
+      invalidateCache(cacheKeys.projects());
+      invalidateCache('financial-overview');
+      invalidateCache(cacheKeys.analyticsProjects());
       
       // Create audit log for expense deletion
       const user = req.session.user!;

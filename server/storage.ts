@@ -875,32 +875,37 @@ export class DatabaseStorage implements IStorage {
     const vladAdvances = vladAdvancesSum?.total || "0";
     const platonAdvances = platonAdvancesSum?.total || "0";
     
-    // Используем clientPayments как основной источник платежей от заказчиков
-    const totalFromClients = Math.max(parseFloat(totalClientPayments), parseFloat(totalCustomerAdvances));
+    // Используем customer_advances как основной источник авансов, clientPayments может дублировать данные
+    const totalFromClients = parseFloat(totalCustomerAdvances);
     
-    // Текущая прибыль = Полученные авансы от заказчика - Расходы - Взятые авансы
+    // Исправленная математика согласно примеру:
+    // Аванс от заказчика: 250 000, Влад взял: 150 000, Платон взял: 100 000, расходы: 52 900
+    // Остаток = 250 000 - 150 000 - 100 000 - 52 900 = -52 900 (перетрата на 52 900)
+    // Значит текущая прибыль = -52 900
+    
+    const vladAdvancesNum = parseFloat(vladAdvances);
+    const platonAdvancesNum = parseFloat(platonAdvances);
+    const totalParticipantAdvances = vladAdvancesNum + platonAdvancesNum;
+    
+    // Текущая прибыль = Полученные авансы от заказчика - Расходы - Взятые авансы участниками
     const currentProfit = (
       totalFromClients - 
       parseFloat(totalExpenses) - 
-      parseFloat(totalAdvances)
+      totalParticipantAdvances
     ).toString();
     
     // Прогнозируемая прибыль = общая стоимость проекта - расходы - взятые авансы
     const projectedProfit = (
       parseFloat(totalCost) - 
       parseFloat(totalExpenses) - 
-      parseFloat(totalAdvances)
+      totalParticipantAdvances
     ).toString();
 
-    // Расчет заработка по формуле:
-    // Выплата_участнику = (Текущая Прибыль + Сумма Всех Авансов Влад+Платон) / 2 - Аванс_каждого_Участника)
+    // Заработок каждого участника = (Полученные от заказчика - расходы) / 2 - взятый аванс
+    // Это показывает, сколько каждый должен получить или доплатить
     const currentProfitNum = parseFloat(currentProfit);
-    const vladAdvancesNum = parseFloat(vladAdvances);
-    const platonAdvancesNum = parseFloat(platonAdvances);
-    
-    const totalParticipantAdvances = vladAdvancesNum + platonAdvancesNum;
-    const totalForDistribution = currentProfitNum + totalParticipantAdvances;
-    const sharePerParticipant = totalForDistribution / 2;
+    const availableForDistribution = totalFromClients - parseFloat(totalExpenses);
+    const sharePerParticipant = availableForDistribution / 2;
     
     const vladEarnings = (sharePerParticipant - vladAdvancesNum).toString();
     const platonEarnings = (sharePerParticipant - platonAdvancesNum).toString();
@@ -1404,7 +1409,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteClient(id: string): Promise<void> {
-    await db.delete(clients).where(eq(clients.id, id));
+    // Вместо удаления заказчика, просто деактивируем его, сохраняя все связанные данные
+    // Все проекты, платежи, документы остаются в системе
+    await db.update(clients).set({ 
+      name: sql`${clients.name} || ' (удален)'`,
+      isActive: false 
+    }).where(eq(clients.id, id));
   }
 
   async getClientStats(clientId: string): Promise<{
