@@ -754,7 +754,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete endpoints
   app.delete("/api/advances/:id", requireAuth, requireDirector, async (req, res) => {
     try {
+      // Get the advance to find its project ID
+      const advance = await storage.getAdvanceById(req.params.id);
+      
       await storage.deleteAdvance(req.params.id);
+      
+      // Clear all relevant caches
+      if (advance?.projectId) {
+        invalidateProjectCache(advance.projectId);
+        cache.del(cacheKeys.projectFinancialSummary(advance.projectId));
+      }
+      cache.del(cacheKeys.projects());
+      cache.del('financial-overview'); // Clear financial overview cache
+      
       res.json({ message: "Advance deleted successfully" });
     } catch (error) {
       console.error("Delete advance error:", error);
@@ -770,7 +782,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied" });
       }
       
+      // Get the advance to find its project ID
+      const advance = await storage.getCustomerAdvanceById(req.params.id);
+      
       await storage.deleteCustomerAdvance(req.params.id);
+      
+      // Clear all relevant caches
+      if (advance?.projectId) {
+        invalidateProjectCache(advance.projectId);
+        cache.del(cacheKeys.projectFinancialSummary(advance.projectId));
+      }
+      cache.del(cacheKeys.projects());
+      cache.del('financial-overview'); // Clear financial overview cache
       
       // Create audit log for customer advance deletion
       const user = req.session.user!;
@@ -779,12 +802,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entityId: req.params.id,
         action: 'delete',
         fieldName: 'amount',
-        oldValue: '0',
+        oldValue: advance?.amount || '0',
         newValue: undefined,
         userId: user.id,
         userName: user.name,
         userRole: user.role,
-        projectId: undefined
+        projectId: advance?.projectId
       });
       
       res.json({ message: "Customer advance deleted successfully" });
@@ -802,7 +825,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied" });
       }
       
+      // Get the expense to find its project ID
+      const expense = await storage.getExpenseById(req.params.id);
+      
       await storage.deleteExpense(req.params.id);
+      
+      // Clear all relevant caches
+      if (expense?.projectId) {
+        invalidateProjectCache(expense.projectId);
+        cache.del(cacheKeys.projectFinancialSummary(expense.projectId));
+      }
+      cache.del(cacheKeys.projects());
+      cache.del('financial-overview'); // Clear financial overview cache
       
       // Create audit log for expense deletion
       const user = req.session.user!;
@@ -811,12 +845,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entityId: req.params.id,
         action: 'delete',
         fieldName: 'amount',
-        oldValue: '0',
+        oldValue: expense?.amount || '0',
         newValue: undefined,
         userId: user.id,
         userName: user.name,
         userRole: user.role,
-        projectId: undefined
+        projectId: expense?.projectId
       });
       
       res.json({ message: "Expense deleted successfully" });
@@ -943,7 +977,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied" });
       }
       
+      // Get the investment to find its project ID
+      const investment = await storage.getOwnerInvestmentById(req.params.id);
+      
       await storage.deleteOwnerInvestment(req.params.id);
+      
+      // Clear all relevant caches
+      if (investment?.projectId) {
+        invalidateProjectCache(investment.projectId);
+        cache.del(cacheKeys.projectFinancialSummary(investment.projectId));
+      }
+      cache.del(cacheKeys.projects());
+      cache.del('financial-overview'); // Clear financial overview cache
       
       // Create audit log for owner investment deletion
       const user = req.session.user!;
@@ -952,12 +997,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entityId: req.params.id,
         action: 'delete',
         fieldName: 'amount',
-        oldValue: '0',
+        oldValue: investment?.amount || '0',
         newValue: undefined,
         userId: user.id,
         userName: user.name,
         userRole: user.role,
-        projectId: undefined
+        projectId: investment?.projectId
       });
       
       res.status(204).send();

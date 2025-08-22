@@ -50,6 +50,7 @@ export interface IStorage {
   // Expenses
   getProjectExpenses(projectId: string): Promise<(Expense & { user: { name: string } })[]>;
   getUserExpenses(userId: string): Promise<(Expense & { project: { name: string } })[]>;
+  getExpenseById(id: string): Promise<Expense | undefined>;
   createExpense(expense: InsertExpense): Promise<Expense>;
   updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense>;
   deleteExpense(id: string): Promise<void>;
@@ -62,12 +63,14 @@ export interface IStorage {
   
   // Advances
   getProjectAdvances(projectId: string): Promise<Advance[]>;
+  getAdvanceById(id: string): Promise<Advance | undefined>;
   createAdvance(advance: InsertAdvance): Promise<Advance>;
   updateAdvance(id: string, advance: Partial<InsertAdvance>): Promise<Advance>;
   deleteAdvance(id: string): Promise<void>;
   
   // Customer Advances
   getProjectCustomerAdvances(projectId: string): Promise<CustomerAdvance[]>;
+  getCustomerAdvanceById(id: string): Promise<CustomerAdvance | undefined>;
   createCustomerAdvance(customerAdvance: InsertCustomerAdvance): Promise<CustomerAdvance>;
   updateCustomerAdvance(id: string, customerAdvance: Partial<InsertCustomerAdvance>): Promise<CustomerAdvance>;
   deleteCustomerAdvance(id: string): Promise<void>;
@@ -84,6 +87,7 @@ export interface IStorage {
   // Owner Investments
   getProjectOwnerInvestments(projectId: string): Promise<OwnerInvestment[]>;
   getOwnerInvestment(id: string): Promise<OwnerInvestment | undefined>;
+  getOwnerInvestmentById(id: string): Promise<OwnerInvestment | undefined>;
   createOwnerInvestment(ownerInvestment: InsertOwnerInvestment): Promise<OwnerInvestment>;
   updateOwnerInvestment(id: string, ownerInvestment: Partial<InsertOwnerInvestment>): Promise<OwnerInvestment>;
   deleteOwnerInvestment(id: string): Promise<void>;
@@ -641,6 +645,11 @@ export class DatabaseStorage implements IStorage {
     return result.map(r => ({ ...r.expense, project: r.project }));
   }
 
+  async getExpenseById(id: string): Promise<Expense | undefined> {
+    const [expense] = await db.select().from(expenses).where(eq(expenses.id, id));
+    return expense;
+  }
+
   async createExpense(expense: InsertExpense): Promise<Expense> {
     const [newExpense] = await db
       .insert(expenses)
@@ -663,6 +672,11 @@ export class DatabaseStorage implements IStorage {
       .limit(50);
   }
 
+  async getAdvanceById(id: string): Promise<Advance | undefined> {
+    const [advance] = await db.select().from(advances).where(eq(advances.id, id));
+    return advance;
+  }
+
   async createAdvance(advance: InsertAdvance): Promise<Advance> {
     const [newAdvance] = await db
       .insert(advances)
@@ -680,6 +694,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(customerAdvances.projectId, projectId))
       .orderBy(desc(customerAdvances.createdAt))
       .limit(50);
+  }
+
+  async getCustomerAdvanceById(id: string): Promise<CustomerAdvance | undefined> {
+    const [advance] = await db.select().from(customerAdvances).where(eq(customerAdvances.id, id));
+    return advance;
   }
 
   async createCustomerAdvance(customerAdvance: InsertCustomerAdvance): Promise<CustomerAdvance> {
@@ -1036,6 +1055,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOwnerInvestment(id: string): Promise<OwnerInvestment | undefined> {
+    const [result] = await db
+      .select()
+      .from(ownerInvestments)
+      .where(eq(ownerInvestments.id, id));
+    return result || undefined;
+  }
+
+  async getOwnerInvestmentById(id: string): Promise<OwnerInvestment | undefined> {
     const [result] = await db
       .select()
       .from(ownerInvestments)
