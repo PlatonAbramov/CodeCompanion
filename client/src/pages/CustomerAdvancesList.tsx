@@ -59,9 +59,13 @@ export default function CustomerAdvancesList() {
         title: "Аванс от заказчика удален",
         description: "Аванс от заказчика успешно удален",
       });
+      // Invalidate all related caches
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'customer-advances'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
     },
     onError: (error: any) => {
       toast({

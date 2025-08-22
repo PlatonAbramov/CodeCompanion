@@ -42,8 +42,12 @@ export default function OwnerInvestmentsList() {
       return res.json();
     },
     onSuccess: () => {
+      // Invalidate all related caches
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'owner-investments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
       toast({
         title: "Успешно",
         description: "Вложение удалено",

@@ -759,13 +759,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.deleteAdvance(req.params.id);
       
-      // Clear all relevant caches
+      // Clear all relevant caches comprehensively
       if (advance?.projectId) {
         invalidateProjectCache(advance.projectId);
         cache.del(cacheKeys.projectFinancialSummary(advance.projectId));
+        cache.del(cacheKeys.projectAdvances(advance.projectId));
+        cache.del(cacheKeys.project(advance.projectId));
       }
       cache.del(cacheKeys.projects());
-      cache.del('financial-overview'); // Clear financial overview cache
+      cache.del('financial-overview');
+      cache.del(cacheKeys.analyticsProjects());
       
       res.json({ message: "Advance deleted successfully" });
     } catch (error) {
@@ -787,13 +790,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.deleteCustomerAdvance(req.params.id);
       
-      // Clear all relevant caches
+      // Clear all relevant caches comprehensively
       if (advance?.projectId) {
         invalidateProjectCache(advance.projectId);
         cache.del(cacheKeys.projectFinancialSummary(advance.projectId));
+        cache.del(cacheKeys.projectCustomerAdvances(advance.projectId));
+        cache.del(cacheKeys.project(advance.projectId));
+        cache.del(cacheKeys.projectExpenses(advance.projectId));
+        cache.del(cacheKeys.projectAdvances(advance.projectId));
+        cache.del(cacheKeys.projectDocuments(advance.projectId));
       }
       cache.del(cacheKeys.projects());
-      cache.del('financial-overview'); // Clear financial overview cache
+      cache.del('financial-overview');
+      cache.del(cacheKeys.analyticsProjects());
       
       // Create audit log for customer advance deletion
       const user = req.session.user!;
@@ -830,13 +839,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.deleteExpense(req.params.id);
       
-      // Clear all relevant caches
+      // Clear all relevant caches comprehensively
       if (expense?.projectId) {
         invalidateProjectCache(expense.projectId);
         cache.del(cacheKeys.projectFinancialSummary(expense.projectId));
+        cache.del(cacheKeys.projectExpenses(expense.projectId));
+        cache.del(cacheKeys.project(expense.projectId));
       }
       cache.del(cacheKeys.projects());
-      cache.del('financial-overview'); // Clear financial overview cache
+      cache.del('financial-overview');
+      cache.del(cacheKeys.analyticsProjects());
       
       // Create audit log for expense deletion
       const user = req.session.user!;
@@ -982,13 +994,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.deleteOwnerInvestment(req.params.id);
       
-      // Clear all relevant caches
+      // Clear all relevant caches comprehensively
       if (investment?.projectId) {
         invalidateProjectCache(investment.projectId);
         cache.del(cacheKeys.projectFinancialSummary(investment.projectId));
+        cache.del(cacheKeys.projectOwnerInvestments(investment.projectId));
+        cache.del(cacheKeys.project(investment.projectId));
       }
       cache.del(cacheKeys.projects());
-      cache.del('financial-overview'); // Clear financial overview cache
+      cache.del('financial-overview');
+      cache.del(cacheKeys.analyticsProjects());
       
       // Create audit log for owner investment deletion
       const user = req.session.user!;

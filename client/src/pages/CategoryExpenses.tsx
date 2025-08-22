@@ -64,9 +64,12 @@ export default function CategoryExpenses() {
         title: "Расход удален",
         description: "Расход успешно удален",
       });
+      // Invalidate all related caches
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
     },
     onError: (error: any) => {
       toast({
