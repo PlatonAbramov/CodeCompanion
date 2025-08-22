@@ -1606,6 +1606,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/clients/:id", requireAuth, async (req, res) => {
     try {
       await storage.deleteClient(req.params.id);
+      
+      // Invalidate clients cache
+      invalidateCache(cacheKeys.clients());
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete client:", error);
