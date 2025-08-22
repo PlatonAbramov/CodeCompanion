@@ -286,8 +286,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create proper bcrypt hash
       const hashedPassword = await bcrypt.hash('123456', 10);
       
-      // Update user with hashed password
-      await storage.updateUser(user.id, { password: hashedPassword });
+      // Update user with hashed password using the correct method
+      await storage.updateUserPassword(user.id, hashedPassword, false);
       
       // Verify the fix worked
       const updatedUser = await storage.getUserByUsername('platonabramov90@gmail.com');
