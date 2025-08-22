@@ -1017,17 +1017,22 @@ export class DatabaseStorage implements IStorage {
 
       // Если есть связанный заказчик, удаляем соответствующий платеж
       if (clientProject.length > 0) {
-        await db
+        console.log(`Deleting client payment for customer advance: ${id}`);
+        console.log(`Looking for payment: client=${clientProject[0].clientId}, project=${advanceToDelete.projectId}, amount=${advanceToDelete.amount}, date=${advanceToDelete.date}`);
+        
+        const deleteResult = await db
           .delete(clientPayments)
           .where(
             and(
               eq(clientPayments.clientId, clientProject[0].clientId),
               eq(clientPayments.projectId, advanceToDelete.projectId),
               sql`${clientPayments.amount} = ${advanceToDelete.amount}`,
-              sql`${clientPayments.paymentDate} = ${advanceToDelete.date}`,
+              sql`DATE(${clientPayments.paymentDate}) = DATE(${advanceToDelete.date})`, // Compare only dates, not times
               eq(clientPayments.paymentMethod, 'advance')
             )
           );
+          
+        console.log(`Client payment deletion result:`, deleteResult);
       }
     }
 
