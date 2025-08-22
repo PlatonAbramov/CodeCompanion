@@ -64,14 +64,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.set('trust proxy', 1);
 
   // Session middleware
+  const isProduction = process.env.NODE_ENV === 'production' || !!process.env.REPLIT_DOMAINS;
+  
   app.use(session({
     secret: process.env.SESSION_SECRET || 'construction-app-secret',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-      secure: process.env.NODE_ENV === 'production' || !!process.env.REPLIT_DOMAINS,
+      secure: isProduction,
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: isProduction ? 'none' : 'lax', // 'none' для production с HTTPS
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   }));
@@ -100,43 +102,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      console.log("=== LOGIN ATTEMPT START ===");
-      console.log("Login attempt:", { 
-        username, 
-        passwordLength: password?.length,
-        hasSession: !!req.session,
-        sessionId: req.sessionID,
-        isProduction: process.env.NODE_ENV === 'production',
-        isReplit: !!process.env.REPLIT_DOMAINS,
-        cookieSecure: process.env.NODE_ENV === 'production' || !!process.env.REPLIT_DOMAINS
-      });
       
       if (!username || !password) {
-        console.log("Missing username or password");
         return res.status(400).json({ error: "Username and password required" });
       }
 
       const user = await storage.getUserByUsername(username);
-      console.log("User found:", user ? { 
-        id: user.id, 
-        username: user.username, 
-        isActive: user.isActive,
-        role: user.role,
-        passwordExists: !!user.password,
-        passwordHash: user.password?.substring(0, 10) + "..."
-      } : null);
       
       if (!user || !user.isActive) {
-        console.log("User not found or not active");
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      console.log("Comparing password with hash...");
       const isValid = await bcrypt.compare(password, user.password);
-      console.log("Password validation result:", isValid);
       
       if (!isValid) {
-        console.log("Invalid password - bcrypt comparison failed");
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
@@ -149,17 +128,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: user.name,
         role: user.role
       };
-      console.log("User stored in session:", req.session.user);
-      console.log("Session after login:", {
-        sessionId: req.sessionID,
-        hasUser: !!req.session.user,
-        cookieConfig: {
-          secure: req.session.cookie.secure,
-          httpOnly: req.session.cookie.httpOnly,
-          sameSite: req.session.cookie.sameSite,
-          maxAge: req.session.cookie.maxAge
-        }
-      });
 
       // Save session explicitly
       req.session.save((err) => {
@@ -167,8 +135,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("Session save error:", err);
           return res.status(500).json({ error: "Session save error" });
         }
-        console.log("Session saved successfully");
-        console.log("=== LOGIN ATTEMPT END (SUCCESS) ===");
         
         res.json({ 
           user: req.session.user,
@@ -177,7 +143,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Login error:", error);
-      console.log("=== LOGIN ATTEMPT END (ERROR) ===");
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -192,36 +157,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/me", async (req, res) => {
-    console.log("=== AUTH CHECK START ===");
-    console.log("Session data:", {
-      hasSession: !!req.session,
-      sessionId: req.sessionID,
-      hasUser: !!req.session?.user,
-      userId: req.session?.user?.id,
-      username: req.session?.user?.username,
-      cookieReceived: req.headers.cookie ? "yes" : "no"
-    });
-    
     if (!req.session?.user) {
-      console.log("No session user found - not authenticated");
-      console.log("=== AUTH CHECK END (FAIL) ===");
       return res.status(401).json({ error: "Not authenticated" });
     }
     
     try {
       // Получаем актуальные данные пользователя из базы данных
       const currentUser = await storage.getUserById(req.session.user.id);
-      console.log("Current user from DB:", currentUser ? {
-        id: currentUser.id,
-        username: currentUser.username,
-        isActive: currentUser.isActive,
-        role: currentUser.role
-      } : null);
       
       if (!currentUser || !currentUser.isActive) {
-        console.log("User not found or inactive - destroying session");
         req.session.destroy(() => {});
-        console.log("=== AUTH CHECK END (USER INACTIVE) ===");
         return res.status(401).json({ error: "User not found or inactive" });
       }
       
@@ -233,12 +178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: currentUser.role
       };
       
-      console.log("Auth check successful - user authenticated");
-      console.log("=== AUTH CHECK END (SUCCESS) ===");
       res.json({ user: req.session.user });
     } catch (error) {
       console.error("Get current user error:", error);
-      console.log("=== AUTH CHECK END (ERROR) ===");
       res.status(500).json({ error: "Internal server error" });
     }
   });
