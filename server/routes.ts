@@ -261,6 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         found: true,
         userId: user.id,
         username: user.username,
+        name: user.name,
         role: user.role,
         isActive: user.isActive,
         passwordTest: testPassword,
@@ -275,29 +276,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Fix password hash in production
-  app.post("/api/fix-password", async (req, res) => {
+  // Fix user profile in production
+  app.post("/api/fix-user-profile", async (req, res) => {
     try {
       const user = await storage.getUserByUsername('platonabramov90@gmail.com');
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Create proper bcrypt hash
-      const hashedPassword = await bcrypt.hash('123456', 10);
-      
-      // Update user with hashed password using the correct method
-      await storage.updateUserPassword(user.id, hashedPassword, false);
+      // Update user with correct name and ensure admin role
+      await db.update(users)
+        .set({ 
+          name: 'Administrator Platon',
+          role: 'admin',
+          isActive: true
+        })
+        .where(eq(users.id, user.id));
       
       // Verify the fix worked
       const updatedUser = await storage.getUserByUsername('platonabramov90@gmail.com');
-      const testPassword = await bcrypt.compare('123456', updatedUser.password);
       
       res.json({ 
-        message: "Password hash fixed successfully",
+        message: "User profile fixed successfully",
         userId: user.id,
-        passwordTest: testPassword,
-        newHashStart: hashedPassword.substring(0, 20) + "..."
+        oldName: user.name,
+        newName: updatedUser.name,
+        role: updatedUser.role,
+        isActive: updatedUser.isActive
       });
     } catch (error) {
       res.status(500).json({ error: error.message });
