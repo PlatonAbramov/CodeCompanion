@@ -1994,8 +1994,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Пользователь с таким логином уже существует" });
       }
       
-      // Хешируем пароль
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      // Используем стандартный пароль 123456 для продакшена если не указан
+      const finalPassword = validatedData.password || '123456';
+      const hashedPassword = await bcrypt.hash(finalPassword, 10);
+      console.log(`Creating user with password '${finalPassword}' and hash:`, hashedPassword);
       
       const user = await storage.createUser({
         username: validatedData.username,
@@ -2056,9 +2058,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId } = req.params;
       
-      // Генерируем временный пароль
-      const tempPassword = Math.random().toString(36).slice(-8);
+      // Генерируем временный пароль (или устанавливаем 123456 как стандартный)
+      const tempPassword = '123456'; // Стандартный пароль для продакшена
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      console.log(`Resetting password to '${tempPassword}' with hash:`, hashedPassword);
       
       await storage.updateUserPassword(userId, hashedPassword, true); // mustChangePassword = true
       
@@ -2150,6 +2153,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete user:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Админ-панель: установка стандартного пароля для пользователя
+  app.post("/api/admin/users/:userId/set-password", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { password } = req.body;
+      
+      // Используем стандартный пароль если не указан
+      const finalPassword = password || '123456';
+      const hashedPassword = await bcrypt.hash(finalPassword, 10);
+      console.log(`Setting password '${finalPassword}' for user ${userId} with hash:`, hashedPassword);
+      
+      await storage.updateUserPassword(userId, hashedPassword, false); // mustChangePassword = false
+      
+      // Логируем действие админа
+      await storage.logAdminAction({
+        adminUserId: req.session.user!.id,
+        action: 'set_password',
+        targetUserId: userId,
+        details: { passwordSet: true },
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+      
+      res.json({ success: true, password: finalPassword });
+    } catch (error) {
+      console.error("Failed to set password:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
