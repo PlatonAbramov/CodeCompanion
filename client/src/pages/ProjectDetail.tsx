@@ -532,7 +532,7 @@ export default function ProjectDetail() {
                   onClick={() => setLocation(`/customer-advances/${projectId}`)}
                 >
                   <div className="flex items-center flex-1">
-                    <span className="text-slate-600">Аванс от заказчика</span>
+                    <span className="text-slate-600">Авансы от заказчика (вручную)</span>
                     {(user?.role === 'admin' || user?.role === 'director') && (
                       <div className="flex items-center ml-2">
                         <Button 
@@ -562,6 +562,14 @@ export default function ProjectDetail() {
                   </div>
                   <span className="font-semibold text-green-600">
                     {formatCurrency(financialSummary.totalCustomerAdvances)}
+                  </span>
+                </div>
+
+                {/* Client Payments Row */}
+                <div className="flex justify-between items-center p-3 rounded-lg bg-blue-50">
+                  <span className="text-slate-600">Платежи от клиентов (автоматически)</span>
+                  <span className="font-semibold text-blue-700">
+                    {formatCurrency(parseFloat(financialSummary.totalClientPayments || "0"))}
                   </span>
                 </div>
 
