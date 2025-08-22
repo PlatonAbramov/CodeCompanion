@@ -207,6 +207,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Special route for creating initial admin user in production
+  app.post("/api/setup-admin", async (req, res) => {
+    try {
+      console.log("=== SETUP ADMIN ATTEMPT ===");
+      console.log("Environment check:", {
+        NODE_ENV: process.env.NODE_ENV,
+        REPLIT_DEPLOYMENT: process.env.REPLIT_DEPLOYMENT,
+        databaseUrl: !!process.env.DATABASE_URL
+      });
+
+      // Check if admin already exists
+      const existingAdmin = await storage.getUserByUsername('platonabramov90@gmail.com');
+      if (existingAdmin) {
+        console.log("Admin already exists:", existingAdmin.id);
+        return res.json({ message: "Admin already exists", userId: existingAdmin.id });
+      }
+
+      // Create admin user
+      const hashedPassword = await bcrypt.hash('123456', 10);
+      const adminUser = await storage.createUser({
+        username: 'platonabramov90@gmail.com',
+        name: 'Администратор Платон',
+        role: 'admin',
+        password: hashedPassword,
+        isActive: true
+      });
+
+      console.log("Admin user created:", adminUser.id);
+      res.json({ 
+        message: "Admin user created successfully", 
+        userId: adminUser.id,
+        username: adminUser.username
+      });
+    } catch (error) {
+      console.error("Setup admin error:", error);
+      res.status(500).json({ error: "Setup admin failed", details: error.message });
+    }
+  });
+
   // User management routes (Director only)
   app.get("/api/users", requireAuth, requireDirector, async (req, res) => {
     try {
