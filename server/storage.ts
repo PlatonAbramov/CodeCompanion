@@ -145,6 +145,8 @@ export interface IStorage {
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: string, client: Partial<InsertClient>): Promise<Client>;
   deleteClient(id: string): Promise<void>;
+  getDeletedClients(): Promise<Client[]>;
+  restoreClient(id: string): Promise<Client>;
   getClientStats(clientId: string): Promise<{
     totalPayments: number;
     totalProjects: number;
@@ -1384,6 +1386,23 @@ export class DatabaseStorage implements IStorage {
   // Clients
   async getAllClients(): Promise<Client[]> {
     return await db.select().from(clients).where(eq(clients.isActive, true)).orderBy(desc(clients.createdAt));
+  }
+
+  async getDeletedClients(): Promise<Client[]> {
+    return await db.select().from(clients).where(eq(clients.isActive, false)).orderBy(desc(clients.createdAt));
+  }
+
+  async restoreClient(id: string): Promise<Client> {
+    // Убираем " (удален)" из названия и восстанавливаем клиента
+    const [client] = await db
+      .update(clients)
+      .set({ 
+        name: sql`REPLACE(${clients.name}, ' (удален)', '')`,
+        isActive: true 
+      })
+      .where(eq(clients.id, id))
+      .returning();
+    return client;
   }
 
   async getClient(id: string): Promise<Client | undefined> {

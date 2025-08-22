@@ -1438,6 +1438,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get deleted clients
+  app.get("/api/clients/deleted", requireAuth, async (req, res) => {
+    try {
+      const deletedClients = await storage.getDeletedClients();
+      res.json(deletedClients);
+    } catch (error) {
+      console.error("Failed to get deleted clients:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Restore client
+  app.post("/api/clients/:id/restore", requireAuth, async (req, res) => {
+    try {
+      const client = await storage.restoreClient(req.params.id);
+      
+      // Invalidate clients cache
+      cache.invalidate('clients:');
+      
+      res.json(client);
+    } catch (error) {
+      console.error("Failed to restore client:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/api/clients/:id", requireAuth, async (req, res) => {
     try {
       const client = await storage.getClient(req.params.id);
@@ -1608,7 +1634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteClient(req.params.id);
       
       // Invalidate clients cache
-      invalidateCache(cacheKeys.clients());
+      cache.invalidate('clients:');
       
       res.json({ success: true });
     } catch (error) {
@@ -1616,6 +1642,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
+
 
   // Client projects routes
   app.get("/api/projects/:projectId/clients", requireAuth, async (req, res) => {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, Eye, ArrowLeft } from "lucide-react";
+import { Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, Eye, ArrowLeft, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientSchema, type Client, type InsertClient, type User } from "@shared/schema";
@@ -26,6 +27,7 @@ export default function ClientsPage() {
   const [, setLocation] = useLocation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [activeTab, setActiveTab] = useState("active");
 
   const goBack = () => {
     setLocation('/director');
@@ -54,6 +56,12 @@ export default function ClientsPage() {
   const { data: clients, isLoading } = useQuery({
     queryKey: ["/api/clients"],
     enabled: !isClientUser,
+  });
+
+  // Get deleted clients
+  const { data: deletedClients, isLoading: isLoadingDeleted } = useQuery({
+    queryKey: ["/api/clients/deleted"],
+    enabled: !isClientUser && activeTab === "deleted",
   });
 
   // Get all users with role 'client' for selection
@@ -141,12 +149,35 @@ export default function ClientsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      toast({ title: "Заказчик удален успешно" });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients/deleted"] });
+      toast({ title: "Заказчик перемещен в удаленные" });
     },
     onError: () => {
       toast({
         title: "Ошибка",
         description: "Не удалось удалить заказчика",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/clients/${id}/restore`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Failed to restore client");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients/deleted"] });
+      toast({ title: "Заказчик восстановлен успешно" });
+    },
+    onError: () => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось восстановить заказчика",
         variant: "destructive",
       });
     },
@@ -170,6 +201,12 @@ export default function ClientsPage() {
   const handleDelete = (client: Client) => {
     if (window.confirm(`Вы уверены, что хотите удалить заказчика "${client.name}"?`)) {
       deleteMutation.mutate(client.id);
+    }
+  };
+
+  const handleRestore = (client: Client) => {
+    if (window.confirm(`Вы уверены, что хотите восстановить заказчика "${client.name}"?`)) {
+      restoreMutation.mutate(client.id);
     }
   };
 
@@ -498,8 +535,15 @@ export default function ClientsPage() {
         </Dialog>
       </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {(clients as Client[] || []).map((client: Client) => (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="active">Активные заказчики</TabsTrigger>
+            <TabsTrigger value="deleted">Удаленные заказчики</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="active" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {(clients as Client[] || []).map((client: Client) => (
             <Card 
               key={client.id} 
               className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50"
@@ -583,10 +627,10 @@ export default function ClientsPage() {
               </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+              ))}
+            </div>
 
-        {Array.isArray(clients) && clients.length === 0 && (
+            {Array.isArray(clients) && clients.length === 0 && (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Заказчики не найдены</h3>
@@ -598,7 +642,88 @@ export default function ClientsPage() {
               Добавить заказчика
             </Button>
           </div>
-        )}
+            )}
+          </TabsContent>
+
+          <TabsContent value="deleted" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {(deletedClients as Client[] || []).map((client: Client) => (
+                <Card 
+                  key={client.id} 
+                  className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50 opacity-70"
+                  onClick={() => setLocation(`/clients/${client.id}`)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Building2 className="w-5 h-5" />
+                          {client.name}
+                        </CardTitle>
+                        {client.company && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {client.company}
+                          </p>
+                        )}
+                      </div>
+                      <Badge variant="destructive">Удален</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {client.contactPerson && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <span className="font-medium">Контакт:</span>
+                        <span className="ml-2">{client.contactPerson}</span>
+                      </div>
+                    )}
+                    {client.phone && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Phone className="w-4 h-4 mr-2" />
+                        {client.phone}
+                      </div>
+                    )}
+                    {client.email && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Mail className="w-4 h-4 mr-2" />
+                        {client.email}
+                      </div>
+                    )}
+                    {client.address && (
+                      <div className="flex items-start text-sm text-muted-foreground">
+                        <MapPin className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                        <span>{client.address}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-end space-x-2 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRestore(client);
+                        }}
+                        className="text-green-600 hover:text-green-700"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-1" />
+                        Восстановить
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {Array.isArray(deletedClients) && deletedClients.length === 0 && (
+              <div className="text-center py-12">
+                <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Удаленных заказчиков нет</h3>
+                <p className="text-muted-foreground">
+                  Все удаленные заказчики будут отображаться здесь
+                </p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
 
