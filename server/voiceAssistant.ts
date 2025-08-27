@@ -174,6 +174,63 @@ function extractAmountFromText(text: string): number {
   return amount;
 }
 
+function manualParseTranscript(transcript: string, projects: Project[], currentProject?: Project): any {
+  console.log('Manual parsing transcript:', transcript);
+  
+  const normalizedText = transcript.toLowerCase();
+  
+  // Извлекаем сумму
+  const amount = extractAmountFromText(transcript);
+  console.log('Manual parsed amount:', amount);
+  
+  // Пытаемся найти название проекта в транскрипте
+  let projectName = '';
+  let matchedProject = null;
+  
+  // Ищем проект по ключевым словам
+  for (const project of projects) {
+    const projectWords = project.name.toLowerCase().split(/\s+/);
+    if (projectWords.some(word => normalizedText.includes(word) && word.length > 3)) {
+      matchedProject = project;
+      projectName = project.name;
+      console.log('Found project by keywords:', projectName);
+      break;
+    }
+  }
+  
+  // Если проект не найден, используем текущий
+  if (!matchedProject && currentProject) {
+    matchedProject = currentProject;
+    projectName = currentProject.name;
+    console.log('Using current project:', projectName);
+  }
+  
+  // Определяем категорию
+  let category = 'other';
+  if (normalizedText.includes('зарплата') || normalizedText.includes('оплата') || 
+      normalizedText.includes('понёвщик') || normalizedText.includes('подёвщик')) {
+    category = 'labor';
+  } else if (normalizedText.includes('материал')) {
+    category = 'materials';
+  }
+  
+  console.log('Manual parsing result:', {
+    projectName,
+    amount,
+    category,
+    description: transcript
+  });
+  
+  return {
+    projectName,
+    amount,
+    category,
+    description: transcript,
+    personName: null,
+    confidence: 0.6
+  };
+}
+
 export async function parseVoiceExpense(
   transcript: string, 
   projects: Project[], 
@@ -239,20 +296,51 @@ ${currentProject ? `Текущий активный проект: "${currentProj
     console.log('Available projects:', projects.map(p => p.name));
     console.log('Current project:', currentProject?.name);
 
+    // Проверяем длину транскрипта
+    if (!transcript || transcript.trim().length < 5) {
+      console.log('Transcript too short or empty');
+      return {
+        success: false,
+        message: "Слишком короткая голосовая команда. Скажите полностью: 'Проект [название], [сумма] рублей на [описание]'"
+      };
+    }
+
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4", // Using gpt-4 for better reliability
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 500
+      response_format: { type: "json_object" }
     });
 
     const rawResponse = response.choices[0].message.content || '{}';
     console.log('OpenAI raw response:', rawResponse);
     
-    const parsedData = JSON.parse(rawResponse);
+    let parsedData;
+    try {
+      parsedData = JSON.parse(rawResponse);
+    } catch (error) {
+      console.error('Failed to parse OpenAI response:', error, 'Raw response:', rawResponse);
+      return {
+        success: false,
+        message: "Ошибка обработки ответа от ИИ. Попробуйте еще раз."
+      };
+    }
+
+    // Если OpenAI вернул пустой объект, пытаемся разобрать вручную
+    if (!parsedData || Object.keys(parsedData).length === 0) {
+      console.log('OpenAI returned empty object, trying manual parsing');
+      parsedData = manualParseTranscript(transcript, projects, currentProject);
+      
+      // Если и ручной разбор не помог, возвращаем ошибку
+      if (!parsedData || !parsedData.projectName) {
+        return {
+          success: false,
+          message: "Не удалось распознать команду. Попробуйте сказать: '[Название проекта] [сумма] рублей на [описание]'"
+        };
+      }
+    }
     
     console.log('Parsed data from AI:', parsedData);
     
