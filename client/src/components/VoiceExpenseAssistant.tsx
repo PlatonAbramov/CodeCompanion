@@ -170,11 +170,7 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
       };
 
       recognitionRef.current.onend = () => {
-        // Если слушаем и есть транскрипт - обрабатываем
-        if (isListening && transcript) {
-          parseVoiceCommand(transcript);
-        }
-        
+        // Просто очищаем состояние, обработка будет в stopListening
         setIsListening(false);
         
         // Остановка медиа потока
@@ -184,7 +180,7 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
         }
       };
     }
-  }, [transcript, isListening]);
+  }, [toast]);
 
   const startListening = async () => {
     try {
@@ -217,6 +213,18 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
   const stopListening = () => {
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
+      setIsListening(false);
+      
+      // Остановка медиа потока
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      
+      // Обрабатываем транскрипт если он есть
+      if (transcript) {
+        parseVoiceCommand(transcript);
+      }
     }
   };
 
