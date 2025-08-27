@@ -134,8 +134,22 @@ function extractAmountFromText(text: string): number {
   const numbers = normalizedText.match(numberRegex);
   
   if (numbers && numbers.length > 0) {
-    // Преобразуем числа, заменяя запятые на точки
-    const parsedNumbers = numbers.map(n => parseFloat(n.replace(',', '.')));
+    // Преобразуем числа, учитывая разделители тысяч
+    const parsedNumbers = numbers.map(n => {
+      const normalized = n.replace(',', '.');
+      const parsed = parseFloat(normalized);
+      
+      // Если число с точкой и больше 100, может быть разделитель тысяч
+      if (normalized.includes('.') && parsed > 100) {
+        const withoutDecimal = parseInt(normalized.replace('.', ''));
+        // Проверяем, выглядит ли это как разделитель тысяч (например 4.350 = 4350)
+        if (withoutDecimal > parsed * 100) {
+          return withoutDecimal;
+        }
+      }
+      return parsed;
+    });
+    
     // Берем самое большое число как сумму (часто это сумма расхода)
     amount = Math.max(...parsedNumbers);
     console.log('Found numbers in text:', numbers, 'parsed:', parsedNumbers, 'selected max:', amount);
@@ -435,6 +449,15 @@ ${currentProject ? `Текущий активный проект: "${currentProj
     
     console.log('Final amount:', parsedData.amount);
     console.log('Project name to match:', parsedData.projectName);
+    
+    // Если проект не определен, но есть текущий проект, используем его
+    if (!parsedData.projectName && currentProjectId) {
+      const currentProject = projects.find(p => p.id === currentProjectId);
+      if (currentProject) {
+        parsedData.projectName = currentProject.name;
+        console.log('Using current project for missing project name:', currentProject.name);
+      }
+    }
     
     // Валидация полученных данных
     if (!parsedData.projectName || !parsedData.amount) {
