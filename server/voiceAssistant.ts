@@ -30,41 +30,61 @@ const EXPENSE_CATEGORIES = {
 
 function findBestMatchingProject(projectName: string, projects: Project[]): Project | undefined {
   const normalizedInput = projectName.toLowerCase().trim();
+  console.log('Looking for project:', normalizedInput);
   
   // Сначала ищем точное совпадение
   let bestMatch = projects.find(p => p.name.toLowerCase() === normalizedInput);
-  
-  if (!bestMatch) {
-    // Ищем частичное совпадение
-    bestMatch = projects.find(p => 
-      p.name.toLowerCase().includes(normalizedInput) || 
-      normalizedInput.includes(p.name.toLowerCase())
-    );
+  if (bestMatch) {
+    console.log('Found exact match:', bestMatch.name);
+    return bestMatch;
   }
   
-  if (!bestMatch) {
-    // Ищем по первым буквам или похожим словам
-    bestMatch = projects.find(p => {
-      const projectWords = p.name.toLowerCase().split(/\s+/);
-      const inputWords = normalizedInput.split(/\s+/);
-      
-      return projectWords.some(pw => 
-        inputWords.some(iw => {
-          // Убираем короткие слова и цифры для лучшего поиска
-          if (iw.length < 3 || /^\d+$/.test(iw)) return false;
-          
-          return (
-            pw.startsWith(iw) || iw.startsWith(pw) || 
-            (pw.length > 3 && (
-              pw.includes(iw) || 
-              iw.includes(pw) ||
-              // Проверяем схожесть (например, Сирения - Сир)
-              (pw.length >= 4 && iw.length >= 3 && pw.startsWith(iw.substring(0, 3)))
-            ))
-          );
-        })
-      );
-    });
+  // Ищем частичное совпадение
+  bestMatch = projects.find(p => 
+    p.name.toLowerCase().includes(normalizedInput) || 
+    normalizedInput.includes(p.name.toLowerCase())
+  );
+  if (bestMatch) {
+    console.log('Found partial match:', bestMatch.name);
+    return bestMatch;
+  }
+  
+  // Специальные правила для конкретных проектов
+  if (normalizedInput.includes('grand') || normalizedInput.includes('гранд')) {
+    bestMatch = projects.find(p => p.name.toLowerCase().includes('grand signature'));
+    if (bestMatch) {
+      console.log('Found Grand Signature by keyword "grand":', bestMatch.name);
+      return bestMatch;
+    }
+  }
+  
+  // Ищем по первым буквам или похожим словам
+  bestMatch = projects.find(p => {
+    const projectWords = p.name.toLowerCase().split(/\s+/);
+    const inputWords = normalizedInput.split(/\s+/);
+    
+    return projectWords.some(pw => 
+      inputWords.some(iw => {
+        // Убираем короткие слова и цифры для лучшего поиска
+        if (iw.length < 3 || /^\d+$/.test(iw)) return false;
+        
+        return (
+          pw.startsWith(iw) || iw.startsWith(pw) || 
+          (pw.length > 3 && (
+            pw.includes(iw) || 
+            iw.includes(pw) ||
+            // Проверяем схожесть (например, Сирения - Сир)
+            (pw.length >= 4 && iw.length >= 3 && pw.startsWith(iw.substring(0, 3)))
+          ))
+        );
+      })
+    );
+  });
+  
+  if (bestMatch) {
+    console.log('Found word-based match:', bestMatch.name);
+  } else {
+    console.log('No project match found for:', normalizedInput);
   }
   
   return bestMatch;
@@ -110,12 +130,15 @@ function extractAmountFromText(text: string): number {
   let amount = 0;
 
   // Ищем числа в тексте
-  const numberRegex = /(\d+(?:\.\d+)?)/g;
+  const numberRegex = /(\d+(?:[.,]\d+)?)/g;
   const numbers = normalizedText.match(numberRegex);
   
   if (numbers && numbers.length > 0) {
-    // Берем самое большое число как сумму
-    amount = Math.max(...numbers.map(n => parseFloat(n)));
+    // Преобразуем числа, заменяя запятые на точки
+    const parsedNumbers = numbers.map(n => parseFloat(n.replace(',', '.')));
+    // Берем самое большое число как сумму (часто это сумма расхода)
+    amount = Math.max(...parsedNumbers);
+    console.log('Found numbers in text:', numbers, 'parsed:', parsedNumbers, 'selected max:', amount);
   }
 
   // Если числа не найдены, ищем словами
@@ -173,24 +196,24 @@ ${projectList}
 
 ${currentProject ? `Текущий активный проект: "${currentProject.name}"` : ''}
 
-ВАЖНЫЕ ПРАВИЛА:
-1. Распознавай числа в любом формате: "пятьсот", "500", "пять сотен", "полтысячи"
-2. Валюты: "рублей", "рубля", "руб", "дирхам", "дирхама", "AED", "₽"
-3. Проекты могут называться по-разному: короткие названия, сокращения
-4. Если проект не указан явно, используй текущий активный проект
-5. Ищи ключевые слова для категорий
+КРИТИЧЕСКИ ВАЖНО:
+1. ВСЕГДА ищи числа в тексте - это сумма расхода! Например: "4350" = 4350
+2. Распознавай проекты по ключевым словам: "Grand" может означать "Grand Signature", "Сир" - "Сирения"
+3. Если не уверен в проекте, используй текущий активный проект
+4. Валюты: "дирхам", "дирхама", "dirhams", "рублей", "руб"
 
 Категории расходов:
-- materials: материалы, двери, окна, сантехника, электрика, плитка
-- labor: работа, монтаж, установка, зарплата, услуги мастера  
+- materials: материалы, двери, окна, сантехника, электрика
+- labor: работа, зарплата, оплата, подёвщик, мастер, монтаж
 - transport: доставка, такси, бензин, транспорт
 - equipment: инструменты, оборудование, техника
-- other: прочие расходы, если неясно что именно
+- other: прочие расходы, если неясно
 
-Примеры команд:
-- "Сирения - 405, Расход - 500 дирхам, Влад - из своих, За двери"
-- "Проект офис, триста рублей материалы"
-- "Потратил 1000 на инструменты для стройки"`;
+ПРИМЕРЫ разбора:
+1. "Grand Signature 4350 dirhams оплату поднёвщикам"
+   → projectName: "Grand Signature", amount: 4350, category: "labor"
+2. "Сирения 500 рублей материалы"
+   → projectName: "Сирения", amount: 500, category: "materials"`;
 
     const userPrompt = `Распознай расход из голосовой команды: "${transcript}"
 
@@ -211,6 +234,11 @@ ${currentProject ? `Текущий активный проект: "${currentProj
   "confidence": число_от_0_до_1
 }`;
 
+    console.log('=== VOICE PARSING DEBUG ===');
+    console.log('Original transcript:', transcript);
+    console.log('Available projects:', projects.map(p => p.name));
+    console.log('Current project:', currentProject?.name);
+
     const response = await openai.chat.completions.create({
       model: "gpt-5",
       messages: [
@@ -221,15 +249,26 @@ ${currentProject ? `Текущий активный проект: "${currentProj
       max_completion_tokens: 500
     });
 
-    const parsedData = JSON.parse(response.choices[0].message.content || '{}');
+    const rawResponse = response.choices[0].message.content || '{}';
+    console.log('OpenAI raw response:', rawResponse);
+    
+    const parsedData = JSON.parse(rawResponse);
+    
+    console.log('Parsed data from AI:', parsedData);
     
     // Обработка числительных в сумме (если ИИ не распознал)
     if (!parsedData.amount || parsedData.amount === 0) {
-      parsedData.amount = extractAmountFromText(transcript);
+      const extractedAmount = extractAmountFromText(transcript);
+      console.log('Extracted amount from text:', extractedAmount);
+      parsedData.amount = extractedAmount;
     }
+    
+    console.log('Final amount:', parsedData.amount);
+    console.log('Project name to match:', parsedData.projectName);
     
     // Валидация полученных данных
     if (!parsedData.projectName || !parsedData.amount) {
+      console.log('Validation failed - missing project or amount');
       return {
         success: false,
         message: "Не удалось определить проект или сумму расхода. Попробуйте сказать четче: 'Проект [название], [сумма] рублей на [описание]'"
@@ -238,11 +277,13 @@ ${currentProject ? `Текущий активный проект: "${currentProj
     
     // Находим соответствующий проект
     let matchedProject = findBestMatchingProject(parsedData.projectName, projects);
+    console.log('Matched project from name search:', matchedProject?.name);
     
     // Если проект не найден и есть текущий проект, используем его
     if (!matchedProject && currentProjectId) {
       matchedProject = projects.find(p => p.id === currentProjectId);
       if (matchedProject) {
+        console.log('Using current project as fallback:', matchedProject.name);
         parsedData.projectName = matchedProject.name;
       }
     }
