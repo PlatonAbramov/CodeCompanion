@@ -3580,6 +3580,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Voice Assistant Routes
+  app.post("/api/voice/parse-expense", requireAuth, async (req, res) => {
+    try {
+      const { transcript, projects, currentProjectId } = req.body;
+      
+      if (!transcript) {
+        return res.status(400).json({ error: "Transcript is required" });
+      }
+      
+      // Импортируем функцию парсинга
+      const { parseVoiceExpense } = await import('./voiceAssistant');
+      
+      const result = await parseVoiceExpense(transcript, projects || [], currentProjectId);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to parse voice expense:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Ошибка при обработке голосовой команды" 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

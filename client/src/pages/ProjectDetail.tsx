@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { FileUploader } from "@/components/FileUploader";
 import { AssignClientModal } from "@/components/AssignClientModal";
+import { VoiceExpenseAssistant } from "@/components/VoiceExpenseAssistant";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -457,15 +458,27 @@ export default function ProjectDetail() {
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 mb-6">
           {isAdminOrDirector && (
-            <Button 
-              className="bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md"
-              onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
-            >
-              <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
-                <Plus size={16} className="text-white" />
+            <>
+              <div className="flex gap-3">
+                <Button 
+                  className="flex-1 bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md"
+                  onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
+                >
+                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+                    <Plus size={16} className="text-white" />
+                  </div>
+                  Добавить расход
+                </Button>
+                
+                <VoiceExpenseAssistant 
+                  currentProjectId={projectId}
+                  onExpenseCreated={() => {
+                    queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
+                    queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
+                  }}
+                />
               </div>
-              Добавить расход
-            </Button>
+            </>
           )}
           
           {/* Implementation Sheets - accessible to clients */}

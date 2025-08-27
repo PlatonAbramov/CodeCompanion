@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { AssignClientModal } from '@/components/AssignClientModal';
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { VoiceExpenseAssistant } from "@/components/VoiceExpenseAssistant";
 
 interface Project {
   id: string;
@@ -487,15 +488,21 @@ export default function DirectorDashboard() {
         {/* Projects Section */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-slate-900">{t('projects')}</h3>
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary text-white">
-                <Plus size={16} className="mr-1" />
-                {t('createProject')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
+          <div className="flex gap-2">
+            <VoiceExpenseAssistant 
+              onExpenseCreated={() => {
+                queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+              }}
+            />
+            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary text-white">
+                  <Plus size={16} className="mr-1" />
+                  {t('createProject')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
                 <DialogTitle>{t('createProject')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreateProject} className="space-y-4">
@@ -572,6 +579,7 @@ export default function DirectorDashboard() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Edit Project Modal */}
