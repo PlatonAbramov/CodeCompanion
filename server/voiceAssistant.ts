@@ -132,7 +132,6 @@ ${currentProject ? `Текущий активный проект: "${currentProj
         { role: "user", content: userPrompt }
       ],
       response_format: { type: "json_object" },
-      temperature: 0.3,
       max_completion_tokens: 500
     });
 
