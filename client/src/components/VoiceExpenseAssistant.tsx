@@ -112,18 +112,54 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
     if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
+      recognitionRef.current.continuous = true; // Изменено на true для продолжительной записи
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'ru-RU';
+      recognitionRef.current.maxAlternatives = 1;
 
       recognitionRef.current.onresult = (event: any) => {
-        const last = event.results.length - 1;
-        const text = event.results[last][0].transcript;
-        setTranscript(text);
+        let finalTranscript = '';
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+        
+        // Обновляем транскрипт при получении результатов
+        if (finalTranscript || interimTranscript) {
+          setTranscript(finalTranscript || interimTranscript);
+        }
       };
 
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error', event.error);
+        
+        // Обрабатываем разные типы ошибок
+        if (event.error === 'no-speech') {
+          toast({
+            title: "Речь не обнаружена",
+            description: "Попробуйте говорить громче или ближе к микрофону",
+            variant: "destructive",
+          });
+        } else if (event.error === 'audio-capture') {
+          toast({
+            title: "Ошибка микрофона",
+            description: "Проверьте доступ к микрофону",
+            variant: "destructive",
+          });
+        } else if (event.error !== 'aborted') {
+          toast({
+            title: "Ошибка распознавания",
+            description: "Не удалось распознать речь. Попробуйте еще раз.",
+            variant: "destructive",
+          });
+        }
+        
         setIsListening(false);
         
         // Остановка медиа потока
@@ -131,15 +167,14 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
         }
-        
-        toast({
-          title: "Ошибка распознавания",
-          description: "Не удалось распознать речь. Попробуйте еще раз.",
-          variant: "destructive",
-        });
       };
 
       recognitionRef.current.onend = () => {
+        // Если слушаем и есть транскрипт - обрабатываем
+        if (isListening && transcript) {
+          parseVoiceCommand(transcript);
+        }
+        
         setIsListening(false);
         
         // Остановка медиа потока
@@ -147,13 +182,9 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
         }
-        
-        if (transcript) {
-          parseVoiceCommand(transcript);
-        }
       };
     }
-  }, [transcript]);
+  }, [transcript, isListening]);
 
   const startListening = async () => {
     try {
