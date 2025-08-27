@@ -335,7 +335,7 @@ ${currentProject ? `Текущий активный проект: "${currentProj
 4. Описание того, на что потрачены деньги
 5. Имя человека если упомянуто
 
-Верни JSON:
+ВАЖНО: Верни ТОЛЬКО чистый JSON без дополнительного текста, объяснений или markdown:
 {
   "projectName": "точное название проекта из списка",
   "amount": числовая_сумма_без_валюты,
@@ -387,26 +387,40 @@ ${currentProject ? `Текущий активный проект: "${currentProj
     
     let parsedData;
     try {
-      parsedData = JSON.parse(rawResponse);
+      // Пытаемся извлечь JSON из ответа, если он обернут в markdown или текст
+      let jsonString = rawResponse;
+      
+      // Ищем JSON в response (может быть обернут в ```json и ```)
+      const jsonMatch = rawResponse.match(/```json\s*([\s\S]*?)\s*```/) || 
+                       rawResponse.match(/\{[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        jsonString = jsonMatch[1] || jsonMatch[0];
+      }
+      
+      parsedData = JSON.parse(jsonString);
     } catch (error) {
       console.error('Failed to parse OpenAI response:', error, 'Raw response:', rawResponse);
-      return {
-        success: false,
-        message: "Ошибка обработки ответа от ИИ. Попробуйте еще раз."
-      };
-    }
-
-    // Если OpenAI вернул пустой объект, пытаемся разобрать вручную
-    if (!parsedData || Object.keys(parsedData).length === 0) {
-      console.log('OpenAI returned empty object, trying manual parsing');
-      parsedData = manualParseTranscript(transcript, projects, currentProject);
+      console.log('Falling back to manual parsing due to JSON parse error');
       
-      // Если и ручной разбор не помог, возвращаем ошибку
-      if (!parsedData || !parsedData.projectName) {
+      // Сразу переходим к ручному разбору
+      const manualResult = manualParseTranscript(transcript, projects, currentProject);
+      if (manualResult && manualResult.projectName && manualResult.amount > 0) {
+        return processManualResult(manualResult, projects, currentProjectId);
+      } else {
         return {
           success: false,
           message: "Не удалось распознать команду. Попробуйте сказать: '[Название проекта] [сумма] рублей на [описание]'"
         };
+      }
+    }
+
+    // Если OpenAI вернул пустой объект или некорректные данные, пытаемся разобрать вручную
+    if (!parsedData || Object.keys(parsedData).length === 0 || !parsedData.projectName || !parsedData.amount) {
+      console.log('OpenAI returned incomplete data, trying manual parsing');
+      const manualResult = manualParseTranscript(transcript, projects, currentProject);
+      if (manualResult && (manualResult.projectName || currentProject) && manualResult.amount > 0) {
+        return processManualResult(manualResult, projects, currentProjectId);
       }
     }
     
