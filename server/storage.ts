@@ -959,33 +959,48 @@ export class DatabaseStorage implements IStorage {
     const archivedProjectIds = archivedProjects.map(p => p.id);
 
     // Сумма авансов от заказчиков (это и есть доходы по архивным проектам)
-    const [customerAdvancesSum] = await db
-      .select({ 
-        total: sql<string>`COALESCE(SUM(${customerAdvances.amount}), 0)` 
-      })
-      .from(customerAdvances)
-      .where(sql`${customerAdvances.projectId} = ANY(${archivedProjectIds})`);
+    let customerAdvancesTotalSum = 0;
+    for (const projectId of archivedProjectIds) {
+      const projectAdvances = await db
+        .select({ amount: customerAdvances.amount })
+        .from(customerAdvances)
+        .where(eq(customerAdvances.projectId, projectId));
+      
+      for (const advance of projectAdvances) {
+        customerAdvancesTotalSum += parseFloat(advance.amount || '0');
+      }
+    }
 
     // Сумма расходов по архивным проектам
-    const [expensesSum] = await db
-      .select({ 
-        total: sql<string>`COALESCE(SUM(${expenses.amount}), 0)` 
-      })
-      .from(expenses)
-      .where(sql`${expenses.projectId} = ANY(${archivedProjectIds})`);
+    let expensesTotalSum = 0;
+    for (const projectId of archivedProjectIds) {
+      const projectExpenses = await db
+        .select({ amount: expenses.amount })
+        .from(expenses)
+        .where(eq(expenses.projectId, projectId));
+      
+      for (const expense of projectExpenses) {
+        expensesTotalSum += parseFloat(expense.amount || '0');
+      }
+    }
 
     // Сумма взятых авансов участниками по архивным проектам
-    const [advancesSum] = await db
-      .select({ 
-        total: sql<string>`COALESCE(SUM(${advances.amount}), 0)` 
-      })
-      .from(advances)
-      .where(sql`${advances.projectId} = ANY(${archivedProjectIds})`);
+    let advancesTotalSum = 0;
+    for (const projectId of archivedProjectIds) {
+      const projectAdvances = await db
+        .select({ amount: advances.amount })
+        .from(advances)
+        .where(eq(advances.projectId, projectId));
+      
+      for (const advance of projectAdvances) {
+        advancesTotalSum += parseFloat(advance.amount || '0');
+      }
+    }
 
     return {
-      totalRevenue: customerAdvancesSum?.total || "0",
-      totalExpenses: expensesSum?.total || "0",
-      totalAdvances: advancesSum?.total || "0"
+      totalRevenue: customerAdvancesTotalSum.toString(),
+      totalExpenses: expensesTotalSum.toString(),
+      totalAdvances: advancesTotalSum.toString()
     };
   }
 
