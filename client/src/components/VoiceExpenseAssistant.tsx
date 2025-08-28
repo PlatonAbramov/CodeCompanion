@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -25,11 +26,20 @@ interface ParsedExpenseData {
   description?: string;
   personName?: string;
   confidence: number;
+  needsContractor?: boolean;
 }
 
 interface Project {
   id: string;
   name: string;
+}
+
+interface Contractor {
+  id: string;
+  name: string;
+  company?: string;
+  phone?: string;
+  specialization: string;
 }
 
 interface VoiceExpenseAssistantProps {
@@ -46,6 +56,8 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
   const [transcript, setTranscript] = useState("");
   const [parsedData, setParsedData] = useState<ParsedExpenseData | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showContractorDialog, setShowContractorDialog] = useState(false);
+  const [selectedContractorId, setSelectedContractorId] = useState<string>("");
   const recognitionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -54,20 +66,26 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
     queryKey: ['/api/projects'],
   });
 
+  // Получаем список подрядчиков
+  const { data: contractors = [] } = useQuery<Contractor[]>({
+    queryKey: ['/api/contractors'],
+  });
+
   // Мутация для создания расхода
   const createExpenseMutation = useMutation({
-    mutationFn: async (data: ParsedExpenseData) => {
-      if (!data.projectId) {
+    mutationFn: async (data: { expenseData: ParsedExpenseData, contractorId?: string }) => {
+      if (!data.expenseData.projectId) {
         throw new Error("Проект не определен");
       }
       
       const response = await apiRequest('/api/expenses', {
         method: 'POST',
         body: JSON.stringify({
-          projectId: data.projectId,
-          category: data.category,
-          amount: data.amount.toString(),
-          description: data.description,
+          projectId: data.expenseData.projectId,
+          category: data.expenseData.category,
+          amount: data.expenseData.amount.toString(),
+          description: data.expenseData.description,
+          contractorId: data.contractorId || null,
           userId: user?.id,
         }),
       });
@@ -248,8 +266,21 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
       const result = await response.json();
       
       if (result.success && result.data) {
-        setParsedData(result.data);
-        setShowConfirmDialog(true);
+        const parsedExpense = result.data;
+        
+        // Проверяем, есть ли в тексте "оплата подрядчикам"
+        const needsContractor = text.toLowerCase().includes('оплата подрядчикам') || 
+                               text.toLowerCase().includes('оплату подрядчикам') ||
+                               text.toLowerCase().includes('подрядчикам');
+        
+        parsedExpense.needsContractor = needsContractor;
+        setParsedData(parsedExpense);
+        
+        if (needsContractor) {
+          setShowContractorDialog(true);
+        } else {
+          setShowConfirmDialog(true);
+        }
       } else {
         toast({
           title: "Не удалось распознать",
@@ -271,7 +302,25 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
 
   const handleConfirmExpense = () => {
     if (parsedData) {
-      createExpenseMutation.mutate(parsedData);
+      createExpenseMutation.mutate({ expenseData: parsedData });
+    }
+  };
+
+  const handleConfirmWithContractor = () => {
+    if (parsedData && selectedContractorId) {
+      createExpenseMutation.mutate({ 
+        expenseData: parsedData, 
+        contractorId: selectedContractorId 
+      });
+      setShowContractorDialog(false);
+      setSelectedContractorId("");
+    }
+  };
+
+  const handleSkipContractor = () => {
+    if (parsedData) {
+      createExpenseMutation.mutate({ expenseData: parsedData });
+      setShowContractorDialog(false);
     }
   };
 
@@ -392,6 +441,88 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
             <Button 
               onClick={handleConfirmExpense}
               disabled={createExpenseMutation.isPending}
+            >
+              {createExpenseMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Добавление...
+                </>
+              ) : (
+                'Добавить расход'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог выбора подрядчика */}
+      <Dialog open={showContractorDialog} onOpenChange={setShowContractorDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Выбор подрядчика</DialogTitle>
+            <DialogDescription>
+              Выберите подрядчика для этого расхода или пропустите, если не требуется
+            </DialogDescription>
+          </DialogHeader>
+
+          {parsedData && (
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="text-center space-y-2">
+                    <div className="text-lg font-medium">{parsedData.amount} ₽</div>
+                    <div className="text-sm text-muted-foreground">{parsedData.projectName}</div>
+                    <Badge>{getCategoryLabel(parsedData.category)}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-2">
+                <Label htmlFor="contractor-select">Подрядчик (опционально):</Label>
+                <Select value={selectedContractorId} onValueChange={setSelectedContractorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите подрядчика" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contractors.map((contractor) => (
+                      <SelectItem key={contractor.id} value={contractor.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{contractor.name}</span>
+                          {contractor.company && (
+                            <span className="text-xs text-muted-foreground">{contractor.company}</span>
+                          )}
+                          <span className="text-xs text-muted-foreground">{contractor.specialization}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowContractorDialog(false);
+                setParsedData(null);
+                setTranscript("");
+                setSelectedContractorId("");
+              }}
+            >
+              Отмена
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleSkipContractor}
+              disabled={createExpenseMutation.isPending}
+            >
+              Пропустить
+            </Button>
+            <Button 
+              onClick={handleConfirmWithContractor}
+              disabled={createExpenseMutation.isPending || !selectedContractorId}
             >
               {createExpenseMutation.isPending ? (
                 <>

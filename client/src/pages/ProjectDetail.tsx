@@ -104,6 +104,8 @@ export default function ProjectDetail() {
   const [isExpensesOpen, setIsExpensesOpen] = useState(false);
   const [expensesSortBy, setExpensesSortBy] = useState<'date' | 'amount'>('date');
   const [expensesSortOrder, setExpensesSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [expensesFilterByUser, setExpensesFilterByUser] = useState<string>('all');
+  const [isCompleteProjectDialogOpen, setIsCompleteProjectDialogOpen] = useState(false);
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];
@@ -371,21 +373,31 @@ export default function ProjectDetail() {
   const isAdmin = user?.role === 'admin';
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
 
-  // Функция для сортировки расходов
-  const sortedExpenses = expenses.sort((a, b) => {
-    let aValue, bValue;
-    
-    if (expensesSortBy === 'date') {
-      aValue = new Date(a.createdAt).getTime();
-      bValue = new Date(b.createdAt).getTime();
-    } else {
-      aValue = parseFloat(a.amount);
-      bValue = parseFloat(b.amount);
-    }
-    
-    const modifier = expensesSortOrder === 'asc' ? 1 : -1;
-    return (aValue - bValue) * modifier;
-  });
+  // Функция для фильтрации и сортировки расходов
+  const filteredAndSortedExpenses = expenses
+    .filter(expense => {
+      if (expensesFilterByUser === 'all') return true;
+      return expense.user?.name === expensesFilterByUser;
+    })
+    .sort((a, b) => {
+      let aValue, bValue;
+      
+      if (expensesSortBy === 'date') {
+        aValue = new Date(a.createdAt).getTime();
+        bValue = new Date(b.createdAt).getTime();
+      } else {
+        aValue = parseFloat(a.amount);
+        bValue = parseFloat(b.amount);
+      }
+      
+      const modifier = expensesSortOrder === 'asc' ? 1 : -1;
+      return (aValue - bValue) * modifier;
+    });
+
+  // Получаем уникальных пользователей из расходов
+  const uniqueUsers = Array.from(
+    new Set(expenses.map(expense => expense.user?.name).filter(Boolean))
+  ).sort();
 
   // Функция для получения категории расхода на русском
   const getCategoryLabel = (category: string) => {
@@ -537,7 +549,20 @@ export default function ProjectDetail() {
                 </div>
                 Назначить заказчика
               </Button>
-              
+
+              {/* Complete Project Button */}
+              {project?.status !== 'archived' && financialSummary && (
+                <Button 
+                  variant="outline"
+                  className="px-6 py-3 rounded-full shadow-sm border-green-200 text-green-700 hover:bg-green-50"
+                  onClick={() => setIsCompleteProjectDialogOpen(true)}
+                >
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <CheckCircle size={16} className="text-green-600" />
+                  </div>
+                  Проект завершён
+                </Button>
+              )}
 
             </>
           )}
@@ -913,50 +938,75 @@ export default function ProjectDetail() {
                     {/* Expenses History */}
                     {expenses.length > 0 ? (
                       <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm font-medium text-slate-900">История расходов</h4>
-                          <div className="flex gap-1">
-                            <Button
-                              variant={expensesSortBy === 'date' ? 'default' : 'outline'}
-                              size="sm"
-                              className="text-xs px-2 py-1 h-7"
-                              onClick={() => {
-                                if (expensesSortBy === 'date') {
-                                  setExpensesSortOrder(expensesSortOrder === 'asc' ? 'desc' : 'asc');
-                                } else {
-                                  setExpensesSortBy('date');
-                                  setExpensesSortOrder('desc');
-                                }
-                              }}
-                            >
-                              <Calendar size={12} className="mr-1" />
-                              {expensesSortBy === 'date' && (
-                                <ArrowUpDown size={10} className={`ml-1 ${expensesSortOrder === 'desc' ? 'rotate-180' : ''}`} />
-                              )}
-                            </Button>
-                            <Button
-                              variant={expensesSortBy === 'amount' ? 'default' : 'outline'}
-                              size="sm"
-                              className="text-xs px-2 py-1 h-7"
-                              onClick={() => {
-                                if (expensesSortBy === 'amount') {
-                                  setExpensesSortOrder(expensesSortOrder === 'asc' ? 'desc' : 'asc');
-                                } else {
-                                  setExpensesSortBy('amount');
-                                  setExpensesSortOrder('desc');
-                                }
-                              }}
-                            >
-                              <DollarSign size={12} className="mr-1" />
-                              {expensesSortBy === 'amount' && (
-                                <ArrowUpDown size={10} className={`ml-1 ${expensesSortOrder === 'desc' ? 'rotate-180' : ''}`} />
-                              )}
-                            </Button>
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium text-slate-900">История расходов</h4>
+                            <div className="flex gap-1">
+                              <Button
+                                variant={expensesSortBy === 'date' ? 'default' : 'outline'}
+                                size="sm"
+                                className="text-xs px-2 py-1 h-7"
+                                onClick={() => {
+                                  if (expensesSortBy === 'date') {
+                                    setExpensesSortOrder(expensesSortOrder === 'asc' ? 'desc' : 'asc');
+                                  } else {
+                                    setExpensesSortBy('date');
+                                    setExpensesSortOrder('desc');
+                                  }
+                                }}
+                              >
+                                <Calendar size={12} className="mr-1" />
+                                {expensesSortBy === 'date' && (
+                                  <ArrowUpDown size={10} className={`ml-1 ${expensesSortOrder === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </Button>
+                              <Button
+                                variant={expensesSortBy === 'amount' ? 'default' : 'outline'}
+                                size="sm"
+                                className="text-xs px-2 py-1 h-7"
+                                onClick={() => {
+                                  if (expensesSortBy === 'amount') {
+                                    setExpensesSortOrder(expensesSortOrder === 'asc' ? 'desc' : 'asc');
+                                  } else {
+                                    setExpensesSortBy('amount');
+                                    setExpensesSortOrder('desc');
+                                  }
+                                }}
+                              >
+                                <DollarSign size={12} className="mr-1" />
+                                {expensesSortBy === 'amount' && (
+                                  <ArrowUpDown size={10} className={`ml-1 ${expensesSortOrder === 'desc' ? 'rotate-180' : ''}`} />
+                                )}
+                              </Button>
+                            </div>
                           </div>
+                          
+                          {/* User Filter */}
+                          {uniqueUsers.length > 1 && (
+                            <div className="flex items-center gap-2">
+                              <User size={14} className="text-slate-500" />
+                              <Select value={expensesFilterByUser} onValueChange={setExpensesFilterByUser}>
+                                <SelectTrigger className="h-7 text-xs flex-1 max-w-48">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Все пользователи ({expenses.length})</SelectItem>
+                                  {uniqueUsers.map(userName => {
+                                    const userExpenseCount = expenses.filter(e => e.user?.name === userName).length;
+                                    return (
+                                      <SelectItem key={userName} value={userName}>
+                                        {userName} ({userExpenseCount})
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </div>
                         
                         <div className="space-y-2 max-h-60 overflow-y-auto">
-                          {sortedExpenses.slice(0, 10).map((expense) => (
+                          {filteredAndSortedExpenses.slice(0, 10).map((expense) => (
                             <div key={expense.id} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-md">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
@@ -982,14 +1032,14 @@ export default function ProjectDetail() {
                               </span>
                             </div>
                           ))}
-                          {expenses.length > 10 && (
+                          {filteredAndSortedExpenses.length > 10 && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="w-full text-xs text-slate-500"
                               onClick={() => setLocation(`/expenses/${projectId}`)}
                             >
-                              Показать все ({expenses.length})
+                              Показать все ({filteredAndSortedExpenses.length})
                             </Button>
                           )}
                         </div>
@@ -1135,6 +1185,113 @@ export default function ProjectDetail() {
                 </Button>
               </div>
             </form>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Complete Project Dialog */}
+      <Dialog open={isCompleteProjectDialogOpen} onOpenChange={setIsCompleteProjectDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              Завершение проекта
+            </DialogTitle>
+            <DialogDescription>
+              Расчет итоговой прибыли по проекту "{project?.name}"
+            </DialogDescription>
+          </DialogHeader>
+
+          {financialSummary && (
+            <div className="space-y-4">
+              {/* Project Summary */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Итоги по проекту</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600">Стоимость проекта:</span>
+                    <span className="font-medium">{formatCurrency(financialSummary.totalCost)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600">Получено от заказчика:</span>
+                    <span className="font-medium text-green-600">{formatCurrency(financialSummary.totalRevenues)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600">Общие расходы:</span>
+                    <span className="font-medium text-red-600">{formatCurrency(financialSummary.totalExpenses)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600">Взято авансов:</span>
+                    <span className="font-medium text-orange-600">{formatCurrency(financialSummary.totalAdvances)}</span>
+                  </div>
+                  <hr />
+                  <div className="flex justify-between items-center text-lg">
+                    <span className="font-semibold">Итоговая прибыль:</span>
+                    <span className={`font-bold ${parseFloat(financialSummary.currentProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(financialSummary.currentProfit)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Earnings Distribution */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Распределение прибыли</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="text-sm text-slate-600 mb-1">Заработок Влада</div>
+                      <div className={`text-2xl font-bold ${parseFloat(financialSummary.vladEarnings || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency(financialSummary.vladEarnings || '0')}
+                      </div>
+                      {parseFloat(financialSummary.vladEarnings || '0') < 0 && (
+                        <div className="text-xs text-red-600 mt-1">К доплате</div>
+                      )}
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                      <div className="text-sm text-slate-600 mb-1">Заработок Платона</div>
+                      <div className={`text-2xl font-bold ${parseFloat(financialSummary.platonEarnings || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency(financialSummary.platonEarnings || '0')}
+                      </div>
+                      {parseFloat(financialSummary.platonEarnings || '0') < 0 && (
+                        <div className="text-xs text-red-600 mt-1">К доплате</div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
+                    <div className="font-medium mb-2">Расчёт:</div>
+                    <div>• Доступно к распределению: {formatCurrency(((parseFloat(financialSummary.totalRevenues) - parseFloat(financialSummary.totalExpenses)).toString()))}</div>
+                    <div>• На каждого: {formatCurrency(((parseFloat(financialSummary.totalRevenues) - parseFloat(financialSummary.totalExpenses)) / 2).toString())}</div>
+                    <div>• Влад взял авансом: {formatCurrency(financialSummary.vladAdvances || '0')}</div>
+                    <div>• Платон взял авансом: {formatCurrency(financialSummary.platonAdvances || '0')}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsCompleteProjectDialogOpen(false)}
+            >
+              Закрыть
+            </Button>
+            <Button
+              onClick={() => {
+                handleArchive();
+                setIsCompleteProjectDialogOpen(false);
+              }}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Archive className="w-4 h-4 mr-2" />
+              Архивировать проект
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
