@@ -288,32 +288,6 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
 
   return (
     <>
-      <Button
-        onClick={isListening ? stopListening : startListening}
-        disabled={isProcessing}
-        className={`h-12 px-6 rounded-full shadow-md transition-all ${
-          isListening 
-            ? 'bg-red-500 hover:bg-red-600 text-white' 
-            : 'bg-blue-500 hover:bg-blue-600 text-white'
-        }`}
-      >
-        {isProcessing ? (
-          <>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Обработка...
-          </>
-        ) : isListening ? (
-          <>
-            <MicOff className="mr-2 h-5 w-5" />
-            Остановить
-          </>
-        ) : (
-          <>
-            <Mic className="mr-2 h-5 w-5" />
-            Голос
-          </>
-        )}
-      </Button>
 
       {/* Диалог подтверждения */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
