@@ -101,6 +101,7 @@ export default function ProjectDetail() {
   const [selectedInvoiceDoc, setSelectedInvoiceDoc] = useState<Document | null>(null);
   const [sheetName, setSheetName] = useState("");
   const [parseResult, setParseResult] = useState<any>(null);
+  const [isExpensesOpen, setIsExpensesOpen] = useState(false);
   const [expensesSortBy, setExpensesSortBy] = useState<'date' | 'amount'>('date');
   const [expensesSortOrder, setExpensesSortOrder] = useState<'asc' | 'desc'>('desc');
   
@@ -490,25 +491,6 @@ export default function ProjectDetail() {
         <div className="flex flex-col gap-3 mb-6">
           {isAdminOrDirector && (
             <>
-              <div className="flex gap-3">
-                <Button 
-                  className="flex-1 bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md"
-                  onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
-                >
-                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
-                    <Plus size={16} className="text-white" />
-                  </div>
-                  Добавить расход
-                </Button>
-                
-                <VoiceExpenseAssistant 
-                  currentProjectId={projectId}
-                  onExpenseCreated={() => {
-                    queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
-                    queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
-                  }}
-                />
-              </div>
             </>
           )}
           
@@ -726,94 +708,6 @@ export default function ProjectDetail() {
                   </span>
                 </div>
 
-                {/* Expenses History - только для админа и директора */}
-                {isAdminOrDirector && expenses.length > 0 && (
-                  <div className="mt-4 border-t border-slate-200 pt-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-slate-900">История расходов</h4>
-                      <div className="flex gap-1">
-                        <Button
-                          variant={expensesSortBy === 'date' ? 'default' : 'outline'}
-                          size="sm"
-                          className="text-xs px-2 py-1 h-7"
-                          onClick={() => {
-                            if (expensesSortBy === 'date') {
-                              setExpensesSortOrder(expensesSortOrder === 'asc' ? 'desc' : 'asc');
-                            } else {
-                              setExpensesSortBy('date');
-                              setExpensesSortOrder('desc');
-                            }
-                          }}
-                        >
-                          <Calendar size={12} className="mr-1" />
-                          {expensesSortBy === 'date' && (
-                            <ArrowUpDown size={10} className={`ml-1 ${expensesSortOrder === 'desc' ? 'rotate-180' : ''}`} />
-                          )}
-                        </Button>
-                        <Button
-                          variant={expensesSortBy === 'amount' ? 'default' : 'outline'}
-                          size="sm"
-                          className="text-xs px-2 py-1 h-7"
-                          onClick={() => {
-                            if (expensesSortBy === 'amount') {
-                              setExpensesSortOrder(expensesSortOrder === 'asc' ? 'desc' : 'asc');
-                            } else {
-                              setExpensesSortBy('amount');
-                              setExpensesSortOrder('desc');
-                            }
-                          }}
-                        >
-                          <DollarSign size={12} className="mr-1" />
-                          {expensesSortBy === 'amount' && (
-                            <ArrowUpDown size={10} className={`ml-1 ${expensesSortOrder === 'desc' ? 'rotate-180' : ''}`} />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {sortedExpenses.slice(0, 10).map((expense) => (
-                        <div key={expense.id} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-md">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-slate-900">
-                                {getCategoryLabel(expense.category)}
-                              </span>
-                              <span className="text-xs text-slate-500">
-                                {new Date(expense.createdAt).toLocaleDateString('ru-RU')}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-600 truncate">
-                              {expense.description || 'Без описания'}
-                            </p>
-                            <div className="flex items-center gap-1 mt-1">
-                              <User size={10} className="text-slate-400" />
-                              <span className="text-xs text-slate-500">
-                                {expense.user?.name || 'Неизвестно'}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="text-sm font-semibold text-red-600 ml-2">
-                            {formatCurrency(expense.amount)}
-                          </span>
-                        </div>
-                      ))}
-                      {expenses.length > 10 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full text-xs text-slate-500"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocation(`/expenses/${projectId}`);
-                          }}
-                        >
-                          Показать все ({expenses.length})
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 <hr className="border-slate-200" />
                 
@@ -953,6 +847,154 @@ export default function ProjectDetail() {
             </Collapsible>
           </CardContent>
         </Card>
+
+        {/* Project Expenses */}
+        {isAdminOrDirector && (
+          <Card className="mb-6 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <Collapsible open={isExpensesOpen} onOpenChange={setIsExpensesOpen}>
+                <CollapsibleTrigger asChild>
+                  <div className="flex items-center justify-between cursor-pointer -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-lg">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-semibold text-slate-900">Расходы на проект</h3>
+                      <span className="font-semibold text-red-600">
+                        {financialSummary ? formatCurrency(financialSummary.totalExpenses) : '0 ₽'}
+                      </span>
+                    </div>
+                    <div className="w-9 h-9 flex items-center justify-center">
+                      {isExpensesOpen ? (
+                        <ChevronUp size={16} className="text-slate-500" />
+                      ) : (
+                        <ChevronDown size={16} className="text-slate-500" />
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent>
+                  <div className="mt-4">
+                    <div className="mb-4 flex justify-end gap-2">
+                      <Button
+                        onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
+                        className="flex items-center gap-2"
+                      >
+                        <Plus size={16} />
+                        Добавить расход
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setLocation(`/expenses/${projectId}`)}
+                        className="flex items-center gap-2"
+                      >
+                        <Edit size={16} />
+                        Управление расходами
+                      </Button>
+                    </div>
+
+                    {/* Expenses History */}
+                    {expenses.length > 0 ? (
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-medium text-slate-900">История расходов</h4>
+                          <div className="flex gap-1">
+                            <Button
+                              variant={expensesSortBy === 'date' ? 'default' : 'outline'}
+                              size="sm"
+                              className="text-xs px-2 py-1 h-7"
+                              onClick={() => {
+                                if (expensesSortBy === 'date') {
+                                  setExpensesSortOrder(expensesSortOrder === 'asc' ? 'desc' : 'asc');
+                                } else {
+                                  setExpensesSortBy('date');
+                                  setExpensesSortOrder('desc');
+                                }
+                              }}
+                            >
+                              <Calendar size={12} className="mr-1" />
+                              {expensesSortBy === 'date' && (
+                                <ArrowUpDown size={10} className={`ml-1 ${expensesSortOrder === 'desc' ? 'rotate-180' : ''}`} />
+                              )}
+                            </Button>
+                            <Button
+                              variant={expensesSortBy === 'amount' ? 'default' : 'outline'}
+                              size="sm"
+                              className="text-xs px-2 py-1 h-7"
+                              onClick={() => {
+                                if (expensesSortBy === 'amount') {
+                                  setExpensesSortOrder(expensesSortOrder === 'asc' ? 'desc' : 'asc');
+                                } else {
+                                  setExpensesSortBy('amount');
+                                  setExpensesSortOrder('desc');
+                                }
+                              }}
+                            >
+                              <DollarSign size={12} className="mr-1" />
+                              {expensesSortBy === 'amount' && (
+                                <ArrowUpDown size={10} className={`ml-1 ${expensesSortOrder === 'desc' ? 'rotate-180' : ''}`} />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {sortedExpenses.slice(0, 10).map((expense) => (
+                            <div key={expense.id} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-md">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs font-medium text-slate-900">
+                                    {getCategoryLabel(expense.category)}
+                                  </span>
+                                  <span className="text-xs text-slate-500">
+                                    {new Date(expense.createdAt).toLocaleDateString('ru-RU')}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-600 truncate">
+                                  {expense.description || 'Без описания'}
+                                </p>
+                                <div className="flex items-center gap-1 mt-1">
+                                  <User size={10} className="text-slate-400" />
+                                  <span className="text-xs text-slate-500">
+                                    {expense.user?.name || 'Неизвестно'}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-sm font-semibold text-red-600 ml-2">
+                                {formatCurrency(expense.amount)}
+                              </span>
+                            </div>
+                          ))}
+                          {expenses.length > 10 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full text-xs text-slate-500"
+                              onClick={() => setLocation(`/expenses/${projectId}`)}
+                            >
+                              Показать все ({expenses.length})
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-slate-500 text-center py-4">Нет расходов по проекту</p>
+                    )}
+
+                    {/* Voice Assistant */}
+                    <div className="mt-4 pt-4 border-t border-slate-200">
+                      <VoiceExpenseAssistant 
+                        projectId={projectId} 
+                        onExpenseAdded={() => {
+                          queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
+                          queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
+                        }}
+                      />
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </CardContent>
+          </Card>
+        )}
 
       </div>
       
