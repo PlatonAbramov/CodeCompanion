@@ -10,7 +10,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { 
   ArrowLeft, MoreVertical, Download, Eye, Plus, Edit,
   FileText, Paperclip, Trash2, ChevronDown, ChevronUp,
-  History, Archive, ArchiveRestore, Upload
+  History, Archive, ArchiveRestore, Upload, ArrowUpDown,
+  Calendar, DollarSign, User
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -100,6 +101,8 @@ export default function ProjectDetail() {
   const [selectedInvoiceDoc, setSelectedInvoiceDoc] = useState<Document | null>(null);
   const [sheetName, setSheetName] = useState("");
   const [parseResult, setParseResult] = useState<any>(null);
+  const [expensesSortBy, setExpensesSortBy] = useState<'date' | 'amount'>('date');
+  const [expensesSortOrder, setExpensesSortOrder] = useState<'asc' | 'desc'>('desc');
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];
@@ -366,6 +369,34 @@ export default function ProjectDetail() {
 
   const isAdmin = user?.role === 'admin';
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
+
+  // Функция для сортировки расходов
+  const sortedExpenses = expenses.sort((a, b) => {
+    let aValue, bValue;
+    
+    if (expensesSortBy === 'date') {
+      aValue = new Date(a.createdAt).getTime();
+      bValue = new Date(b.createdAt).getTime();
+    } else {
+      aValue = parseFloat(a.amount);
+      bValue = parseFloat(b.amount);
+    }
+    
+    const modifier = expensesSortOrder === 'asc' ? 1 : -1;
+    return (aValue - bValue) * modifier;
+  });
+
+  // Функция для получения категории расхода на русском
+  const getCategoryLabel = (category: string) => {
+    const categories: Record<string, string> = {
+      'materials': 'Материалы',
+      'labor': 'Работа',
+      'transport': 'Транспорт', 
+      'equipment': 'Оборудование',
+      'other': 'Прочее'
+    };
+    return categories[category] || category;
+  };
 
   const goBack = () => {
     if (user?.role === 'admin' || user?.role === 'director') {
@@ -694,6 +725,95 @@ export default function ProjectDetail() {
                     {formatCurrency(financialSummary.totalExpenses)}
                   </span>
                 </div>
+
+                {/* Expenses History - только для админа и директора */}
+                {isAdminOrDirector && expenses.length > 0 && (
+                  <div className="mt-4 border-t border-slate-200 pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-slate-900">История расходов</h4>
+                      <div className="flex gap-1">
+                        <Button
+                          variant={expensesSortBy === 'date' ? 'default' : 'outline'}
+                          size="sm"
+                          className="text-xs px-2 py-1 h-7"
+                          onClick={() => {
+                            if (expensesSortBy === 'date') {
+                              setExpensesSortOrder(expensesSortOrder === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setExpensesSortBy('date');
+                              setExpensesSortOrder('desc');
+                            }
+                          }}
+                        >
+                          <Calendar size={12} className="mr-1" />
+                          {expensesSortBy === 'date' && (
+                            <ArrowUpDown size={10} className={`ml-1 ${expensesSortOrder === 'desc' ? 'rotate-180' : ''}`} />
+                          )}
+                        </Button>
+                        <Button
+                          variant={expensesSortBy === 'amount' ? 'default' : 'outline'}
+                          size="sm"
+                          className="text-xs px-2 py-1 h-7"
+                          onClick={() => {
+                            if (expensesSortBy === 'amount') {
+                              setExpensesSortOrder(expensesSortOrder === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setExpensesSortBy('amount');
+                              setExpensesSortOrder('desc');
+                            }
+                          }}
+                        >
+                          <DollarSign size={12} className="mr-1" />
+                          {expensesSortBy === 'amount' && (
+                            <ArrowUpDown size={10} className={`ml-1 ${expensesSortOrder === 'desc' ? 'rotate-180' : ''}`} />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {sortedExpenses.slice(0, 10).map((expense) => (
+                        <div key={expense.id} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-md">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium text-slate-900">
+                                {getCategoryLabel(expense.category)}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {new Date(expense.createdAt).toLocaleDateString('ru-RU')}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 truncate">
+                              {expense.description || 'Без описания'}
+                            </p>
+                            <div className="flex items-center gap-1 mt-1">
+                              <User size={10} className="text-slate-400" />
+                              <span className="text-xs text-slate-500">
+                                {expense.user?.name || 'Неизвестно'}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-sm font-semibold text-red-600 ml-2">
+                            {formatCurrency(expense.amount)}
+                          </span>
+                        </div>
+                      ))}
+                      {expenses.length > 10 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-xs text-slate-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/expenses/${projectId}`);
+                          }}
+                        >
+                          Показать все ({expenses.length})
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <hr className="border-slate-200" />
                 
