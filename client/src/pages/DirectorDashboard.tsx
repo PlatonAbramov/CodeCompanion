@@ -366,7 +366,7 @@ export default function DirectorDashboard() {
   const totalRevenue = (financialData as any)?.totalRevenue || 0;
   const totalExpenses = (financialData as any)?.totalExpenses || 0;
   const totalAdvances = (financialData as any)?.totalAdvances || 0;
-  const totalProfit = totalRevenue - totalAdvances - totalExpenses;
+  const totalProfit = totalRevenue - totalExpenses;
 
   return (
     <div className="min-h-screen bg-slate-50">
