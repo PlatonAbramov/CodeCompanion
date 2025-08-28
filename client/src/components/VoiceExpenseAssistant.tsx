@@ -291,25 +291,29 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
       <Button
         onClick={isListening ? stopListening : startListening}
         disabled={isProcessing}
-        className={`h-12 px-6 rounded-full shadow-md transition-all ${
-          isListening 
-            ? 'bg-red-500 hover:bg-red-600 text-white' 
-            : 'bg-blue-500 hover:bg-blue-600 text-white'
+        className={`bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md transition-all ${
+          isListening ? 'bg-red-500 hover:bg-red-600' : ''
         }`}
       >
         {isProcessing ? (
           <>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+              <Loader2 size={16} className="text-white animate-spin" />
+            </div>
             Обработка...
           </>
         ) : isListening ? (
           <>
-            <MicOff className="mr-2 h-5 w-5" />
+            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+              <MicOff size={16} className="text-white" />
+            </div>
             Остановить
           </>
         ) : (
           <>
-            <Mic className="mr-2 h-5 w-5" />
+            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+              <Mic size={16} className="text-white" />
+            </div>
             Голос
           </>
         )}
