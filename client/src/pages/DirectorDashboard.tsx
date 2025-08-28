@@ -397,6 +397,16 @@ export default function DirectorDashboard() {
               <Button variant="ghost" size="sm">
                 <Bell size={20} />
               </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setLocation('/archived-projects')}
+                data-testid="button-archive"
+                title="Архив проектов"
+                className="text-orange-600 hover:text-orange-800"
+              >
+                <Archive size={20} />
+              </Button>
               {user?.role === 'admin' && (
                 <Button 
                   variant="ghost" 
