@@ -414,17 +414,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let projects: any[] = [];
       
-      // Администратор и прораб видят все проекты
+      // Администратор и прораб видят все активные проекты
       if (fullUser.role === 'admin' || fullUser.role === 'director') {
-        projects = await storage.getAllProjects();
+        const allProjects = await storage.getAllProjects();
+        projects = allProjects.filter(p => p.status === 'active');
       }
-      // Мастер видит только назначенные ему проекты
+      // Мастер видит только назначенные ему активные проекты
       else if (fullUser.role === 'master') {
-        projects = await storage.getUserProjects(user.id);
+        const userProjects = await storage.getUserProjects(user.id);
+        projects = userProjects.filter(p => p.status === 'active');
       }
-      // Заказчик видит только свои проекты (где он заказчик)
+      // Заказчик видит только свои активные проекты (где он заказчик)
       else if (fullUser.role === 'client') {
-        projects = await storage.getUserProjects(user.id);
+        const userProjects = await storage.getUserProjects(user.id);
+        projects = userProjects.filter(p => p.status === 'active');
       }
       
       // Cache for admin/director (30 seconds)
@@ -3151,6 +3154,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userRole: user.role,
         projectId: id
       });
+      
+      // Invalidate project cache
+      invalidateProjectCache(id);
       
       res.json(project);
     } catch (error) {
