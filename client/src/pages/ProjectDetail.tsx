@@ -1216,7 +1216,7 @@ export default function ProjectDetail() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-600">Получено от заказчика:</span>
-                    <span className="font-medium text-green-600">{formatCurrency(financialSummary.totalRevenues)}</span>
+                    <span className="font-medium text-green-600">{formatCurrency(financialSummary.totalCustomerAdvances)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-600">Общие расходы:</span>
@@ -1229,8 +1229,8 @@ export default function ProjectDetail() {
                   <hr />
                   <div className="flex justify-between items-center text-lg">
                     <span className="font-semibold">Итоговая прибыль:</span>
-                    <span className={`font-bold ${parseFloat(financialSummary.currentProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatCurrency(financialSummary.currentProfit)}
+                    <span className={`font-bold ${(parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency((parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses)).toString())}
                     </span>
                   </div>
                 </CardContent>
@@ -1265,8 +1265,8 @@ export default function ProjectDetail() {
                   
                   <div className="text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
                     <div className="font-medium mb-2">Расчёт:</div>
-                    <div>• Доступно к распределению: {formatCurrency(((parseFloat(financialSummary.totalRevenues) - parseFloat(financialSummary.totalExpenses)).toString()))}</div>
-                    <div>• На каждого: {formatCurrency(((parseFloat(financialSummary.totalRevenues) - parseFloat(financialSummary.totalExpenses)) / 2).toString())}</div>
+                    <div>• Доступно к распределению: {formatCurrency(((parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses)).toString()))}</div>
+                    <div>• На каждого: {formatCurrency(((parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses)) / 2).toString())}</div>
                     <div>• Влад взял авансом: {formatCurrency(financialSummary.vladAdvances || '0')}</div>
                     <div>• Платон взял авансом: {formatCurrency(financialSummary.platonAdvances || '0')}</div>
                   </div>

@@ -3604,6 +3604,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Financial Overview - general profit calculation from archived projects only
+  app.get("/api/financial-overview", requireAuth, async (req, res) => {
+    try {
+      const cacheKey = 'financial-overview';
+      
+      // Try cache first (30 seconds)
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+
+      const summary = await storage.getOverallFinancialSummary();
+      
+      // Cache for 30 seconds
+      cache.set(cacheKey, summary, 30);
+      
+      res.json(summary);
+    } catch (error) {
+      console.error("Get financial overview error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

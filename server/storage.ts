@@ -214,6 +214,12 @@ export interface IStorage {
     platonEarnings: string;
   }>;
 
+  getOverallFinancialSummary(): Promise<{
+    totalRevenue: string;
+    totalExpenses: string;
+    totalAdvances: string;
+  }>;
+
   // Tools
   getAllTools(): Promise<(Tool & { currentPerson?: { name: string; phone: string } })[]>;
   getTool(id: string): Promise<Tool | undefined>;
@@ -928,6 +934,58 @@ export class DatabaseStorage implements IStorage {
       platonAdvances,
       vladEarnings,
       platonEarnings
+    };
+  }
+
+  async getOverallFinancialSummary(): Promise<{
+    totalRevenue: string;
+    totalExpenses: string;
+    totalAdvances: string;
+  }> {
+    // Получаем только архивные проекты
+    const archivedProjects = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.status, 'archived'));
+
+    if (archivedProjects.length === 0) {
+      return {
+        totalRevenue: "0",
+        totalExpenses: "0", 
+        totalAdvances: "0"
+      };
+    }
+
+    const archivedProjectIds = archivedProjects.map(p => p.id);
+
+    // Сумма авансов от заказчиков (это и есть доходы по архивным проектам)
+    const [customerAdvancesSum] = await db
+      .select({ 
+        total: sql<string>`COALESCE(SUM(${customerAdvances.amount}), 0)` 
+      })
+      .from(customerAdvances)
+      .where(sql`${customerAdvances.projectId} = ANY(${archivedProjectIds})`);
+
+    // Сумма расходов по архивным проектам
+    const [expensesSum] = await db
+      .select({ 
+        total: sql<string>`COALESCE(SUM(${expenses.amount}), 0)` 
+      })
+      .from(expenses)
+      .where(sql`${expenses.projectId} = ANY(${archivedProjectIds})`);
+
+    // Сумма взятых авансов участниками по архивным проектам
+    const [advancesSum] = await db
+      .select({ 
+        total: sql<string>`COALESCE(SUM(${advances.amount}), 0)` 
+      })
+      .from(advances)
+      .where(sql`${advances.projectId} = ANY(${archivedProjectIds})`);
+
+    return {
+      totalRevenue: customerAdvancesSum?.total || "0",
+      totalExpenses: expensesSum?.total || "0",
+      totalAdvances: advancesSum?.total || "0"
     };
   }
 
