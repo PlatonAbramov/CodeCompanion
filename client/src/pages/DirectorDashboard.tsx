@@ -488,16 +488,14 @@ export default function DirectorDashboard() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-slate-900">{t('projects')}</h3>
           <div className="flex gap-2">
-            {archivedProjectsCount > 0 && (
-              <Button
-                variant="outline"
-                onClick={() => setLocation('/archived-projects')}
-                className="flex items-center gap-2"
-              >
-                <Archive size={16} />
-                Архив ({archivedProjectsCount})
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              onClick={() => setLocation('/archived-projects')}
+              className="flex items-center gap-2"
+            >
+              <Archive size={16} />
+              Архив{archivedProjectsCount > 0 && ` (${archivedProjectsCount})`}
+            </Button>
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-primary text-white">
