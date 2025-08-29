@@ -2528,7 +2528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       } else {
-        // File is local - use traditional file path
+        // File might be local or in cloud storage with old path format
         let filePath = fileUrl;
         
         // Handle different local URL formats
@@ -2546,16 +2546,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log('Resolved local file path:', filePath);
         
-        // Verify file exists before parsing
-        if (!fs.existsSync(filePath)) {
-          console.error('File not found at path:', filePath);
-          return res.status(400).json({ 
-            error: "File not found", 
-            details: [`File does not exist at path: ${filePath}`] 
-          });
+        // Check if file exists locally
+        if (fs.existsSync(filePath)) {
+          // File exists locally - parse it
+          console.log('File found locally, parsing...');
+          parseResult = await parser.parseInvoice(filePath, document.fileName);
+        } else {
+          // File not found locally - try to find it in cloud storage
+          console.log('File not found locally, checking cloud storage...');
+          
+          // Try to find file in cloud storage by checking different possible paths
+          const filename = path.basename(fileUrl);
+          const possiblePaths = [
+            `/objects/uploads/${filename}`,
+            `/objects/${filename}`,
+            `/objects/documents/${filename}`
+          ];
+          
+          let fileFound = false;
+          for (const cloudPath of possiblePaths) {
+            try {
+              console.log(`Trying cloud path: ${cloudPath}`);
+              const objectFile = await objectStorageService.getObjectEntityFile(cloudPath);
+              const [buffer] = await objectFile.download();
+              console.log('File found in cloud storage, parsing...');
+              parseResult = await parser.parseInvoiceFromBuffer(buffer, document.fileName);
+              fileFound = true;
+              
+              // Update the document with the correct cloud path for future use
+              await storage.updateDocument(documentId, { fileUrl: cloudPath });
+              console.log(`Updated document ${documentId} with correct cloud path: ${cloudPath}`);
+              break;
+            } catch (error) {
+              // Continue to next path
+              console.log(`File not found at ${cloudPath}, trying next...`);
+            }
+          }
+          
+          if (!fileFound) {
+            console.error('File not found in any location');
+            return res.status(400).json({ 
+              error: "File not found", 
+              details: [`File not found locally at ${filePath} or in cloud storage`] 
+            });
+          }
         }
-
-        parseResult = await parser.parseInvoice(filePath, document.fileName);
       }
       
       if (!parseResult.success) {

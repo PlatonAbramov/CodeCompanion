@@ -59,6 +59,7 @@ export interface IStorage {
   getProjectDocuments(projectId: string): Promise<Document[]>;
   getDocument(id: string): Promise<Document | undefined>;
   createDocument(document: InsertDocument): Promise<Document>;
+  updateDocument(id: string, document: Partial<InsertDocument>): Promise<Document>;
   deleteDocument(id: string): Promise<void>;
   
   // Advances
@@ -1213,6 +1214,15 @@ export class DatabaseStorage implements IStorage {
 
   async getDocumentById(id: string): Promise<Document | undefined> {
     return this.getDocument(id);
+  }
+
+  async updateDocument(id: string, document: Partial<InsertDocument>): Promise<Document> {
+    const [updatedDocument] = await db
+      .update(documents)
+      .set(document)
+      .where(eq(documents.id, id))
+      .returning();
+    return updatedDocument;
   }
 
   async deleteDocument(id: string): Promise<void> {
