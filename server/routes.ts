@@ -39,10 +39,7 @@ declare module 'express-session' {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create uploads directory if it doesn't exist
-  // Fix path to handle both development and production environments
-  const uploadsDir = process.env.NODE_ENV === 'production' 
-    ? path.join(process.cwd(), 'server', 'uploads')
-    : path.join(process.cwd(), 'server', 'uploads');
+  const uploadsDir = path.join(__dirname, 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
@@ -2506,52 +2503,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Document name must start with 'invoice'" });
       }
 
-      // Parse the invoice from cloud storage
+      // Parse the invoice
       const { InvoiceParser } = await import('./invoiceParser');
       const parser = new InvoiceParser();
       
-      console.log('Document file URL:', document.fileUrl);
-      console.log('Document file name:', document.fileName);
+      // Construct the correct file path
+      let filePath = document.fileUrl;
+      console.log('Original file URL:', filePath);
       
-      // Download file from storage (object storage or local filesystem)
-      let fileBuffer: Buffer;
-      try {
-        // Handle different file URL formats
-        if (document.fileUrl.startsWith('gs://') || 
-            document.fileUrl.startsWith('/objects/') ||
-            document.fileUrl.startsWith('https://storage.googleapis.com/')) {
-          // File is in object storage - download from cloud
-          fileBuffer = await objectStorageService.downloadFile(document.fileUrl);
-        } else if (document.fileUrl.startsWith('/api/files/')) {
-          // Legacy local file system - extract filename and read directly
-          const filename = path.basename(document.fileUrl);
-          const filePath = path.join(uploadsDir, filename);
-          
-          // Check if file exists
-          if (!fs.existsSync(filePath)) {
-            throw new Error(`Local file not found: ${filePath}`);
-          }
-          
-          // Read file into buffer
-          fileBuffer = fs.readFileSync(filePath);
-          console.log('Read local file:', filePath, 'Size:', fileBuffer.length);
-        } else {
-          // Unsupported format
-          console.error('Unsupported file URL format:', document.fileUrl);
-          return res.status(400).json({ 
-            error: "File format not supported", 
-            details: [`Unsupported file URL format: ${document.fileUrl}. Supported formats: object storage (gs://, /objects/, https://storage.googleapis.com/) or local files (/api/files/).`] 
-          });
-        }
-      } catch (downloadError: any) {
-        console.error('Failed to download/read file:', downloadError);
+      // Handle different URL formats
+      if (filePath.startsWith('/api/files/')) {
+        // Extract filename from API URL
+        const filename = path.basename(filePath);
+        filePath = path.join('server/uploads', filename);
+      } else if (filePath.startsWith('/uploads/')) {
+        // Handle relative uploads path
+        filePath = path.join('server', filePath);
+      } else if (!path.isAbsolute(filePath)) {
+        // Handle relative paths
+        filePath = path.join('server/uploads', path.basename(filePath));
+      }
+      
+      console.log('Resolved file path:', filePath);
+      
+      // Verify file exists before parsing
+      if (!fs.existsSync(filePath)) {
+        console.error('File not found at path:', filePath);
         return res.status(400).json({ 
-          error: "File not found in storage", 
-          details: [`Failed to access file: ${downloadError?.message || 'Unknown error'}`] 
+          error: "File not found", 
+          details: [`File does not exist at path: ${filePath}`] 
         });
       }
 
-      const parseResult = await parser.parseInvoiceFromBuffer(fileBuffer, document.fileName);
+      const parseResult = await parser.parseInvoice(filePath, document.fileName);
       
       if (!parseResult.success) {
         return res.status(400).json({ 
