@@ -185,73 +185,102 @@ export class InvoiceParser {
       
       console.log('\nCollected data lines:', dataLines.length);
       
-      // Обрабатываем по очереди, собирая описания
-      let i = 0;
-      while (i < dataLines.length) {
-        const currentLine = dataLines[i];
-        const numbersMatch = currentLine.match(/^(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
+      // Улучшенная логика парсинга: более гибкий поиск элементов
+      console.log('=== IMPROVED PDF PARSING ALGORITHM ===');
+      
+      // Ищем все строки с числами в конце (разные паттерны)
+      const itemCandidates: Array<{index: number, line: string, numbers: string[]}> = [];
+      
+      for (let i = 0; i < dataLines.length; i++) {
+        const line = dataLines[i];
         
-        if (numbersMatch) {
-          // Это завершающая строка элемента
-          const [, textPart, quantity, price, total] = numbersMatch;
-          
-          // Проверяем, есть ли номер в начале текста
-          const positionMatch = textPart.match(/^(\d+)\s+(.+)/);
-          
-          if (positionMatch) {
-            // Однострочный элемент: "2 Демонтаж и монтаж затирки 1 1500 1500"
-            const position = parseInt(positionMatch[1]);
-            const description = positionMatch[2].trim();
-            
-            items.push({
-              position,
-              name: description,
-              quantity: this.parseNumber(quantity)!,
-              unit: '',
-              price: this.parseNumber(price)!,
-              totalCost: this.parseNumber(total)!,
-              description: description
+        // Ищем разные паттерны чисел в конце строки
+        const patterns = [
+          /^(.+?)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/, // текст + 3 числа
+          /^(.+?)\s+(\d+)\s+(\d+(?:,\d+)?)\s+(\d+(?:,\d+)?)$/, // текст + 3 числа с запятыми
+          /^(.+)\s+(\d+)\s+(\d+)\s+(\d+)$/, // более простой паттерн
+          /^(.+?)\s+(\d+)\s+([\d,]+)\s+([\d,]+)$/ // числа с запятыми
+        ];
+        
+        for (const pattern of patterns) {
+          const match = line.match(pattern);
+          if (match) {
+            itemCandidates.push({
+              index: i,
+              line: line,
+              numbers: match.slice(2) // пропускаем полное совпадение и текст
             });
-            
-            console.log(`Single-line item ${position}: "${description}"`);
+            console.log(`Found candidate at line ${i}: "${line}"`);
+            break;
+          }
+        }
+      }
+      
+      console.log(`Found ${itemCandidates.length} item candidates`);
+      
+      // Обрабатываем каждого кандидата
+      for (const candidate of itemCandidates) {
+        const { index, line, numbers } = candidate;
+        
+        // Извлекаем номер позиции и описание
+        let position = items.length + 1;
+        let description = '';
+        
+        // Проверяем разные способы извлечения описания
+        const fullTextMatch = line.match(/^(.+?)\s+\d+/);
+        if (fullTextMatch) {
+          const textPart = fullTextMatch[1].trim();
+          
+          // Ищем номер в начале
+          const positionMatch = textPart.match(/^(\d+)\s+(.+)/);
+          if (positionMatch) {
+            position = parseInt(positionMatch[1]);
+            description = positionMatch[2].trim();
           } else {
-            // Многострочный элемент - нужно найти предыдущую строку
-            if (i > 0) {
-              const prevLine = dataLines[i - 1];
-              const prevPositionMatch = prevLine.match(/^(\d+)?\s*(.+)/);
-              
+            // Может быть многострочный элемент - проверяем предыдущие строки
+            description = textPart;
+            
+            // Ищем номер в предыдущих строках
+            for (let j = index - 1; j >= 0 && j > index - 3; j--) {
+              const prevLine = dataLines[j];
+              const prevPositionMatch = prevLine.match(/^(\d+)\s*(.*)$/);
               if (prevPositionMatch) {
-                let position = 1;
-                let fullDescription = '';
-                
-                // Если есть номер в предыдущей строке
-                if (prevPositionMatch[1]) {
-                  position = parseInt(prevPositionMatch[1]);
-                  fullDescription = prevPositionMatch[2].trim() + ' ' + textPart.trim();
-                } else {
-                  // Ищем номер еще раньше или используем последовательный номер
-                  position = items.length + 1;
-                  fullDescription = prevLine + ' ' + textPart.trim();
+                position = parseInt(prevPositionMatch[1]);
+                const prevDescription = prevPositionMatch[2].trim();
+                if (prevDescription) {
+                  description = prevDescription + ' ' + description;
                 }
-                
-                items.push({
-                  position,
-                  name: fullDescription,
-                  quantity: this.parseNumber(quantity)!,
-                  unit: '',
-                  price: this.parseNumber(price)!,
-                  totalCost: this.parseNumber(total)!,
-                  description: fullDescription
-                });
-                
-                console.log(`Multi-line item ${position}: "${fullDescription}"`);
+                break;
+              } else if (prevLine.trim()) {
+                // Добавляем текст из предыдущей строки если нет номера
+                description = prevLine.trim() + ' ' + description;
               }
             }
           }
         }
         
-        i++;
+        // Парсим числа
+        const quantity = this.parseNumber(numbers[0]);
+        const price = this.parseNumber(numbers[1]);
+        const totalCost = this.parseNumber(numbers[2]);
+        
+        if (quantity && price && totalCost && description.trim()) {
+          items.push({
+            position,
+            name: description.trim(),
+            quantity,
+            unit: '',
+            price,
+            totalCost,
+            description: description.trim()
+          });
+          
+          console.log(`Created item ${position}: "${description.trim()}" (${quantity} × ${price} = ${totalCost})`);
+        }
       }
+      
+      // Сортируем по позиции
+      items.sort((a, b) => a.position - b.position);
 
       return {
         success: items.length > 0,
