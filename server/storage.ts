@@ -943,13 +943,12 @@ export class DatabaseStorage implements IStorage {
     totalExpenses: string;
     totalAdvances: string;
   }> {
-    // Получаем только архивные проекты
-    const archivedProjects = await db
+    // Получаем все проекты (как архивные, так и активные)
+    const allProjects = await db
       .select()
-      .from(projects)
-      .where(eq(projects.status, 'archived'));
+      .from(projects);
 
-    if (archivedProjects.length === 0) {
+    if (allProjects.length === 0) {
       return {
         totalRevenue: "0",
         totalExpenses: "0", 
@@ -957,11 +956,11 @@ export class DatabaseStorage implements IStorage {
       };
     }
 
-    const archivedProjectIds = archivedProjects.map(p => p.id);
+    const allProjectIds = allProjects.map(p => p.id);
 
-    // Сумма авансов от заказчиков (это и есть доходы по архивным проектам)
+    // Сумма авансов от заказчиков (это и есть доходы по всем проектам)
     let customerAdvancesTotalSum = 0;
-    for (const projectId of archivedProjectIds) {
+    for (const projectId of allProjectIds) {
       const projectAdvances = await db
         .select({ amount: customerAdvances.amount })
         .from(customerAdvances)
@@ -972,9 +971,9 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Сумма расходов по архивным проектам
+    // Сумма расходов по всем проектам
     let expensesTotalSum = 0;
-    for (const projectId of archivedProjectIds) {
+    for (const projectId of allProjectIds) {
       const projectExpenses = await db
         .select({ amount: expenses.amount })
         .from(expenses)
@@ -985,9 +984,9 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Сумма взятых авансов участниками по архивным проектам
+    // Сумма взятых авансов участниками по всем проектам
     let advancesTotalSum = 0;
-    for (const projectId of archivedProjectIds) {
+    for (const projectId of allProjectIds) {
       const projectAdvances = await db
         .select({ amount: advances.amount })
         .from(advances)
@@ -2235,18 +2234,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteImplementationSheet(id: string): Promise<void> {
-    // Delete all related data first
+    // Delete all related data first in correct order
     const [sheet] = await db.select().from(implementationSheets).where(eq(implementationSheets.id, id));
     if (sheet) {
       const items = await db.select().from(implementationItems).where(eq(implementationItems.sheetId, id));
       for (const item of items) {
-        // Delete comments first (they reference implementation items)
+        // Delete in order: comments -> photos -> change logs -> items
         await db.delete(implementationItemComments).where(eq(implementationItemComments.itemId, item.id));
         await db.delete(implementationPhotos).where(eq(implementationPhotos.itemId, item.id));
         await db.delete(implementationChangeLogs).where(eq(implementationChangeLogs.itemId, item.id));
       }
+      // Delete all items for this sheet
       await db.delete(implementationItems).where(eq(implementationItems.sheetId, id));
     }
+    // Finally delete the sheet itself
     await db.delete(implementationSheets).where(eq(implementationSheets.id, id));
   }
 

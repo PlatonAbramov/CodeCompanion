@@ -692,6 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const sheets = await storage.getImplementationSheets(document.projectId);
         for (const sheet of sheets) {
           if (sheet.sourceDocumentId === req.params.id) {
+            // This will cascade delete all items, comments, photos, logs
             await storage.deleteImplementationSheet(sheet.id);
           }
         }
@@ -1205,6 +1206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sheets = await storage.getImplementationSheets(document.projectId);
       for (const sheet of sheets) {
         if (sheet.sourceDocumentId === req.params.id) {
+          // This will cascade delete all items, comments, photos, logs
           await storage.deleteImplementationSheet(sheet.id);
         }
       }
