@@ -66,20 +66,56 @@ export function FileUploader({
     setIsUploading(true);
     try {
       const uploadPromises = selectedFiles.map(async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const response = await fetch('/api/upload', {
+        // Get presigned URL from cloud storage
+        const uploadResponse = await fetch('/api/objects/upload', {
           method: 'POST',
-          body: formData,
           credentials: 'include',
         });
 
-        if (!response.ok) {
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to get upload URL for ${file.name}`);
+        }
+
+        const { uploadURL } = await uploadResponse.json();
+
+        // Upload file to cloud storage
+        const uploadToStorage = await fetch(uploadURL, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        });
+
+        if (!uploadToStorage.ok) {
           throw new Error(`Upload failed for ${file.name}`);
         }
 
-        return response.json();
+        // Set ACL policy and get object path
+        const aclResponse = await fetch('/api/objects/acl', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            objectUrl: uploadURL,
+            visibility: 'private'
+          })
+        });
+
+        if (!aclResponse.ok) {
+          throw new Error(`Failed to set ACL for ${file.name}`);
+        }
+
+        const { objectPath } = await aclResponse.json();
+
+        return {
+          fileName: file.name,
+          fileUrl: objectPath || uploadURL,
+          fileSize: file.size,
+          mimeType: file.type
+        };
       });
 
       const uploadedFiles = await Promise.all(uploadPromises);

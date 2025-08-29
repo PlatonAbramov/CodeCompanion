@@ -59,18 +59,43 @@ export class InvoiceParser {
   }
 
   /**
+   * Парсит документ инвойса из buffer'а
+   */
+  async parseInvoiceFromBuffer(buffer: Buffer, fileName: string): Promise<ParsedInvoiceResult> {
+    try {
+      const fileExt = path.extname(fileName).toLowerCase();
+      
+      switch (fileExt) {
+        case '.pdf':
+          return await this.parsePDFFromBuffer(buffer);
+        case '.xlsx':
+        case '.xls':
+          return await this.parseExcelFromBuffer(buffer);
+        case '.csv':
+          return await this.parseCSVFromBuffer(buffer);
+        default:
+          return {
+            success: false,
+            items: [],
+            errors: [`Неподдерживаемый формат файла: ${fileExt}. Поддерживаются: PDF, XLSX, XLS, CSV`]
+          };
+      }
+    } catch (error: any) {
+      console.error('Error parsing invoice from buffer:', error);
+      return {
+        success: false,
+        items: [],
+        errors: [`Ошибка при обработке файла: ${error?.message || 'Неизвестная ошибка'}`]
+      };
+    }
+  }
+
+  /**
    * Парсинг PDF документа
    */
   private async parsePDF(filePath: string): Promise<ParsedInvoiceResult> {
     try {
       console.log('PDF Parser - attempting to read file:', filePath);
-      
-      // Lazy load PDF parser to avoid initialization issues
-      if (!pdfParse) {
-        const moduleLib = await import('module');
-        const require = moduleLib.createRequire(import.meta.url);
-        pdfParse = require('pdf-parse/lib/pdf-parse.js');
-      }
       
       // Check if file exists
       if (!fs.existsSync(filePath)) {
@@ -78,7 +103,31 @@ export class InvoiceParser {
       }
       
       const dataBuffer = fs.readFileSync(filePath);
-      const pdfData = await pdfParse(dataBuffer);
+      return await this.parsePDFFromBuffer(dataBuffer);
+    } catch (error: any) {
+      console.error('Error parsing PDF:', error);
+      return {
+        success: false,
+        items: [],
+        format: 'PDF',
+        errors: [`Ошибка при парсинге PDF: ${error?.message || 'Неизвестная ошибка'}`]
+      };
+    }
+  }
+
+  /**
+   * Парсинг PDF документа из buffer'а
+   */
+  private async parsePDFFromBuffer(buffer: Buffer): Promise<ParsedInvoiceResult> {
+    try {
+      // Lazy load PDF parser to avoid initialization issues
+      if (!pdfParse) {
+        const moduleLib = await import('module');
+        const require = moduleLib.createRequire(import.meta.url);
+        pdfParse = require('pdf-parse/lib/pdf-parse.js');
+      }
+      
+      const pdfData = await pdfParse(buffer);
       const text = pdfData.text;
 
       // Улучшенный алгоритм парсинга табличных данных
@@ -227,7 +276,24 @@ export class InvoiceParser {
    */
   private async parseExcel(filePath: string): Promise<ParsedInvoiceResult> {
     try {
-      const workbook = XLSX.readFile(filePath);
+      const buffer = fs.readFileSync(filePath);
+      return await this.parseExcelFromBuffer(buffer);
+    } catch (error: any) {
+      return {
+        success: false,
+        items: [],
+        format: 'XLSX',
+        errors: [`Ошибка парсинга Excel: ${error?.message || 'Неизвестная ошибка'}`]
+      };
+    }
+  }
+
+  /**
+   * Парсинг Excel документа из buffer'а
+   */
+  private async parseExcelFromBuffer(buffer: Buffer): Promise<ParsedInvoiceResult> {
+    try {
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       
@@ -299,13 +365,35 @@ export class InvoiceParser {
    * Парсинг CSV документа
    */
   private async parseCSV(filePath: string): Promise<ParsedInvoiceResult> {
+    try {
+      const buffer = fs.readFileSync(filePath);
+      return await this.parseCSVFromBuffer(buffer);
+    } catch (error: any) {
+      return {
+        success: false,
+        items: [],
+        format: 'CSV',
+        errors: [`Ошибка парсинга CSV: ${error?.message || 'Неизвестная ошибка'}`]
+      };
+    }
+  }
+
+  /**
+   * Парсинг CSV документа из buffer'а
+   */
+  private async parseCSVFromBuffer(buffer: Buffer): Promise<ParsedInvoiceResult> {
     return new Promise((resolve) => {
       const items: ParsedInvoiceItem[] = [];
       const errors: string[] = [];
       let headers: string[] = [];
       let isFirstRow = true;
+      
+      const Readable = require('stream').Readable;
+      const stream = new Readable();
+      stream.push(buffer);
+      stream.push(null);
 
-      fs.createReadStream(filePath)
+      stream
         .pipe(csvParser({ separator: ',' }))
         .on('headers', (headerList: string[]) => {
           headers = headerList;

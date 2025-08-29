@@ -2507,35 +2507,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { InvoiceParser } = await import('./invoiceParser');
       const parser = new InvoiceParser();
       
-      // Construct the correct file path
-      let filePath = document.fileUrl;
-      console.log('Original file URL:', filePath);
+      let parseResult;
+      const fileUrl = document.fileUrl;
+      console.log('Original file URL:', fileUrl);
       
-      // Handle different URL formats
-      if (filePath.startsWith('/api/files/')) {
-        // Extract filename from API URL
-        const filename = path.basename(filePath);
-        filePath = path.join('server/uploads', filename);
-      } else if (filePath.startsWith('/uploads/')) {
-        // Handle relative uploads path
-        filePath = path.join('server', filePath);
-      } else if (!path.isAbsolute(filePath)) {
-        // Handle relative paths
-        filePath = path.join('server/uploads', path.basename(filePath));
-      }
-      
-      console.log('Resolved file path:', filePath);
-      
-      // Verify file exists before parsing
-      if (!fs.existsSync(filePath)) {
-        console.error('File not found at path:', filePath);
-        return res.status(400).json({ 
-          error: "File not found", 
-          details: [`File does not exist at path: ${filePath}`] 
-        });
-      }
+      // Check if file is in cloud storage or local
+      if (fileUrl.startsWith('/objects/')) {
+        // File is in cloud storage - download it to buffer
+        console.log('File is in cloud storage, downloading...');
+        try {
+          const objectFile = await objectStorageService.getObjectEntityFile(fileUrl);
+          const [buffer] = await objectFile.download();
+          console.log('Downloaded file from cloud storage, parsing...');
+          parseResult = await parser.parseInvoiceFromBuffer(buffer, document.fileName);
+        } catch (error: any) {
+          console.error('Error downloading file from cloud storage:', error);
+          return res.status(400).json({ 
+            error: "Failed to download file from cloud storage", 
+            details: [error?.message || 'Unknown error'] 
+          });
+        }
+      } else {
+        // File is local - use traditional file path
+        let filePath = fileUrl;
+        
+        // Handle different local URL formats
+        if (filePath.startsWith('/api/files/')) {
+          // Extract filename from API URL
+          const filename = path.basename(filePath);
+          filePath = path.join('server/uploads', filename);
+        } else if (filePath.startsWith('/uploads/')) {
+          // Handle relative uploads path
+          filePath = path.join('server', filePath);
+        } else if (!path.isAbsolute(filePath)) {
+          // Handle relative paths
+          filePath = path.join('server/uploads', path.basename(filePath));
+        }
+        
+        console.log('Resolved local file path:', filePath);
+        
+        // Verify file exists before parsing
+        if (!fs.existsSync(filePath)) {
+          console.error('File not found at path:', filePath);
+          return res.status(400).json({ 
+            error: "File not found", 
+            details: [`File does not exist at path: ${filePath}`] 
+          });
+        }
 
-      const parseResult = await parser.parseInvoice(filePath, document.fileName);
+        parseResult = await parser.parseInvoice(filePath, document.fileName);
+      }
       
       if (!parseResult.success) {
         return res.status(400).json({ 

@@ -169,7 +169,23 @@ export function PersonnelDocumentForm({
     if (result.successful && result.successful.length > 0) {
       const file = result.successful[0];
       const uploadURL = file.uploadURL;
-      setFileUrl(uploadURL);
+      
+      // Convert the uploadURL to object storage path
+      try {
+        const response = await apiRequest("/api/objects/acl", {
+          method: "POST",
+          body: JSON.stringify({
+            objectUrl: uploadURL,
+            visibility: 'private'
+          })
+        });
+        const data = await response.json();
+        const objectPath = data.objectPath || uploadURL;
+        setFileUrl(objectPath);
+      } catch (error) {
+        console.error("Failed to set ACL policy:", error);
+        setFileUrl(uploadURL);
+      }
       
       // Store file metadata for document creation
       setFileName(file.name || 'document');
