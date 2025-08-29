@@ -3181,10 +3181,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete project - Admin only (after requireAdmin is defined)
-  app.delete("/api/projects/:id", requireAuth, requireAdmin, async (req, res) => {
+  // Delete project - Admin or Director (after requireAdmin is defined)
+  app.delete("/api/projects/:id", requireAuth, requireDirectorOrAdmin, async (req, res) => {
     try {
-      await storage.deleteProject(req.params.id);
+      const user = req.session.user!;
+      const projectId = req.params.id;
+      
+      // Get project info before deletion for audit log
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Delete the project
+      await storage.deleteProject(projectId);
+      
+      // Create audit log
+      await storage.createAuditLog({
+        entityType: 'project',
+        entityId: projectId,
+        action: 'delete',
+        oldValue: project.name,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        projectId: projectId,
+        metadata: {
+          budget: project.budget,
+          status: project.status
+        }
+      });
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Delete project error:", error);
