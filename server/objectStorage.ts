@@ -119,8 +119,26 @@ export class ObjectStorageService {
       } else if (fileUrl.startsWith('/objects/')) {
         // Handle object entity path
         file = await this.getObjectEntityFile(fileUrl);
+      } else if (fileUrl.startsWith('https://storage.googleapis.com/')) {
+        // Handle direct Google Cloud Storage URLs
+        const normalizedPath = this.normalizeObjectEntityPath(fileUrl);
+        if (normalizedPath.startsWith('/objects/')) {
+          file = await this.getObjectEntityFile(normalizedPath);
+        } else {
+          // If normalization didn't work, parse URL directly
+          const url = new URL(fileUrl);
+          const pathParts = url.pathname.split('/').filter(part => part);
+          if (pathParts.length < 2) {
+            throw new Error('Invalid Google Cloud Storage URL');
+          }
+          const bucketName = pathParts[0];
+          const objectPath = pathParts.slice(1).join('/');
+          
+          const bucket = objectStorageClient.bucket(bucketName);
+          file = bucket.file(objectPath);
+        }
       } else {
-        throw new Error('Unsupported file URL format');
+        throw new Error(`Unsupported file URL format: ${fileUrl}`);
       }
 
       // Download file content to buffer

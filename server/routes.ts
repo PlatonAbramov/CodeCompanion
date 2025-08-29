@@ -2512,14 +2512,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Download file from object storage
       let fileBuffer: Buffer;
       try {
-        if (document.fileUrl.startsWith('gs://')) {
-          // Direct GCS URL - download from object storage
+        // Handle different file URL formats
+        if (document.fileUrl.startsWith('gs://') || 
+            document.fileUrl.startsWith('/objects/') ||
+            document.fileUrl.startsWith('https://storage.googleapis.com/')) {
+          // File is in object storage - download from cloud
           fileBuffer = await objectStorageService.downloadFile(document.fileUrl);
         } else {
           // Legacy local file path - handle gracefully
+          console.error('Unsupported file URL format:', document.fileUrl);
           return res.status(400).json({ 
             error: "File format not supported", 
-            details: ["File must be stored in object storage"] 
+            details: [`Unsupported file URL format: ${document.fileUrl}. Must be stored in object storage.`] 
           });
         }
       } catch (downloadError: any) {
