@@ -392,76 +392,88 @@ export class InvoiceParser {
         }
       }
 
-      console.log('Collected data lines:', dataLines.length);
+      console.log('\nCollected data lines:', dataLines.length);
 
-      // Парсим строки 
-      let i = 0;
-      while (i < dataLines.length) {
-        const currentLine = dataLines[i].trim();
+      // Новый алгоритм парсинга для корректной обработки многострочных элементов
+      let position = 0;
+      let currentDescription = '';
+      let isCollectingDescription = false;
+      
+      for (let i = 0; i < dataLines.length; i++) {
+        const line = dataLines[i];
         
-        // Ищем строку с числами в конце (количество, цена, сумма)
-        const numbersMatch = currentLine.match(/^(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
+        // Проверяем различные форматы строк
+        const onlyNumberMatch = line.match(/^(\d+)$/);
+        const numberWithTextMatch = line.match(/^(\d+)\s+(.+)$/);
+        const numbersEndMatch = line.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)$/);
         
-        if (numbersMatch) {
-          // Это завершающая строка элемента
-          const [, textPart, quantity, price, total] = numbersMatch;
+        if (onlyNumberMatch) {
+          // Строка содержит только номер позиции
+          position = parseInt(onlyNumberMatch[1]);
+          currentDescription = '';
+          isCollectingDescription = true;
+          console.log(`Found position number: ${position}`);
+        } else if (numberWithTextMatch && !numbersEndMatch) {
+          // Строка начинается с номера и содержит текст без чисел в конце
+          position = parseInt(numberWithTextMatch[1]);
+          currentDescription = numberWithTextMatch[2].trim();
+          isCollectingDescription = true;
+          console.log(`Found position with text: ${position} - ${currentDescription}`);
+        } else if (numbersEndMatch) {
+          // Строка заканчивается числами
+          const [, textPart, quantity, price, total] = numbersEndMatch;
           
-          // Проверяем, есть ли номер в начале текста
-          const positionMatch = textPart.match(/^(\d+)\s+(.+)/);
+          // Проверяем, есть ли номер позиции в начале текста
+          const textWithPositionMatch = textPart.match(/^(\d+)\s+(.+)/);
           
-          if (positionMatch) {
-            // Однострочный элемент: "2 Демонтаж и монтаж затирки 1 1500 1500"
-            const position = parseInt(positionMatch[1]);
-            const description = positionMatch[2].trim();
-            
+          if (textWithPositionMatch) {
+            // Однострочный элемент с номером
+            position = parseInt(textWithPositionMatch[1]);
+            currentDescription = textWithPositionMatch[2].trim();
+          } else if (isCollectingDescription) {
+            // Это завершение многострочного описания
+            if (currentDescription) {
+              currentDescription += ' ' + textPart.trim();
+            } else {
+              currentDescription = textPart.trim();
+            }
+          } else {
+            // Строка без явного номера позиции
+            position = items.length + 1;
+            currentDescription = textPart.trim();
+          }
+          
+          // Парсим числа и добавляем элемент
+          const qty = this.parseNumber(quantity);
+          const prc = this.parseNumber(price);
+          const ttl = this.parseNumber(total);
+          
+          if (qty !== null && prc !== null && ttl !== null) {
             items.push({
               position,
-              name: description,
-              quantity: this.parseNumber(quantity)!,
+              name: currentDescription,
+              quantity: qty,
               unit: '',
-              price: this.parseNumber(price)!,
-              totalCost: this.parseNumber(total)!,
-              description: description
+              price: prc,
+              totalCost: ttl,
+              description: currentDescription
             });
             
-            console.log(`Single-line item ${position}: "${description}"`);
-          } else {
-            // Многострочный элемент - нужно найти предыдущую строку
-            if (i > 0) {
-              const prevLine = dataLines[i - 1];
-              const prevPositionMatch = prevLine.match(/^(\d+)?\s*(.+)/);
-              
-              if (prevPositionMatch) {
-                let position = 1;
-                let fullDescription = '';
-                
-                // Если есть номер в предыдущей строке
-                if (prevPositionMatch[1]) {
-                  position = parseInt(prevPositionMatch[1]);
-                  fullDescription = prevPositionMatch[2].trim() + ' ' + textPart.trim();
-                } else {
-                  // Ищем номер еще раньше или используем последовательный номер
-                  position = items.length + 1;
-                  fullDescription = prevLine + ' ' + textPart.trim();
-                }
-                
-                items.push({
-                  position,
-                  name: fullDescription,
-                  quantity: this.parseNumber(quantity)!,
-                  unit: '',
-                  price: this.parseNumber(price)!,
-                  totalCost: this.parseNumber(total)!,
-                  description: fullDescription
-                });
-                
-                console.log(`Multi-line item ${position}: "${fullDescription}"`);
-              }
-            }
+            console.log(`Added item ${position}: "${currentDescription}" - qty:${qty}, price:${prc}, total:${ttl}`);
           }
+          
+          // Сбрасываем флаги
+          currentDescription = '';
+          isCollectingDescription = false;
+        } else if (isCollectingDescription) {
+          // Продолжение описания (строка без номера и без чисел в конце)
+          if (currentDescription) {
+            currentDescription += ' ' + line;
+          } else {
+            currentDescription = line;
+          }
+          console.log(`Collecting description: ${currentDescription}`);
         }
-        
-        i++;
       }
 
       return {
