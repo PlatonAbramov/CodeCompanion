@@ -545,7 +545,19 @@ export class DatabaseStorage implements IStorage {
       console.log('Deleting client payments...');
       await db.delete(clientPayments).where(eq(clientPayments.projectId, id));
       
-      // 3. Delete other project-related data
+      // 3. Delete implementation item comments
+      console.log('Deleting implementation item comments...');
+      await db.delete(implementationItemComments).where(eq(implementationItemComments.projectId, id));
+      
+      // 4. Delete email notifications
+      console.log('Deleting email notifications...');
+      await db.delete(emailNotifications).where(eq(emailNotifications.projectId, id));
+      
+      // 5. Delete personnel advances
+      console.log('Deleting personnel advances...');
+      await db.delete(personnelAdvances).where(eq(personnelAdvances.projectId, id));
+      
+      // 6. Delete other project-related data
       console.log('Deleting project-related data...');
       await db.delete(clientProjects).where(eq(clientProjects.projectId, id));
       await db.delete(contractorProjects).where(eq(contractorProjects.projectId, id));
@@ -557,7 +569,11 @@ export class DatabaseStorage implements IStorage {
       await db.delete(revenues).where(eq(revenues.projectId, id));
       await db.delete(ownerInvestments).where(eq(ownerInvestments.projectId, id));
       
-      // 4. Finally, delete the project itself
+      // 7. Delete audit logs (последними, так как они важны для отслеживания)
+      console.log('Deleting audit logs...');
+      await db.delete(auditLogs).where(eq(auditLogs.projectId, id));
+      
+      // 8. Finally, delete the project itself
       console.log('Deleting the project itself...');
       const result = await db.delete(projects).where(eq(projects.id, id));
       console.log(`Project deletion result:`, result);
