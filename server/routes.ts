@@ -242,7 +242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Setup admin error:", error);
-      res.status(500).json({ error: "Setup admin failed", details: error.message });
+      res.status(500).json({ error: "Setup admin failed", details: (error as Error).message });
     }
   });
 
@@ -272,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: (error as Error).message });
     }
   });
 
@@ -300,12 +300,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "User profile fixed successfully",
         userId: user.id,
         oldName: user.name,
-        newName: updatedUser.name,
-        role: updatedUser.role,
-        isActive: updatedUser.isActive
+        newName: updatedUser?.name,
+        role: updatedUser?.role,
+        isActive: updatedUser?.isActive
       });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: (error as Error).message });
     }
   });
 
@@ -603,8 +603,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entityId: expense.id,
         action: 'create',
         fieldName: 'amount',
-        oldValue: null,
-        newValue: expenseData.amount,
+        oldValue: undefined,
+        newValue: String(expenseData.amount),
         userId: user.id,
         userName: user.name,
         userRole: user.role,
@@ -668,7 +668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entityId: document.id,
         action: 'upload',
         fieldName: 'name',
-        oldValue: null,
+        oldValue: undefined,
         newValue: documentData.name,
         userId: user.id,
         userName: user.name,
@@ -709,7 +709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           action: 'delete',
           fieldName: 'name',
           oldValue: document.name,
-          newValue: null,
+          newValue: undefined,
           userId: user.id,
           userName: user.name,
           userRole: user.role,
@@ -779,8 +779,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entityId: customerAdvance.id,
         action: 'create',
         fieldName: 'amount',
-        oldValue: null,
-        newValue: customerAdvanceData.amount,
+        oldValue: undefined,
+        newValue: String(customerAdvanceData.amount),
         userId: user.id,
         userName: user.name,
         userRole: user.role,
@@ -853,7 +853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/customer-advances/:id", requireAuth, requireDirector, async (req, res) => {
     try {
-      const oldAdvance = await storage.getCustomerAdvance(req.params.id);
+      const oldAdvance = await storage.getCustomerAdvanceById(req.params.id);
       const customerAdvanceData = {
         ...req.body,
         amount: req.body.amount.toString(),
@@ -870,7 +870,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           action: 'update',
           fieldName: 'amount',
           oldValue: oldAdvance.amount,
-          newValue: customerAdvanceData.amount,
+          newValue: String(customerAdvanceData.amount),
           userId: user.id,
           userName: user.name,
           userRole: user.role,
@@ -910,13 +910,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clear all relevant caches comprehensively
       if (advance?.projectId) {
         invalidateProjectCache(advance.projectId);
-        cache.del(cacheKeys.projectFinancialSummary(advance.projectId));
-        cache.del(cacheKeys.projectAdvances(advance.projectId));
-        cache.del(cacheKeys.project(advance.projectId));
+        cache.invalidate(`project:${advance.projectId}`);
+        cache.invalidate('projects:');
+        cache.invalidate('analytics:');
       }
-      cache.del(cacheKeys.projects());
-      cache.del('financial-overview');
-      cache.del(cacheKeys.analyticsProjects());
       
       res.json({ message: "Advance deleted successfully" });
     } catch (error) {
@@ -941,16 +938,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clear all relevant caches comprehensively
       if (advance?.projectId) {
         invalidateProjectCache(advance.projectId);
-        cache.del(cacheKeys.projectFinancialSummary(advance.projectId));
-        cache.del(cacheKeys.projectCustomerAdvances(advance.projectId));
-        cache.del(cacheKeys.project(advance.projectId));
-        cache.del(cacheKeys.projectExpenses(advance.projectId));
-        cache.del(cacheKeys.projectAdvances(advance.projectId));
-        cache.del(cacheKeys.projectDocuments(advance.projectId));
+        cache.invalidate(`project:${advance.projectId}`);
+        cache.invalidate('projects:');
+        cache.invalidate('analytics:');
       }
-      cache.del(cacheKeys.projects());
-      cache.del('financial-overview');
-      cache.del(cacheKeys.analyticsProjects());
       
       // Create audit log for customer advance deletion
       const user = req.session.user!;
@@ -990,13 +981,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clear all relevant caches comprehensively
       if (expense?.projectId) {
         invalidateProjectCache(expense.projectId);
-        invalidateCache(cacheKeys.projectFinancialSummary(expense.projectId));
-        invalidateCache(cacheKeys.projectExpenses(expense.projectId));
-        invalidateCache(cacheKeys.project(expense.projectId));
+        cache.invalidate(`project:${expense.projectId}`);
+        cache.invalidate('projects:');
+        cache.invalidate('analytics:');
       }
-      invalidateCache(cacheKeys.projects());
-      invalidateCache('financial-overview');
-      invalidateCache(cacheKeys.analyticsProjects());
       
       // Create audit log for expense deletion
       const user = req.session.user!;
@@ -1084,7 +1072,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         entityId: ownerInvestment.id,
         action: 'create',
         fieldName: 'amount',
-        oldValue: null,
+        oldValue: undefined,
         newValue: validatedData.amount,
         userId: user.id,
         userName: user.name,
@@ -1145,13 +1133,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clear all relevant caches comprehensively
       if (investment?.projectId) {
         invalidateProjectCache(investment.projectId);
-        cache.del(cacheKeys.projectFinancialSummary(investment.projectId));
-        cache.del(cacheKeys.projectOwnerInvestments(investment.projectId));
-        cache.del(cacheKeys.project(investment.projectId));
+        cache.invalidate(`project:${investment.projectId}`);
+        cache.invalidate('projects:');
+        cache.invalidate('analytics:');
       }
-      cache.del(cacheKeys.projects());
-      cache.del('financial-overview');
-      cache.del(cacheKeys.analyticsProjects());
       
       // Create audit log for owner investment deletion
       const user = req.session.user!;
@@ -2903,7 +2888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             entityId: photo.id,
             action: 'upload',
             fieldName: 'url',
-            oldValue: null,
+            oldValue: undefined,
             newValue: photo.photoUrl,
             userId: user.id,
             userName: user.name,
@@ -2947,7 +2932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               action: 'delete',
               fieldName: 'url',
               oldValue: photo.photoUrl,
-              newValue: null,
+              newValue: undefined,
               userId: user.id,
               userName: user.name,
               userRole: user.role,
