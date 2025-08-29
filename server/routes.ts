@@ -2509,7 +2509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Document file URL:', document.fileUrl);
       
-      // Download file from object storage
+      // Download file from storage (object storage or local filesystem)
       let fileBuffer: Buffer;
       try {
         // Handle different file URL formats
@@ -2518,19 +2518,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             document.fileUrl.startsWith('https://storage.googleapis.com/')) {
           // File is in object storage - download from cloud
           fileBuffer = await objectStorageService.downloadFile(document.fileUrl);
+        } else if (document.fileUrl.startsWith('/api/files/')) {
+          // Legacy local file system - extract filename and read directly
+          const filename = path.basename(document.fileUrl);
+          const filePath = path.join(uploadsDir, filename);
+          
+          // Check if file exists
+          if (!fs.existsSync(filePath)) {
+            throw new Error(`Local file not found: ${filePath}`);
+          }
+          
+          // Read file into buffer
+          fileBuffer = fs.readFileSync(filePath);
+          console.log('Read local file:', filePath, 'Size:', fileBuffer.length);
         } else {
-          // Legacy local file path - handle gracefully
+          // Unsupported format
           console.error('Unsupported file URL format:', document.fileUrl);
           return res.status(400).json({ 
             error: "File format not supported", 
-            details: [`Unsupported file URL format: ${document.fileUrl}. Must be stored in object storage.`] 
+            details: [`Unsupported file URL format: ${document.fileUrl}. Supported formats: object storage (gs://, /objects/, https://storage.googleapis.com/) or local files (/api/files/).`] 
           });
         }
       } catch (downloadError: any) {
-        console.error('Failed to download file from object storage:', downloadError);
+        console.error('Failed to download/read file:', downloadError);
         return res.status(400).json({ 
           error: "File not found in storage", 
-          details: [`Failed to download file: ${downloadError?.message || 'Unknown error'}`] 
+          details: [`Failed to access file: ${downloadError?.message || 'Unknown error'}`] 
         });
       }
 
