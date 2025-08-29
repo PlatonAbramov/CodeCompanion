@@ -59,6 +59,38 @@ export class InvoiceParser {
   }
 
   /**
+   * Парсинг документа из буфера данных
+   */
+  async parseInvoiceFromBuffer(buffer: Buffer, fileName: string): Promise<ParsedInvoiceResult> {
+    try {
+      const fileExt = path.extname(fileName).toLowerCase();
+      
+      switch (fileExt) {
+        case '.pdf':
+          return await this.parsePDFFromBuffer(buffer);
+        case '.xlsx':
+        case '.xls':
+          return await this.parseExcelFromBuffer(buffer);
+        case '.csv':
+          return await this.parseCSVFromBuffer(buffer);
+        default:
+          return {
+            success: false,
+            items: [],
+            errors: [`Неподдерживаемый формат файла: ${fileExt}. Поддерживаются: PDF, XLSX, XLS, CSV`]
+          };
+      }
+    } catch (error: any) {
+      console.error('Error parsing invoice from buffer:', error);
+      return {
+        success: false,
+        items: [],
+        errors: [`Ошибка при обработке файла: ${error?.message || 'Неизвестная ошибка'}`]
+      };
+    }
+  }
+
+  /**
    * Парсинг PDF документа
    */
   private async parsePDF(filePath: string): Promise<ParsedInvoiceResult> {
@@ -140,6 +172,170 @@ export class InvoiceParser {
       let i = 0;
       while (i < dataLines.length) {
         const currentLine = dataLines[i];
+        const numbersMatch = currentLine.match(/^(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
+        
+        if (numbersMatch) {
+          // Это завершающая строка элемента
+          const [, textPart, quantity, price, total] = numbersMatch;
+          
+          // Проверяем, есть ли номер в начале текста
+          const positionMatch = textPart.match(/^(\d+)\s+(.+)/);
+          
+          if (positionMatch) {
+            // Однострочный элемент: "2 Демонтаж и монтаж затирки 1 1500 1500"
+            const position = parseInt(positionMatch[1]);
+            const description = positionMatch[2].trim();
+            
+            items.push({
+              position,
+              name: description,
+              quantity: this.parseNumber(quantity)!,
+              unit: '',
+              price: this.parseNumber(price)!,
+              totalCost: this.parseNumber(total)!,
+              description: description
+            });
+            
+            console.log(`Single-line item ${position}: "${description}"`);
+          } else {
+            // Многострочный элемент - нужно найти предыдущую строку
+            if (i > 0) {
+              const prevLine = dataLines[i - 1];
+              const prevPositionMatch = prevLine.match(/^(\d+)?\s*(.+)/);
+              
+              if (prevPositionMatch) {
+                let position = 1;
+                let fullDescription = '';
+                
+                // Если есть номер в предыдущей строке
+                if (prevPositionMatch[1]) {
+                  position = parseInt(prevPositionMatch[1]);
+                  fullDescription = prevPositionMatch[2].trim() + ' ' + textPart.trim();
+                } else {
+                  // Ищем номер еще раньше или используем последовательный номер
+                  position = items.length + 1;
+                  fullDescription = prevLine + ' ' + textPart.trim();
+                }
+                
+                items.push({
+                  position,
+                  name: fullDescription,
+                  quantity: this.parseNumber(quantity)!,
+                  unit: '',
+                  price: this.parseNumber(price)!,
+                  totalCost: this.parseNumber(total)!,
+                  description: fullDescription
+                });
+                
+                console.log(`Multi-line item ${position}: "${fullDescription}"`);
+              }
+            }
+          }
+        }
+        
+        i++;
+      }
+
+      return {
+        success: items.length > 0,
+        items,
+        format: 'PDF',
+        errors: items.length === 0 ? ['Не удалось найти табличные данные в PDF документе'] : undefined,
+        suggestColumnMapping: items.length === 0
+      };
+
+    } catch (error: any) {
+      return {
+        success: false,
+        items: [],
+        format: 'PDF',
+        errors: [`Ошибка парсинга PDF: ${error?.message || 'Неизвестная ошибка'}`]
+      };
+    }
+  }
+
+  /**
+   * Парсинг PDF документа из буфера
+   */
+  private async parsePDFFromBuffer(buffer: Buffer): Promise<ParsedInvoiceResult> {
+    try {
+      console.log('PDF Parser - attempting to parse buffer, size:', buffer.length);
+      
+      // Lazy load PDF parser to avoid initialization issues
+      if (!pdfParse) {
+        const moduleLib = await import('module');
+        const require = moduleLib.createRequire(import.meta.url);
+        pdfParse = require('pdf-parse/lib/pdf-parse.js');
+      }
+      
+      const pdfData = await pdfParse(buffer);
+      const text = pdfData.text;
+
+      // Улучшенный алгоритм парсинга табличных данных
+      const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      const items: ParsedInvoiceItem[] = [];
+
+      // Ищем заголовок таблицы
+      let tableStartIndex = -1;
+      
+      // Ищем заголовок таблицы
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Ищем заголовок таблицы
+        if (line.includes('No.') && line.includes('Description') && line.includes('Quantity')) {
+          tableStartIndex = i + 1; // Начинаем с следующей строки после заголовка
+          break;
+        }
+      }
+
+      if (tableStartIndex === -1) {
+        return {
+          success: false,
+          items: [],
+          format: 'PDF',
+          errors: ['Не удалось найти заголовок таблицы в PDF документе']
+        };
+      }
+
+      // Полная отладка каждой строки для понимания структуры
+      console.log(`\n=== DEBUGGING PDF PARSING FROM BUFFER ===`);
+      console.log(`Starting from line ${tableStartIndex}, total lines: ${lines.length}`);
+      
+      for (let i = tableStartIndex; i < Math.min(tableStartIndex + 25, lines.length); i++) {
+        const line = lines[i].trim();
+        if (line.includes('Subtotal')) break;
+        console.log(`Line ${i}: "${line}"`);
+        
+        const hasNumbers = line.match(/^(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
+        if (hasNumbers) {
+          console.log(`  -> Has numbers: text="${hasNumbers[1]}", qty=${hasNumbers[2]}, price=${hasNumbers[3]}, total=${hasNumbers[4]}`);
+        }
+      }
+      
+      // Простой и прямой подход: собираем элементы по парам строк
+      const dataLines: string[] = [];
+      for (let i = tableStartIndex; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.includes('Subtotal') || line.includes('Total') || line.includes('VAT')) {
+          break;
+        }
+        if (line && !line.includes('Вывоз и уборка строительного мусора')) {
+          dataLines.push(line);
+        } else if (line.includes('Вывоз и уборка строительного мусора')) {
+          dataLines.push(line);
+          break;
+        }
+      }
+
+      console.log('Collected data lines:', dataLines.length);
+
+      // Парсим строки 
+      let i = 0;
+      while (i < dataLines.length) {
+        const currentLine = dataLines[i].trim();
+        
+        // Ищем строку с числами в конце (количество, цена, сумма)
         const numbersMatch = currentLine.match(/^(.+?)\s+(\d+)\s+(\d+)\s+(\d+)$/);
         
         if (numbersMatch) {
@@ -573,5 +769,241 @@ export class InvoiceParser {
     }
     
     return {};
+  }
+
+  /**
+   * Парсинг Excel документа из буфера
+   */
+  private async parseExcelFromBuffer(buffer: Buffer): Promise<ParsedInvoiceResult> {
+    try {
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Конвертируем в JSON с заголовками
+      const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      if (!rawData || rawData.length < 2) {
+        return {
+          success: false,
+          items: [],
+          format: 'XLSX',
+          errors: ['Excel файл пустой или содержит менее 2 строк'],
+        };
+      }
+
+      // Ищем строку с заголовками
+      let headerRowIndex = -1;
+      for (let i = 0; i < Math.min(5, rawData.length); i++) {
+        const row = rawData[i] as any[];
+        if (row && this.isHeaderRow(row)) {
+          headerRowIndex = i;
+          break;
+        }
+      }
+
+      if (headerRowIndex === -1) {
+        return {
+          success: false,
+          items: [],
+          format: 'XLSX',
+          errors: ['Не удалось найти заголовки таблицы в Excel файле'],
+          suggestColumnMapping: true,
+          rawData: rawData.slice(0, 10) // Показываем первые 10 строк
+        };
+      }
+
+      const headers = rawData[headerRowIndex] as any[];
+      const columnMap = this.detectColumnMapping(headers);
+
+      if (!columnMap.name && !columnMap.quantity && !columnMap.price) {
+        return {
+          success: false,
+          items: [],
+          format: 'XLSX',
+          errors: ['Не удалось автоматически определить колонки. Проверьте заголовки таблицы.'],
+          suggestColumnMapping: true,
+          rawData: rawData.slice(0, 10)
+        };
+      }
+
+      const items: ParsedInvoiceItem[] = [];
+      let position = 1;
+
+      // Обрабатываем строки данных
+      for (let i = headerRowIndex + 1; i < rawData.length; i++) {
+        const row = rawData[i] as any[];
+        
+        if (!row || row.length === 0) continue;
+        
+        // Пропускаем пустые строки
+        const hasData = row.some(cell => cell !== undefined && cell !== null && cell !== '');
+        if (!hasData) continue;
+
+        const item: ParsedInvoiceItem = {
+          position,
+          name: this.getCellValue(row, columnMap.name) || `Позиция ${position}`,
+          quantity: this.parseNumber(this.getCellValue(row, columnMap.quantity)),
+          unit: this.getCellValue(row, columnMap.unit),
+          price: this.parseNumber(this.getCellValue(row, columnMap.price)),
+          totalCost: this.parseNumber(this.getCellValue(row, columnMap.totalCost)),
+          description: this.getCellValue(row, columnMap.description)
+        };
+
+        // Рассчитываем общую стоимость если не указана
+        if (!item.totalCost && item.quantity && item.price) {
+          item.totalCost = item.quantity * item.price;
+        }
+
+        items.push(item);
+        position++;
+      }
+
+      return {
+        success: items.length > 0,
+        items,
+        format: 'XLSX',
+        errors: items.length === 0 ? ['Не найдено строк с данными в Excel файле'] : undefined
+      };
+
+    } catch (error: any) {
+      return {
+        success: false,
+        items: [],
+        format: 'XLSX',
+        errors: [`Ошибка парсинга Excel: ${error?.message || 'Неизвестная ошибка'}`]
+      };
+    }
+  }
+
+  /**
+   * Парсинг CSV документа из буфера
+   */
+  private async parseCSVFromBuffer(buffer: Buffer): Promise<ParsedInvoiceResult> {
+    try {
+      const csvText = buffer.toString('utf8');
+      
+      return new Promise((resolve) => {
+        const results: any[] = [];
+        const stream = require('stream');
+        const readable = new stream.Readable();
+        readable.push(csvText);
+        readable.push(null);
+        
+        readable
+          .pipe(csvParser())
+          .on('data', (data: any) => results.push(data))
+          .on('end', () => {
+            if (results.length === 0) {
+              resolve({
+                success: false,
+                items: [],
+                format: 'CSV',
+                errors: ['CSV файл пустой или не содержит данных']
+              });
+              return;
+            }
+
+            const headers = Object.keys(results[0]);
+            const columnMap = this.detectColumnMapping(headers);
+
+            if (!columnMap.name && !columnMap.quantity && !columnMap.price) {
+              resolve({
+                success: false,
+                items: [],
+                format: 'CSV',
+                errors: ['Не удалось автоматически определить колонки в CSV файле'],
+                suggestColumnMapping: true,
+                rawData: results.slice(0, 10)
+              });
+              return;
+            }
+
+            const items: ParsedInvoiceItem[] = [];
+            let position = 1;
+
+            for (const row of results) {
+              // Пропускаем пустые строки
+              const hasData = Object.values(row).some(value => value !== undefined && value !== null && value !== '');
+              if (!hasData) continue;
+
+              const item: ParsedInvoiceItem = {
+                position,
+                name: this.getCellValue(row, columnMap.name) || `Позиция ${position}`,
+                quantity: this.parseNumber(this.getCellValue(row, columnMap.quantity)),
+                unit: this.getCellValue(row, columnMap.unit),
+                price: this.parseNumber(this.getCellValue(row, columnMap.price)),
+                totalCost: this.parseNumber(this.getCellValue(row, columnMap.totalCost)),
+                description: this.getCellValue(row, columnMap.description)
+              };
+
+              // Рассчитываем общую стоимость если не указана
+              if (!item.totalCost && item.quantity && item.price) {
+                item.totalCost = item.quantity * item.price;
+              }
+
+              items.push(item);
+              position++;
+            }
+
+            resolve({
+              success: items.length > 0,
+              items,
+              format: 'CSV',
+              errors: items.length === 0 ? ['Не найдено строк с данными в CSV файле'] : undefined
+            });
+          })
+          .on('error', (error: any) => {
+            resolve({
+              success: false,
+              items: [],
+              format: 'CSV',
+              errors: [`Ошибка парсинга CSV: ${error?.message || 'Неизвестная ошибка'}`]
+            });
+          });
+      });
+
+    } catch (error: any) {
+      return {
+        success: false,
+        items: [],
+        format: 'CSV',
+        errors: [`Ошибка парсинга CSV: ${error?.message || 'Неизвестная ошибка'}`]
+      };
+    }
+  }
+
+  /**
+   * Проверяет, является ли строка заголовком таблицы (для Excel/CSV)
+   */
+  private isHeaderRow(row: any[]): boolean {
+    if (!row || row.length === 0) return false;
+    
+    const headerKeywords = [
+      'наименование', 'количество', 'цена', 'стоимость', 'итого', 'единица',
+      'name', 'quantity', 'price', 'cost', 'total', 'unit', '№', 'no', 'description'
+    ];
+    
+    const rowText = row.join(' ').toLowerCase();
+    return headerKeywords.some(keyword => rowText.includes(keyword));
+  }
+
+  /**
+   * Получает значение ячейки по индексу
+   */
+  private getCellValue(row: any, index?: number): string | undefined {
+    if (index === undefined || index < 0) return undefined;
+    
+    if (Array.isArray(row)) {
+      return row[index]?.toString?.() || undefined;
+    }
+    
+    if (typeof row === 'object') {
+      const keys = Object.keys(row);
+      const key = keys[index];
+      return key ? row[key]?.toString?.() : undefined;
+    }
+    
+    return undefined;
   }
 }

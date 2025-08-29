@@ -2503,39 +2503,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Document name must start with 'invoice'" });
       }
 
-      // Parse the invoice
+      // Parse the invoice from cloud storage
       const { InvoiceParser } = await import('./invoiceParser');
       const parser = new InvoiceParser();
       
-      // Construct the correct file path
-      let filePath = document.fileUrl;
-      console.log('Original file URL:', filePath);
+      console.log('Document file URL:', document.fileUrl);
       
-      // Handle different URL formats
-      if (filePath.startsWith('/api/files/')) {
-        // Extract filename from API URL
-        const filename = path.basename(filePath);
-        filePath = path.join('server/uploads', filename);
-      } else if (filePath.startsWith('/uploads/')) {
-        // Handle relative uploads path
-        filePath = path.join('server', filePath);
-      } else if (!path.isAbsolute(filePath)) {
-        // Handle relative paths
-        filePath = path.join('server/uploads', path.basename(filePath));
-      }
-      
-      console.log('Resolved file path:', filePath);
-      
-      // Verify file exists before parsing
-      if (!fs.existsSync(filePath)) {
-        console.error('File not found at path:', filePath);
+      // Download file from object storage
+      let fileBuffer: Buffer;
+      try {
+        if (document.fileUrl.startsWith('gs://')) {
+          // Direct GCS URL - download from object storage
+          fileBuffer = await objectStorageService.downloadFile(document.fileUrl);
+        } else {
+          // Legacy local file path - handle gracefully
+          return res.status(400).json({ 
+            error: "File format not supported", 
+            details: ["File must be stored in object storage"] 
+          });
+        }
+      } catch (downloadError: any) {
+        console.error('Failed to download file from object storage:', downloadError);
         return res.status(400).json({ 
-          error: "File not found", 
-          details: [`File does not exist at path: ${filePath}`] 
+          error: "File not found in storage", 
+          details: [`Failed to download file: ${downloadError?.message || 'Unknown error'}`] 
         });
       }
 
-      const parseResult = await parser.parseInvoice(filePath, document.fileName);
+      const parseResult = await parser.parseInvoiceFromBuffer(fileBuffer, document.fileName);
       
       if (!parseResult.success) {
         return res.status(400).json({ 

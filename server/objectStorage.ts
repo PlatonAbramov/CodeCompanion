@@ -101,6 +101,38 @@ export class ObjectStorageService {
     }
   }
 
+  /**
+   * Download file content as Buffer for processing
+   */
+  async downloadFile(fileUrl: string): Promise<Buffer> {
+    try {
+      let file: File;
+      
+      if (fileUrl.startsWith('gs://')) {
+        // Handle gs:// URLs
+        const gsUrl = fileUrl.replace('gs://', '');
+        const [bucketName, ...objectPathParts] = gsUrl.split('/');
+        const objectPath = objectPathParts.join('/');
+        
+        const bucket = objectStorageClient.bucket(bucketName);
+        file = bucket.file(objectPath);
+      } else if (fileUrl.startsWith('/objects/')) {
+        // Handle object entity path
+        file = await this.getObjectEntityFile(fileUrl);
+      } else {
+        throw new Error('Unsupported file URL format');
+      }
+
+      // Download file content to buffer
+      const [buffer] = await file.download();
+      return buffer;
+      
+    } catch (error) {
+      console.error('Error downloading file to buffer:', error);
+      throw error;
+    }
+  }
+
   async getObjectEntityUploadURL(): Promise<string> {
     const privateObjectDir = this.getPrivateObjectDir();
     const objectId = randomUUID();
