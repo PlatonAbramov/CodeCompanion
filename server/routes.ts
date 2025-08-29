@@ -2508,6 +2508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parser = new InvoiceParser();
       
       console.log('Document file URL:', document.fileUrl);
+      console.log('Document file name:', document.fileName);
       
       // Download file from storage (object storage or local filesystem)
       let fileBuffer: Buffer;
