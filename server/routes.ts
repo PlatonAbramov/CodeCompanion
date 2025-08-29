@@ -39,7 +39,10 @@ declare module 'express-session' {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create uploads directory if it doesn't exist
-  const uploadsDir = path.join(__dirname, 'uploads');
+  // Fix path to handle both development and production environments
+  const uploadsDir = process.env.NODE_ENV === 'production' 
+    ? path.join(process.cwd(), 'server', 'uploads')
+    : path.join(process.cwd(), 'server', 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
