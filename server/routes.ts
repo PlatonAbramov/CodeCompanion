@@ -3187,14 +3187,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.session.user!;
       const projectId = req.params.id;
       
+      console.log(`Delete project request - User: ${user.name} (${user.role}), Project ID: ${projectId}`);
+      
       // Get project info before deletion for audit log
       const project = await storage.getProject(projectId);
       if (!project) {
+        console.log(`Project not found: ${projectId}`);
         return res.status(404).json({ error: "Project not found" });
       }
       
+      console.log(`Project found: ${project.name}, starting deletion...`);
+      
       // Delete the project
       await storage.deleteProject(projectId);
+      
+      console.log(`Project ${projectId} deleted successfully`);
       
       // Create audit log
       await storage.createAuditLog({
@@ -3207,15 +3214,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userRole: user.role,
         projectId: projectId,
         metadata: {
-          budget: project.budget,
+          budget: project.totalCost,
           status: project.status
         }
       });
       
+      console.log(`Audit log created for project deletion: ${projectId}`);
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Delete project error:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error("Error details:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      res.status(500).json({ 
+        error: "Internal server error",
+        details: error.message 
+      });
     }
   });
 

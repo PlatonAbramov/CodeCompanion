@@ -451,8 +451,8 @@ export default function ProjectDetail() {
               </div>
             </div>
             
-            {/* Admin menu for project actions */}
-            {isAdmin && (
+            {/* Admin or Director menu for project actions */}
+            {isAdminOrDirector && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" data-testid="button-project-menu">
