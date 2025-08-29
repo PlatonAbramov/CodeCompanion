@@ -2218,6 +2218,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Админ-панель: установка пароля
+  app.post("/api/admin/users/:userId/set-password", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { password } = req.body;
+      
+      if (!password || password.length < 3) {
+        return res.status(400).json({ error: "Пароль должен содержать минимум 3 символа" });
+      }
+      
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await storage.updateUserPassword(userId, hashedPassword, false); // mustChangePassword = false для админа
+      
+      // Логируем действие админа
+      await storage.logAdminAction({
+        adminUserId: req.session.user!.id,
+        action: 'set_password',
+        targetUserId: userId,
+        details: { customPassword: true },
+        ipAddress: req.ip || 'unknown',
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to set password:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Админ-панель: принудительный выход
   app.post("/api/admin/users/:userId/force-logout", requireAdmin, async (req, res) => {
     try {

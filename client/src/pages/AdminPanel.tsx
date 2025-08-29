@@ -52,6 +52,8 @@ export default function AdminPanel() {
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [isSetPasswordOpen, setIsSetPasswordOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -237,6 +239,33 @@ export default function AdminPanel() {
       toast({
         title: "Ошибка",
         description: error.message || "Не удалось удалить пользователя",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Мутация установки пароля
+  const setPasswordMutation = useMutation({
+    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+      const res = await apiRequest(`/api/admin/users/${userId}/set-password`, {
+        method: 'POST',
+        body: JSON.stringify({ password })
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Успешно",
+        description: "Пароль установлен",
+      });
+      setIsSetPasswordOpen(false);
+      setNewPassword("");
+      setIsEditUserOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось установить пароль",
         variant: "destructive",
       });
     },
@@ -814,6 +843,16 @@ export default function AdminPanel() {
 
               <Button
                 variant="outline"
+                onClick={() => setIsSetPasswordOpen(true)}
+                data-testid="button-edit-set-password"
+                className="w-full"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Установить пароль
+              </Button>
+
+              <Button
+                variant="outline"
                 onClick={() => {
                   if (editingUser) {
                     forceLogoutMutation.mutate(editingUser.id);
@@ -956,6 +995,59 @@ export default function AdminPanel() {
                 </DialogFooter>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Модальное окно установки пароля */}
+        <Dialog open={isSetPasswordOpen} onOpenChange={setIsSetPasswordOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Установить пароль</DialogTitle>
+              <DialogDescription>
+                Установить новый пароль для пользователя: {editingUser?.name} (@{editingUser?.username})
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="new-password">Новый пароль</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Введите новый пароль"
+                  data-testid="input-new-password"
+                />
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsSetPasswordOpen(false);
+                  setNewPassword("");
+                }}
+                data-testid="button-cancel-password"
+              >
+                Отмена
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (editingUser && newPassword.trim()) {
+                    setPasswordMutation.mutate({
+                      userId: editingUser.id,
+                      password: newPassword.trim()
+                    });
+                  }
+                }}
+                disabled={setPasswordMutation.isPending || !newPassword.trim()}
+                data-testid="button-submit-password"
+              >
+                {setPasswordMutation.isPending ? "Установка..." : "Установить"}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
