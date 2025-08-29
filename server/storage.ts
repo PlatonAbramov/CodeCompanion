@@ -569,8 +569,8 @@ export class DatabaseStorage implements IStorage {
       await db.delete(revenues).where(eq(revenues.projectId, id));
       await db.delete(ownerInvestments).where(eq(ownerInvestments.projectId, id));
       
-      // 7. Delete audit logs (последними, так как они важны для отслеживания)
-      console.log('Deleting audit logs...');
+      // 7. Delete OLD audit logs to avoid constraint violations (new deletion log will be created after)
+      console.log('Deleting old audit logs...');
       await db.delete(auditLogs).where(eq(auditLogs.projectId, id));
       
       // 8. Finally, delete the project itself

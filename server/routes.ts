@@ -3198,12 +3198,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Project found: ${project.name}, starting deletion...`);
       
-      // Delete the project
+      // Delete the project (this will also delete old audit logs)
       await storage.deleteProject(projectId);
       
       console.log(`Project ${projectId} deleted successfully`);
       
-      // Create audit log
+      // Create audit log AFTER deletion (without projectId to avoid constraint)
       await storage.createAuditLog({
         entityType: 'project',
         entityId: projectId,
@@ -3212,10 +3212,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: user.id,
         userName: user.name,
         userRole: user.role,
-        projectId: projectId,
+        projectId: null, // Don't link to deleted project to avoid constraint
         metadata: {
           budget: project.totalCost,
-          status: project.status
+          status: project.status,
+          deletedProjectId: projectId // Store the ID in metadata instead
         }
       });
       
