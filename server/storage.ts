@@ -2240,6 +2240,8 @@ export class DatabaseStorage implements IStorage {
     if (sheet) {
       const items = await db.select().from(implementationItems).where(eq(implementationItems.sheetId, id));
       for (const item of items) {
+        // Delete comments first (they reference implementation items)
+        await db.delete(implementationItemComments).where(eq(implementationItemComments.itemId, item.id));
         await db.delete(implementationPhotos).where(eq(implementationPhotos.itemId, item.id));
         await db.delete(implementationChangeLogs).where(eq(implementationChangeLogs.itemId, item.id));
       }
