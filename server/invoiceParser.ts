@@ -120,24 +120,56 @@ export class InvoiceParser {
       // Ищем заголовок таблицы
       let tableStartIndex = -1;
       
-      // Ищем заголовок таблицы
+      // Ищем заголовок таблицы (поддержка русского и английского языков)
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+        const line = lines[i].toLowerCase();
         
-        // Ищем заголовок таблицы
-        if (line.includes('No.') && line.includes('Description') && line.includes('Quantity')) {
-          tableStartIndex = i + 1; // Начинаем с следующей строки после заголовка
+        // Проверяем на английские заголовки
+        if ((line.includes('no.') || line.includes('№')) && 
+            (line.includes('description') || line.includes('наименование') || line.includes('описание')) && 
+            (line.includes('quantity') || line.includes('количество') || line.includes('кол-во'))) {
+          tableStartIndex = i + 1;
+          break;
+        }
+        
+        // Альтернативная проверка - ищем строку с несколькими ключевыми словами
+        const keywordCount = [
+          line.includes('№'), line.includes('no.'), line.includes('#'),
+          line.includes('наименование'), line.includes('описание'), line.includes('работа'),
+          line.includes('услуга'), line.includes('товар'), line.includes('description'),
+          line.includes('количество'), line.includes('кол-во'), line.includes('quantity'),
+          line.includes('цена'), line.includes('price'), line.includes('стоимость'),
+          line.includes('сумма'), line.includes('итого'), line.includes('total')
+        ].filter(Boolean).length;
+        
+        if (keywordCount >= 3) {
+          tableStartIndex = i + 1;
           break;
         }
       }
 
       if (tableStartIndex === -1) {
-        return {
-          success: false,
-          items: [],
-          format: 'PDF',
-          errors: ['Не удалось найти заголовок таблицы в PDF документе']
-        };
+        // Если заголовок не найден, попробуем найти первую строку с числовыми данными
+        console.log('Заголовок таблицы не найден, ищем строки с числовыми данными...');
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          // Проверяем, содержит ли строка паттерн: текст и несколько чисел
+          if (line.match(/^[\d№#]?\s*[А-Яа-яA-Za-z].+\s+\d+([.,]\d+)?\s+\d+([.,]\d+)?\s+\d+([.,]\d+)?/)) {
+            tableStartIndex = i;
+            console.log(`Найдена первая строка с данными на позиции ${i}: "${line}"`);
+            break;
+          }
+        }
+        
+        if (tableStartIndex === -1) {
+          return {
+            success: false,
+            items: [],
+            format: 'PDF',
+            errors: ['Не удалось найти табличные данные в PDF документе. Убедитесь, что файл содержит таблицу с колонками: наименование работ, количество, цена, сумма.']
+          };
+        }
       }
 
       // Полная отладка каждой строки для понимания структуры
@@ -278,24 +310,56 @@ export class InvoiceParser {
       // Ищем заголовок таблицы
       let tableStartIndex = -1;
       
-      // Ищем заголовок таблицы
+      // Ищем заголовок таблицы (поддержка русского и английского языков)
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+        const line = lines[i].toLowerCase();
         
-        // Ищем заголовок таблицы
-        if (line.includes('No.') && line.includes('Description') && line.includes('Quantity')) {
-          tableStartIndex = i + 1; // Начинаем с следующей строки после заголовка
+        // Проверяем на английские заголовки
+        if ((line.includes('no.') || line.includes('№')) && 
+            (line.includes('description') || line.includes('наименование') || line.includes('описание')) && 
+            (line.includes('quantity') || line.includes('количество') || line.includes('кол-во'))) {
+          tableStartIndex = i + 1;
+          break;
+        }
+        
+        // Альтернативная проверка - ищем строку с несколькими ключевыми словами
+        const keywordCount = [
+          line.includes('№'), line.includes('no.'), line.includes('#'),
+          line.includes('наименование'), line.includes('описание'), line.includes('работа'),
+          line.includes('услуга'), line.includes('товар'), line.includes('description'),
+          line.includes('количество'), line.includes('кол-во'), line.includes('quantity'),
+          line.includes('цена'), line.includes('price'), line.includes('стоимость'),
+          line.includes('сумма'), line.includes('итого'), line.includes('total')
+        ].filter(Boolean).length;
+        
+        if (keywordCount >= 3) {
+          tableStartIndex = i + 1;
           break;
         }
       }
 
       if (tableStartIndex === -1) {
-        return {
-          success: false,
-          items: [],
-          format: 'PDF',
-          errors: ['Не удалось найти заголовок таблицы в PDF документе']
-        };
+        // Если заголовок не найден, попробуем найти первую строку с числовыми данными
+        console.log('Заголовок таблицы не найден, ищем строки с числовыми данными...');
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          // Проверяем, содержит ли строка паттерн: текст и несколько чисел
+          if (line.match(/^[\d№#]?\s*[А-Яа-яA-Za-z].+\s+\d+([.,]\d+)?\s+\d+([.,]\d+)?\s+\d+([.,]\d+)?/)) {
+            tableStartIndex = i;
+            console.log(`Найдена первая строка с данными на позиции ${i}: "${line}"`);
+            break;
+          }
+        }
+        
+        if (tableStartIndex === -1) {
+          return {
+            success: false,
+            items: [],
+            format: 'PDF',
+            errors: ['Не удалось найти табличные данные в PDF документе. Убедитесь, что файл содержит таблицу с колонками: наименование работ, количество, цена, сумма.']
+          };
+        }
       }
 
       // Полная отладка каждой строки для понимания структуры
