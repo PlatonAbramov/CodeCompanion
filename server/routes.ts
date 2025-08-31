@@ -1015,16 +1015,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
-  // Documents routes
-  app.get("/api/projects/:projectId/documents", requireAuth, async (req, res) => {
-    try {
-      const documents = await storage.getProjectDocuments(req.params.projectId);
-      res.json(documents);
-    } catch (error) {
-      console.error("Error fetching documents:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
 
   // Owner Investments routes
   app.get("/api/projects/:projectId/owner-investments", requireAuth, async (req, res) => {

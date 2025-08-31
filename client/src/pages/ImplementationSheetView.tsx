@@ -79,6 +79,8 @@ export default function ImplementationSheetView() {
   
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
   const canManageItems = user?.role === 'admin' || user?.role === 'director' || user?.role === 'master';
+  const isClient = user?.role === 'client';
+  const canManagePhotos = canManageItems || isClient;
   const objectStorageService = new ObjectStorageService();
 
   const { data: sheet, isLoading } = useQuery<ImplementationSheet>({
@@ -511,7 +513,7 @@ export default function ImplementationSheetView() {
                     </Button>
                     
                     {/* Функция добавления фото для всех ролей, кроме клиентов */}
-                    {user?.role !== 'client' && (
+                    {canManagePhotos && (
                       uploadingItemId === item.id ? (
                         <ObjectUploader
                           maxNumberOfFiles={10}
@@ -568,7 +570,7 @@ export default function ImplementationSheetView() {
                     setCurrentPhotoIndex(index);
                   }}
                 />
-                {user?.role !== 'client' && (
+                {canManagePhotos && (
                   <Button
                     size="icon"
                     variant="destructive"
@@ -621,7 +623,7 @@ export default function ImplementationSheetView() {
                   {photo.caption && (
                     <p className="text-xs text-muted-foreground mt-1 truncate">{photo.caption}</p>
                   )}
-                  {user?.role !== 'client' && (
+                  {canManagePhotos && (
                     <Button
                       size="icon"
                       variant="destructive"

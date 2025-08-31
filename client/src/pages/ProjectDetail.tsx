@@ -372,7 +372,7 @@ export default function ProjectDetail() {
 
   const isAdmin = user?.role === 'admin';
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
-  const canAccessImplementationSheets = user?.role === 'admin' || user?.role === 'director' || user?.role === 'master';
+  const canAccessImplementationSheets = user?.role === 'admin' || user?.role === 'director' || user?.role === 'master' || user?.role === 'client';
 
   // Функция для фильтрации и сортировки расходов
   const filteredAndSortedExpenses = expenses
