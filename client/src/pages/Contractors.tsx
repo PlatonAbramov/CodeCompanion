@@ -248,13 +248,14 @@ export default function Contractors() {
       <div className="p-4 space-y-6">
         {/* Add Contractor Button */}
         <div className="flex justify-end">
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary text-white">
-                <Plus size={16} className="mr-2" />
-                Добавить подрядчика
-              </Button>
-            </DialogTrigger>
+          {(user?.role === 'admin' || user?.role === 'director') && (
+            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary text-white">
+                  <Plus size={16} className="mr-2" />
+                  Добавить подрядчика
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Добавить нового подрядчика</DialogTitle>
@@ -313,7 +314,8 @@ export default function Contractors() {
                 </Button>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          )}
         </div>
 
         {/* Edit Contractor Modal */}
@@ -403,23 +405,25 @@ export default function Contractors() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditModal(contractor)}
-                      >
-                        <Edit2 size={16} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteContractor(contractor.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
+                    {(user?.role === 'admin' || user?.role === 'director') && (
+                      <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditModal(contractor)}
+                        >
+                          <Edit2 size={16} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteContractor(contractor.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>

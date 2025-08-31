@@ -4,10 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertContractorSchema, type InsertContractor } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Plus } from "lucide-react";
 
@@ -16,9 +16,15 @@ interface QuickAddContractorProps {
 }
 
 export function QuickAddContractor({ onContractorAdded }: QuickAddContractorProps) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
+
+  // Only show for admin and director roles
+  if (!user || (user.role !== 'admin' && user.role !== 'director')) {
+    return null;
+  }
 
   const form = useForm<InsertContractor>({
     resolver: zodResolver(insertContractorSchema),
@@ -27,7 +33,6 @@ export function QuickAddContractor({ onContractorAdded }: QuickAddContractorProp
       company: "",
       phone: "",
       email: "",
-      address: "",
       specialization: "",
       isActive: true,
     },
@@ -152,19 +157,6 @@ export function QuickAddContractor({ onContractorAdded }: QuickAddContractorProp
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Адрес</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Адрес подрядчика" rows={2} {...field} value={field.value || ""} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <div className="flex gap-3 pt-4">
               <Button

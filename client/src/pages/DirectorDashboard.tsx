@@ -50,13 +50,15 @@ function ProjectCard({
   onClick, 
   onEdit, 
   isExpanded, 
-  onToggleExpand 
+  onToggleExpand,
+  showEditButton = true
 }: { 
   project: Project; 
   onClick: () => void; 
   onEdit: (project: Project) => void; 
   isExpanded: boolean; 
   onToggleExpand: () => void; 
+  showEditButton?: boolean;
 }) {
   const { t } = useLanguage();
   
@@ -114,14 +116,16 @@ function ProjectCard({
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleEditClick}
-              className="h-8 w-8 p-0 hover:bg-slate-100"
-            >
-              <Edit2 size={14} className="text-slate-600" />
-            </Button>
+            {showEditButton && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleEditClick}
+                className="h-8 w-8 p-0 hover:bg-slate-100"
+              >
+                <Edit2 size={14} className="text-slate-600" />
+              </Button>
+            )}
             <span className="bg-secondary/10 text-secondary px-2 py-1 rounded-full text-xs font-medium">
               {t(project.status)}
             </span>
@@ -496,13 +500,14 @@ export default function DirectorDashboard() {
               <Archive size={16} />
               Архив{archivedProjectsCount > 0 && ` (${archivedProjectsCount})`}
             </Button>
-            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-primary text-white">
-                  <Plus size={16} className="mr-1" />
-                  {t('createProject')}
-                </Button>
-              </DialogTrigger>
+            {(user?.role === 'admin' || user?.role === 'director') && (
+              <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-primary text-white">
+                    <Plus size={16} className="mr-1" />
+                    {t('createProject')}
+                  </Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                 <DialogTitle>{t('createProject')}</DialogTitle>
@@ -579,8 +584,9 @@ export default function DirectorDashboard() {
                   {createProjectMutation.isPending ? t('loading') : t('createProject')}
                 </Button>
               </form>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
 
@@ -680,6 +686,7 @@ export default function DirectorDashboard() {
                 onEdit={openEditModal}
                 isExpanded={expandedProjects.has(project.id)}
                 onToggleExpand={() => toggleProjectExpansion(project.id)}
+                showEditButton={user?.role === 'admin' || user?.role === 'director'}
               />
             ))}
           </div>

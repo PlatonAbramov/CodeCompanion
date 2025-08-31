@@ -179,13 +179,15 @@ export default function CategoryExpenses() {
               </div>
               <h3 className="font-semibold text-slate-900 mb-2">Нет расходов</h3>
               <p className="text-slate-500 mb-4">В категории "{getCategoryLabel(category)}" пока нет расходов</p>
-              <Button 
-                className="bg-primary text-white"
-                onClick={() => setLocation('/add-expense')}
-              >
-                <Plus size={16} className="mr-1" />
-                {t('addExpense')}
-              </Button>
+              {(user?.role === 'admin' || user?.role === 'director') && (
+                <Button 
+                  className="bg-primary text-white"
+                  onClick={() => setLocation('/add-expense')}
+                >
+                  <Plus size={16} className="mr-1" />
+                  {t('addExpense')}
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (

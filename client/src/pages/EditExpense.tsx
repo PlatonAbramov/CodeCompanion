@@ -24,6 +24,11 @@ export default function EditExpense() {
   const expenseId = pathParts[pathParts.length - 1];
   const projectId = pathParts[pathParts.length - 2];
 
+  // Check permission to edit expense
+  const canEdit = (expense: any) => {
+    return user?.role === 'admin' || user?.role === 'director' || expense?.user?.id === user?.id;
+  };
+
   const [formData, setFormData] = useState({
     amount: '',
     category: '',

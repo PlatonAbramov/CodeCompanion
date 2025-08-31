@@ -34,6 +34,12 @@ export default function AddExpense() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Restrict access to admin and director only
+  if (user && user.role !== 'admin' && user.role !== 'director') {
+    setLocation('/master');
+    return null;
+  }
+
   // Extract projectId from URL query params if coming from project detail
   const urlParams = new URLSearchParams(window.location.search);
   const projectIdFromUrl = urlParams.get('projectId');

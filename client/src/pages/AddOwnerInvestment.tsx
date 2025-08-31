@@ -19,6 +19,12 @@ export default function AddOwnerInvestment() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Restrict access to admin and director only
+  if (user && user.role !== 'admin' && user.role !== 'director') {
+    setLocation('/master');
+    return null;
+  }
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];

@@ -142,13 +142,15 @@ export default function MasterDashboard() {
             <Receipt size={20} className="mb-1" />
             <span className="text-xs">{t('expenses')}</span>
           </button>
-          <button 
-            className="flex flex-col items-center py-2 text-slate-400"
-            onClick={() => setLocation('/add-expense')}
-          >
-            <PlusCircle size={20} className="mb-1" />
-            <span className="text-xs">{t('add')}</span>
-          </button>
+          {(user?.role === 'admin' || user?.role === 'director') && (
+            <button 
+              className="flex flex-col items-center py-2 text-slate-400"
+              onClick={() => setLocation('/add-expense')}
+            >
+              <PlusCircle size={20} className="mb-1" />
+              <span className="text-xs">{t('add')}</span>
+            </button>
+          )}
         </div>
       </nav>
     </div>

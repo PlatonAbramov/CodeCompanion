@@ -18,6 +18,12 @@ export default function EditRevenue() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Restrict access to admin and director only
+  if (user && user.role !== 'admin' && user.role !== 'director') {
+    setLocation('/master');
+    return null;
+  }
+
   // Extract revenueId and projectId from URL
   const pathParts = location.split('/');
   const revenueId = pathParts[pathParts.length - 1];
@@ -37,7 +43,7 @@ export default function EditRevenue() {
   });
 
   useEffect(() => {
-    if (revenues && revenueId) {
+    if (revenues && Array.isArray(revenues) && revenueId) {
       const revenue = revenues.find((r: any) => r.id === revenueId);
       if (revenue) {
         setFormData({

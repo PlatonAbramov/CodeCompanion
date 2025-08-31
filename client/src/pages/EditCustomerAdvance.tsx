@@ -18,6 +18,12 @@ export default function EditCustomerAdvance() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Restrict access to admin and director only
+  if (user && user.role !== 'admin' && user.role !== 'director') {
+    setLocation('/master');
+    return null;
+  }
+
   // Extract advanceId and projectId from URL
   const pathParts = location.split('/');
   const advanceId = pathParts[pathParts.length - 1];

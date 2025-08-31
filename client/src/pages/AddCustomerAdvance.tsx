@@ -31,6 +31,12 @@ export default function AddCustomerAdvance() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Restrict access to admin and director only
+  if (user && user.role !== 'admin' && user.role !== 'director') {
+    setLocation('/master');
+    return null;
+  }
+
   // Extract projectId from URL path
   const projectId = location.split('/')[2];
 

@@ -18,12 +18,14 @@ import { insertClientProjectSchema, insertClientPaymentSchema, type InsertClient
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ClientDetailPage() {
   const [, params] = useRoute("/clients/:id");
   const clientId = params?.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -495,13 +497,14 @@ export default function ClientDetailPage() {
         <TabsContent value="projects" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-xl font-semibold">Проекты заказчика</h3>
-            <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Назначить проект
-                </Button>
-              </DialogTrigger>
+            {(user?.role === 'admin' || user?.role === 'director') && (
+              <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Назначить проект
+                  </Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Назначить проект заказчику</DialogTitle>
@@ -631,6 +634,7 @@ export default function ClientDetailPage() {
                 </Form>
               </DialogContent>
             </Dialog>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -695,22 +699,26 @@ export default function ClientDetailPage() {
                       <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
                         {project.status === 'active' ? 'Активный' : 'Завершен'}
                       </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditProject(project)}
-                        className="text-blue-600 hover:text-blue-700"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRemoveProject(project.id, project.projectName)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      {(user?.role === 'admin' || user?.role === 'director') && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditProject(project)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveProject(project.id, project.projectName)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -728,13 +736,14 @@ export default function ClientDetailPage() {
         <TabsContent value="payments" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-xl font-semibold">Платежи заказчика</h3>
-            <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Добавить платеж
-                </Button>
-              </DialogTrigger>
+            {(user?.role === 'admin' || user?.role === 'director') && (
+              <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Добавить платеж
+                  </Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Добавить платеж</DialogTitle>
@@ -843,6 +852,7 @@ export default function ClientDetailPage() {
                 </Form>
               </DialogContent>
             </Dialog>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -871,14 +881,16 @@ export default function ClientDetailPage() {
                         <p className="text-sm text-muted-foreground">{payment.description}</p>
                       )}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeletePayment(payment.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {(user?.role === 'admin' || user?.role === 'director') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeletePayment(payment.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

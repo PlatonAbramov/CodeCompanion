@@ -376,14 +376,15 @@ export default function ClientsPage() {
 
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex justify-between items-center">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setEditingClient(null)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Добавить заказчика
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          {(user?.role === 'admin' || user?.role === 'director') && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={() => setEditingClient(null)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Добавить заказчика
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
                 {editingClient ? "Редактировать заказчика" : "Добавить заказчика"}
@@ -531,9 +532,10 @@ export default function ClientsPage() {
                 </div>
               </form>
             </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -600,31 +602,33 @@ export default function ClientsPage() {
                   </span>
                 </div>
               )}
-              <div className="flex justify-end space-x-2 pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEdit(client);
-                  }}
-                >
-                  <Edit2 className="w-4 h-4 mr-1" />
-                  Редактировать
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(client);
-                  }}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Удалить
-                </Button>
-              </div>
+              {(user?.role === 'admin' || user?.role === 'director') && (
+                <div className="flex justify-end space-x-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(client);
+                    }}
+                  >
+                    <Edit2 className="w-4 h-4 mr-1" />
+                    Редактировать
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(client);
+                    }}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Удалить
+                  </Button>
+                </div>
+              )}
               </CardContent>
             </Card>
               ))}
@@ -637,10 +641,12 @@ export default function ClientsPage() {
             <p className="text-muted-foreground mb-6">
               Добавьте первого заказчика для начала работы
             </p>
-            <Button onClick={() => setIsDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Добавить заказчика
-            </Button>
+            {(user?.role === 'admin' || user?.role === 'director') && (
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Добавить заказчика
+              </Button>
+            )}
           </div>
             )}
           </TabsContent>
