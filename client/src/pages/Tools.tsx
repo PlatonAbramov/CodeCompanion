@@ -282,7 +282,7 @@ export default function Tools() {
           </Button>
           <h1 className="text-2xl font-bold">Инструменты</h1>
         </div>
-        {(user?.role === 'admin' || user?.role === 'director') && (
+        {(user?.role === 'admin' || user?.role === 'director' || user?.role === 'master') && (
           <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -403,7 +403,7 @@ export default function Tools() {
                     <Badge variant={getStatusBadgeVariant(tool.status)}>
                       {getStatusText(tool.status)}
                     </Badge>
-                    {(user?.role === 'admin' || user?.role === 'director') && (
+                    {(user?.role === 'admin' || user?.role === 'director' || user?.role === 'master') && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="h-8 w-8 p-0">

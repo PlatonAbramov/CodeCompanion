@@ -33,7 +33,7 @@ export default function ImplementationSheets() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newSheetName, setNewSheetName] = useState("");
   
-  const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
+  const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director' || user?.role === 'master';
 
   const { data: sheets, isLoading } = useQuery<ImplementationSheet[]>({
     queryKey: [`/api/projects/${projectId}/implementation-sheets`],

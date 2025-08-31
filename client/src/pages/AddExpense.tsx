@@ -34,8 +34,8 @@ export default function AddExpense() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Restrict access to admin and director only
-  if (user && user.role !== 'admin' && user.role !== 'director') {
+  // Restrict access to admin, director and master
+  if (user && user.role !== 'admin' && user.role !== 'director' && user.role !== 'master') {
     setLocation('/master');
     return null;
   }
