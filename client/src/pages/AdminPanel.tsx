@@ -487,7 +487,7 @@ export default function AdminPanel() {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    <SelectItem value="master">Мастер</SelectItem>
+                                    <SelectItem value="master">Прораб</SelectItem>
                                     <SelectItem value="director">Директор</SelectItem>
                                   </SelectContent>
                                 </Select>
@@ -587,8 +587,8 @@ export default function AdminPanel() {
                                 user.role === 'master' ? 'secondary' : 'outline'
                               }>
                                 {user.role === 'admin' ? 'Администратор' : 
-                                 (user.role === 'admin' || user.role === 'director') ? 'Прораб' : 
-                                 user.role === 'master' ? 'Мастер' : 'Заказчик'}
+                                 user.role === 'director' ? 'Директор' : 
+                                 user.role === 'master' ? 'Прораб' : 'Заказчик'}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -966,8 +966,8 @@ export default function AdminPanel() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="admin">Администратор</SelectItem>
-                          <SelectItem value="director">Прораб</SelectItem>
-                          <SelectItem value="master">Мастер</SelectItem>
+                          <SelectItem value="director">Директор</SelectItem>
+                          <SelectItem value="master">Прораб</SelectItem>
                           <SelectItem value="client">Заказчик</SelectItem>
                         </SelectContent>
                       </Select>
