@@ -398,9 +398,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.session.user!;
       
-      // Try cache first for admin/director
+      // Try cache first for admin/director/master
       const cacheKey = cacheKeys.projects();
-      if (user.role === 'admin' || user.role === 'director') {
+      if (user.role === 'admin' || user.role === 'director' || user.role === 'master') {
         const cached = cache.get(cacheKey);
         if (cached) {
           return res.json(cached);
@@ -414,15 +414,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let projects: any[] = [];
       
-      // Администратор и прораб видят все активные проекты
-      if (fullUser.role === 'admin' || fullUser.role === 'director') {
+      // Администратор, директор и мастер видят все активные проекты
+      if (fullUser.role === 'admin' || fullUser.role === 'director' || fullUser.role === 'master') {
         const allProjects = await storage.getAllProjects();
         projects = allProjects.filter(p => p.status === 'active');
-      }
-      // Мастер видит только назначенные ему активные проекты
-      else if (fullUser.role === 'master') {
-        const userProjects = await storage.getUserProjects(user.id);
-        projects = userProjects.filter(p => p.status === 'active');
       }
       // Заказчик видит только свои активные проекты (где он заказчик)
       else if (fullUser.role === 'client') {
@@ -430,8 +425,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projects = userProjects.filter(p => p.status === 'active');
       }
       
-      // Cache for admin/director (30 seconds)
-      if (user.role === 'admin' || user.role === 'director') {
+      // Cache for admin/director/master (30 seconds)
+      if (user.role === 'admin' || user.role === 'director' || user.role === 'master') {
         cache.set(cacheKey, projects, 30);
       }
       
