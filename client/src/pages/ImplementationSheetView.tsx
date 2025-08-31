@@ -81,6 +81,13 @@ export default function ImplementationSheetView() {
   const canManageItems = user?.role === 'admin' || user?.role === 'director' || user?.role === 'master';
   const isClient = user?.role === 'client';
   const canManagePhotos = canManageItems || isClient;
+  
+  // Функция для проверки прав на удаление фото
+  const canDeletePhoto = (photo: ImplementationPhoto) => {
+    if (canManageItems) return true; // Админы, директора и мастера могут удалять любые фото
+    if (isClient && photo.uploadedBy === user?.id) return true; // Клиенты могут удалять только свои фото
+    return false;
+  };
   const objectStorageService = new ObjectStorageService();
 
   const { data: sheet, isLoading } = useQuery<ImplementationSheet>({
@@ -570,7 +577,7 @@ export default function ImplementationSheetView() {
                     setCurrentPhotoIndex(index);
                   }}
                 />
-                {canManagePhotos && (
+                {canDeletePhoto(photo) && (
                   <Button
                     size="icon"
                     variant="destructive"
@@ -623,7 +630,7 @@ export default function ImplementationSheetView() {
                   {photo.caption && (
                     <p className="text-xs text-muted-foreground mt-1 truncate">{photo.caption}</p>
                   )}
-                  {canManagePhotos && (
+                  {canDeletePhoto(photo) && (
                     <Button
                       size="icon"
                       variant="destructive"
