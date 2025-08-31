@@ -136,72 +136,59 @@ function ProjectCard({
         
         {isExpanded && financialSummary && (
           <div className="space-y-2 mb-4 text-xs">
-            {userRole === 'master' ? (
-              // Прорабы видят только расходы
-              <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-slate-500">Стоимость проекта</p>
+                <p className="font-semibold text-slate-900">{formatCurrency(financialSummary.totalCost)}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Аванс заказчика</p>
+                <p className="font-semibold text-green-600">{formatCurrency(financialSummary.totalCustomerAdvances)}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-slate-500">Взятые авансы</p>
+                <p className="font-semibold text-red-600">{formatCurrency(financialSummary.totalAdvances)}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Расходы</p>
+                <p className="font-semibold text-red-600">{formatCurrency(financialSummary.totalExpenses)}</p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-200">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <p className="text-slate-500">Расходы</p>
-                  <p className="font-semibold text-red-600">{formatCurrency(financialSummary.totalExpenses)}</p>
+                  <p className="text-blue-700 font-medium">Текущая прибыль</p>
+                  <p className={`font-bold ${parseFloat(financialSummary.currentProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(financialSummary.currentProfit)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-green-700 font-medium">Прогноз прибыли</p>
+                  <p className={`font-bold ${parseFloat(financialSummary.projectedProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(financialSummary.projectedProfit)}
+                  </p>
                 </div>
               </div>
-            ) : (
-              // Директора и админы видят все финансовые данные
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-slate-500">Стоимость проекта</p>
-                    <p className="font-semibold text-slate-900">{formatCurrency(financialSummary.totalCost)}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Аванс заказчика</p>
-                    <p className="font-semibold text-green-600">{formatCurrency(financialSummary.totalCustomerAdvances)}</p>
-                  </div>
+              
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <div>
+                  <p className="text-purple-700 font-medium">Заработок Влада</p>
+                  <p className={`font-bold ${parseFloat(financialSummary.vladEarnings) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(financialSummary.vladEarnings)}
+                  </p>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-slate-500">Взятые авансы</p>
-                    <p className="font-semibold text-red-600">{formatCurrency(financialSummary.totalAdvances)}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Расходы</p>
-                    <p className="font-semibold text-red-600">{formatCurrency(financialSummary.totalExpenses)}</p>
-                  </div>
+                <div>
+                  <p className="text-purple-700 font-medium">Заработок Платона</p>
+                  <p className={`font-bold ${parseFloat(financialSummary.platonEarnings) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(financialSummary.platonEarnings)}
+                  </p>
                 </div>
-
-                <div className="pt-2 border-t border-slate-200">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-blue-700 font-medium">Текущая прибыль</p>
-                      <p className={`font-bold ${parseFloat(financialSummary.currentProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatCurrency(financialSummary.currentProfit)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-green-700 font-medium">Прогноз прибыли</p>
-                      <p className={`font-bold ${parseFloat(financialSummary.projectedProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatCurrency(financialSummary.projectedProfit)}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 mt-3">
-                    <div>
-                      <p className="text-purple-700 font-medium">Заработок Влада</p>
-                      <p className={`font-bold ${parseFloat(financialSummary.vladEarnings) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatCurrency(financialSummary.vladEarnings)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-purple-700 font-medium">Заработок Платона</p>
-                      <p className={`font-bold ${parseFloat(financialSummary.platonEarnings) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatCurrency(financialSummary.platonEarnings)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+              </div>
+            </div>
           </div>
         )}
         
