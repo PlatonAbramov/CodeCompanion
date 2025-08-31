@@ -2426,9 +2426,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check user access to project
       const user = req.session.user!;
-      const isAdminOrDirector = user.role === 'admin' || user.role === 'director';
+      const isAdminOrDirectorOrMaster = user.role === 'admin' || user.role === 'director' || user.role === 'master';
       
-      if (!isAdminOrDirector) {
+      if (!isAdminOrDirectorOrMaster) {
         if (user.role === 'client') {
           // For client users, check via client_employees table
           const clientEmployee = await storage.getClientEmployeeByUserId(user.id);
@@ -2442,15 +2442,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!hasAccess) {
             return res.status(403).json({ error: "Доступ запрещен" });
           }
-        } else {
-          // For master users, check via user_projects table
-          const userProjects = await storage.getUserProjects(user.id);
-          const hasAccess = userProjects.some(p => p.id === sheet.projectId);
-          
-          if (!hasAccess) {
-            return res.status(403).json({ error: "Доступ запрещен" });
-          }
         }
+        // Masters now have full access to all active projects like directors
       }
       
       const items = await storage.getImplementationItems(sheetId);

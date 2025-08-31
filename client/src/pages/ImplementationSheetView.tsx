@@ -78,6 +78,7 @@ export default function ImplementationSheetView() {
   const [selectedItemForComments, setSelectedItemForComments] = useState<ImplementationItem | null>(null);
   
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
+  const canManageItems = user?.role === 'admin' || user?.role === 'director' || user?.role === 'master';
   const objectStorageService = new ObjectStorageService();
 
   const { data: sheet, isLoading } = useQuery<ImplementationSheet>({
@@ -363,7 +364,7 @@ export default function ImplementationSheetView() {
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 {/* Статус завершения */}
-                {isAdminOrDirector ? (
+                {canManageItems ? (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -471,7 +472,7 @@ export default function ImplementationSheetView() {
 
                   {/* Кнопки действий */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    {!isEditMode && (isAdminOrDirector || user?.id === item.lastUpdatedBy) && (
+                    {!isEditMode && (canManageItems || user?.id === item.lastUpdatedBy) && (
                       <Button
                         size="sm"
                         variant="outline"
