@@ -92,8 +92,8 @@ export function Layout({ children }: LayoutProps) {
                   </Link>
                 )}
 
-                {/* Инструменты - только для admin/director */}
-                {(user?.role === 'admin' || user?.role === 'director') && (
+                {/* Инструменты - для admin/director/master */}
+                {(user?.role === 'admin' || user?.role === 'director' || user?.role === 'master') && (
                   <Link href="/tools" data-testid="nav-tools">
                     <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
                       location.startsWith('/tools') 

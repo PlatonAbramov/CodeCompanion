@@ -135,7 +135,7 @@ function AuthenticatedApp() {
       <Route path="/clients" component={(user.role === 'admin' || user.role === 'director') ? Clients : NotFound} />
       <Route path="/test-client" component={TestClient} />
       <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
-      <Route path="/tools" component={(user.role === 'admin' || user.role === 'director') ? Tools : NotFound} />
+      <Route path="/tools" component={(user.role === 'admin' || user.role === 'director' || user.role === 'master') ? Tools : NotFound} />
       <Route path="/personnel" component={(user.role === 'admin' || user.role === 'director') ? Personnel : NotFound} />
       <Route path="/personnel/:id" component={(user.role === 'admin' || user.role === 'director') ? PersonnelDetail : NotFound} />
       <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />

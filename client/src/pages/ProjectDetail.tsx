@@ -501,19 +501,21 @@ export default function ProjectDetail() {
       <div className="p-4 pb-20">
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 mb-6">
-          {isAdminOrDirector && (
-            <>
-              <div className="flex gap-3">
-                <Button 
-                  className="flex-1 bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md"
-                  onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
-                >
-                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
-                    <Plus size={16} className="text-white" />
-                  </div>
-                  Добавить расход
-                </Button>
-                
+          {/* Кнопка добавления расходов - доступна прорабам, админам и директорам */}
+          {user?.role !== 'client' && (
+            <div className="flex gap-3">
+              <Button 
+                className="flex-1 bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md"
+                onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
+              >
+                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+                  <Plus size={16} className="text-white" />
+                </div>
+                Добавить расход
+              </Button>
+              
+              {/* Голосовой помощник только для админов и директоров */}
+              {isAdminOrDirector && (
                 <VoiceExpenseAssistant 
                   currentProjectId={projectId}
                   onExpenseCreated={() => {
@@ -521,8 +523,8 @@ export default function ProjectDetail() {
                     queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
                   }}
                 />
-              </div>
-            </>
+              )}
+            </div>
           )}
           
           {/* Implementation Sheets - accessible to clients */}

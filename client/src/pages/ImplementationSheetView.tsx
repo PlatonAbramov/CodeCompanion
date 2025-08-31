@@ -567,7 +567,7 @@ export default function ImplementationSheetView() {
                     setCurrentPhotoIndex(index);
                   }}
                 />
-                {isAdminOrDirector && (
+                {user?.role !== 'client' && (
                   <Button
                     size="icon"
                     variant="destructive"
@@ -620,7 +620,7 @@ export default function ImplementationSheetView() {
                   {photo.caption && (
                     <p className="text-xs text-muted-foreground mt-1 truncate">{photo.caption}</p>
                   )}
-                  {isAdminOrDirector && (
+                  {user?.role !== 'client' && (
                     <Button
                       size="icon"
                       variant="destructive"
