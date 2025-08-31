@@ -92,17 +92,19 @@ export function Layout({ children }: LayoutProps) {
                   </Link>
                 )}
 
-                {/* Инструменты - видны всем кроме клиентов */}
-                <Link href="/tools" data-testid="nav-tools">
-                  <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                    location.startsWith('/tools') 
-                      ? 'text-blue-600 bg-blue-50' 
-                      : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                  }`}>
-                    <Wrench size={20} />
-                    <span className="text-xs mt-1">Инструменты</span>
-                  </div>
-                </Link>
+                {/* Инструменты - только для admin/director */}
+                {(user?.role === 'admin' || user?.role === 'director') && (
+                  <Link href="/tools" data-testid="nav-tools">
+                    <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
+                      location.startsWith('/tools') 
+                        ? 'text-blue-600 bg-blue-50' 
+                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                    }`}>
+                      <Wrench size={20} />
+                      <span className="text-xs mt-1">Инструменты</span>
+                    </div>
+                  </Link>
+                )}
 
                 {/* Персонал (только для admin/director) */}
                 {(user?.role === 'admin' || user?.role === 'director') && (

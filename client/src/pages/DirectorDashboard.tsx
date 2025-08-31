@@ -384,7 +384,9 @@ export default function DirectorDashboard() {
               </div>
               <div>
                 <h2 className="font-semibold text-slate-900">{user?.name}</h2>
-                <p className="text-sm text-slate-500">{t('director')}</p>
+                <p className="text-sm text-slate-500">
+                  {user?.role === 'master' ? 'Прораб' : t('director')}
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -423,7 +425,7 @@ export default function DirectorDashboard() {
 
       {/* Statistics Cards */}
       <div className="p-4">
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className={`grid gap-4 mb-4 ${user?.role === 'master' ? 'grid-cols-1' : 'grid-cols-2'}`}>
           <Card 
             className="cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => setLocation('/director')}
@@ -441,24 +443,27 @@ export default function DirectorDashboard() {
             </CardContent>
           </Card>
           
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">{t('totalProfit')}</p>
-                  <p className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(totalProfit.toString())}
-                  </p>
+          {/* Скрываем карточку с общей прибылью для мастеров */}
+          {user?.role !== 'master' && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-500">{t('totalProfit')}</p>
+                    <p className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(totalProfit.toString())}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    {totalProfit >= 0 ? 
+                      <TrendingUp className="text-green-600" size={24} /> : 
+                      <TrendingDown className="text-red-600" size={24} />
+                    }
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  {totalProfit >= 0 ? 
-                    <TrendingUp className="text-green-600" size={24} /> : 
-                    <TrendingDown className="text-red-600" size={24} />
-                  }
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
         
         {/* Archived Projects Card - only show if there are archived projects */}
