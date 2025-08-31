@@ -125,6 +125,8 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
   };
 
   const canDelete = (comment: Comment) => {
+    // Мастера не могут удалять комментарии вообще
+    if (user?.role === 'master') return false;
     return isAdmin || comment.authorId === user?.id;
   };
 

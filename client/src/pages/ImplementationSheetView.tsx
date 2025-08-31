@@ -392,7 +392,7 @@ export default function ImplementationSheetView() {
                   <div className="flex items-center justify-between mb-2">
                     <h3 className={`font-medium text-sm leading-tight ${item.isCompleted ? 'line-through' : ''}`}>
                       {item.position}. {item.name}
-                      {item.totalCost && (
+                      {item.totalCost && isAdminOrDirector && (
                         <span className="ml-2 text-blue-600 font-semibold">
                           — {item.totalCost.toLocaleString()} AED
                         </span>
@@ -509,8 +509,8 @@ export default function ImplementationSheetView() {
                       {language === 'ru' ? 'Комментарии' : 'Comments'}
                     </Button>
                     
-                    {/* Функция добавления фото только для админов и директоров */}
-                    {isAdminOrDirector && (
+                    {/* Функция добавления фото для всех ролей, кроме клиентов */}
+                    {user?.role !== 'client' && (
                       uploadingItemId === item.id ? (
                         <ObjectUploader
                           maxNumberOfFiles={10}

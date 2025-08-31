@@ -9,14 +9,14 @@ import {
   Check, Calendar
 } from "lucide-react";
 
-interface Expense {
+interface Project {
   id: string;
-  category: string;
-  amount: string;
-  description?: string;
-  receiptUrl: string;
+  name: string;
+  location?: string;
+  status: string;
+  startDate?: string;
+  endDate?: string;
   createdAt: string;
-  project: { name: string };
 }
 
 export default function MasterDashboard() {
@@ -24,9 +24,9 @@ export default function MasterDashboard() {
   const { t } = useLanguage();
   const [, setLocation] = useLocation();
 
-  // Get user expenses
-  const { data: expenses = [], isLoading } = useQuery<Expense[]>({
-    queryKey: ['/api/expenses'],
+  // Get all projects for masters to view
+  const { data: projects = [], isLoading } = useQuery<Project[]>({
+    queryKey: ['/api/projects'],
   });
 
   const formatCurrency = (amount: string) => {
@@ -63,66 +63,59 @@ export default function MasterDashboard() {
       {/* Quick Actions */}
       <div className="p-4">
         <div className="bg-gradient-to-r from-accent to-orange-500 rounded-xl p-4 mb-6 text-white">
-          <h3 className="font-semibold mb-2">Быстрые действия</h3>
-          <Button 
-            onClick={() => setLocation('/add-expense')}
-            className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30"
-          >
-            <Plus size={16} className="mr-2" />
-            {t('addExpense')}
-          </Button>
+          <h3 className="font-semibold mb-2">Рабочая область</h3>
+          <p className="text-white/80 text-sm">Просмотр проектов и работа с листами реализации</p>
         </div>
       </div>
 
-      {/* My Expenses */}
+      {/* Projects */}
       <div className="px-4 pb-20">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">{t('myExpenses')}</h3>
+        <h3 className="text-lg font-semibold text-slate-900 mb-4">Проекты</h3>
         
         {isLoading ? (
           <div className="text-center py-8">
             <p className="text-slate-500">{t('loading')}</p>
           </div>
-        ) : expenses.length === 0 ? (
+        ) : projects.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center">
-              <Receipt size={48} className="mx-auto text-slate-300 mb-4" />
-              <p className="text-slate-500">Пока нет расходов</p>
-              <Button 
-                onClick={() => setLocation('/add-expense')}
-                className="mt-4 bg-primary text-white"
-              >
-                <Plus size={16} className="mr-2" />
-                {t('addExpense')}
-              </Button>
+              <Home size={48} className="mx-auto text-slate-300 mb-4" />
+              <p className="text-slate-500">Проекты не найдены</p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-3">
-            {expenses.map((expense) => (
-              <Card key={expense.id} className="shadow-sm">
+            {projects.map((project) => (
+              <Card 
+                key={project.id} 
+                className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => setLocation(`/projects/${project.id}`)}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <h4 className="font-medium text-slate-900">{expense.category}</h4>
-                      {expense.description && (
-                        <p className="text-sm text-slate-500">{expense.description}</p>
+                      <h4 className="font-medium text-slate-900">{project.name}</h4>
+                      {project.location && (
+                        <p className="text-sm text-slate-500">{project.location}</p>
                       )}
                     </div>
-                    <span className="font-semibold text-slate-900">
-                      {formatCurrency(expense.amount)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-sm text-slate-500 mb-2">
-                    <span>Проект: {expense.project.name}</span>
-                    <span>{formatDate(expense.createdAt)}</span>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <div className="w-6 h-6 bg-secondary/10 rounded flex items-center justify-center mr-2">
-                      <Check className="text-secondary" size={12} />
+                    <div className={`inline-block px-2 py-1 rounded-full text-xs ${
+                      project.status === 'active' 
+                        ? 'bg-green-100 text-green-700' 
+                        : project.status === 'completed'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {project.status === 'active' ? 'Активный' : 
+                       project.status === 'completed' ? 'Завершен' : 'Архивный'}
                     </div>
-                    <span className="text-xs text-secondary">Чек прикреплен</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-sm text-slate-500">
+                    <span>Создан: {formatDate(project.createdAt)}</span>
+                    {project.startDate && (
+                      <span>Начало: {formatDate(project.startDate)}</span>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -136,21 +129,15 @@ export default function MasterDashboard() {
         <div className="flex items-center justify-around">
           <button className="flex flex-col items-center py-2 text-primary">
             <Home size={20} className="mb-1" />
-            <span className="text-xs">{t('home')}</span>
+            <span className="text-xs">Главная</span>
           </button>
-          <button className="flex flex-col items-center py-2 text-slate-400">
+          <button 
+            className="flex flex-col items-center py-2 text-slate-400"
+            onClick={() => setLocation('/implementation-sheets')}
+          >
             <Receipt size={20} className="mb-1" />
-            <span className="text-xs">{t('expenses')}</span>
+            <span className="text-xs">Листы</span>
           </button>
-          {(user?.role === 'admin' || user?.role === 'director') && (
-            <button 
-              className="flex flex-col items-center py-2 text-slate-400"
-              onClick={() => setLocation('/add-expense')}
-            >
-              <PlusCircle size={20} className="mb-1" />
-              <span className="text-xs">{t('add')}</span>
-            </button>
-          )}
         </div>
       </nav>
     </div>

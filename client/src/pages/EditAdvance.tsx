@@ -43,7 +43,7 @@ export default function EditAdvance() {
   });
 
   useEffect(() => {
-    if (advances && advanceId) {
+    if (advances && Array.isArray(advances) && advanceId) {
       const advance = advances.find((a: any) => a.id === advanceId);
       if (advance) {
         setFormData({
