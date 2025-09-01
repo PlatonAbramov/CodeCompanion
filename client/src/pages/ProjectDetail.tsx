@@ -437,16 +437,16 @@ export default function ProjectDetail() {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
         <p className="text-slate-500">{t('loading')}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#423731]">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-[#dfd0c1] shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -524,7 +524,7 @@ export default function ProjectDetail() {
                 className="flex-1 bg-primary text-white hover:bg-primary/90 px-6 py-3 rounded-full shadow-md"
                 onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
               >
-                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+                <div className="w-6 h-6 bg-[#dfd0c1]/20 rounded-full flex items-center justify-center mr-3">
                   <Plus size={16} className="text-white" />
                 </div>
                 Добавить расход
@@ -607,7 +607,7 @@ export default function ProjectDetail() {
                 <CollapsibleContent>
                   <div className="space-y-4 mt-4">
                 {/* Contract Value Row */}
-                <div className="flex justify-between items-center p-3 rounded-lg bg-slate-50">
+                <div className="flex justify-between items-center p-3 rounded-lg bg-[#423731]">
                   <span className="text-slate-600">Стоимость проекта по договору</span>
                   <span className="font-semibold text-slate-900">
                     {formatCurrency(financialSummary.totalCost)}
@@ -616,7 +616,7 @@ export default function ProjectDetail() {
 
                 {/* Customer Advances Row */}
                 <div 
-                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-[#423731] cursor-pointer transition-colors"
                   onClick={() => setLocation(`/customer-advances/${projectId}`)}
                 >
                   <div className="flex items-center flex-1">
@@ -655,7 +655,7 @@ export default function ProjectDetail() {
 
                 {/* Owner Advances (Vlad + Platon) Row */}
                 <div 
-                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-[#423731] cursor-pointer transition-colors"
                   onClick={() => setLocation(`/advances/${projectId}`)}
                 >
                   <div className="flex items-center flex-1">
@@ -694,7 +694,7 @@ export default function ProjectDetail() {
 
                 {/* Owner Investments Row */}
                 <div 
-                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-[#423731] cursor-pointer transition-colors"
                   onClick={() => setLocation(`/owner-investments/${projectId}`)}
                 >
                   <div className="flex items-center flex-1">
@@ -733,7 +733,7 @@ export default function ProjectDetail() {
 
                 {/* Expenses Row */}
                 <div 
-                  className="flex justify-between items-center p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="flex justify-between items-center p-3 rounded-lg hover:bg-[#423731] cursor-pointer transition-colors"
                   onClick={() => setLocation(`/expenses/${projectId}`)}
                 >
                   <div className="flex items-center flex-1">
@@ -832,7 +832,7 @@ export default function ProjectDetail() {
                   <div className="space-y-4 mt-4">
                     {/* Payment Summary */}
                     <div className="grid gap-4 md:grid-cols-3">
-                      <div className="flex justify-between items-center p-3 rounded-lg bg-slate-50">
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-[#423731]">
                         <span className="text-slate-600 font-medium">Стоимость проекта:</span>
                         <span className="font-semibold text-slate-900">
                           {Number(project.totalCost).toLocaleString()} AED
@@ -858,7 +858,7 @@ export default function ProjectDetail() {
                         <h4 className="text-sm font-medium text-slate-900 mb-3">История платежей</h4>
                         <div className="space-y-2">
                           {clientPayments.map((payment) => (
-                            <div key={payment.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                            <div key={payment.id} className="flex items-center justify-between p-3 bg-[#dfd0c1] border rounded-lg">
                               <div className="flex-1">
                                 <div className="flex items-center gap-3">
                                   <span className="font-medium text-slate-900">
@@ -926,7 +926,7 @@ export default function ProjectDetail() {
                   ) : (
                     <div className="space-y-3">
                 {documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center p-3 bg-slate-50 rounded-lg">
+                  <div key={doc.id} className="flex items-center p-3 bg-[#423731] rounded-lg">
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
                       <FileText className="text-blue-600" size={20} />
                     </div>
@@ -1104,7 +1104,7 @@ export default function ProjectDetail() {
                         
                         <div className="space-y-2 max-h-60 overflow-y-auto">
                           {filteredAndSortedExpenses.slice(0, 10).map((expense) => (
-                            <div key={expense.id} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-md">
+                            <div key={expense.id} className="flex items-center justify-between py-2 px-3 bg-[#423731] rounded-md">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="text-xs font-medium text-slate-900">
@@ -1360,7 +1360,7 @@ export default function ProjectDetail() {
                     </div>
                   </div>
                   
-                  <div className="text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
+                  <div className="text-sm text-slate-500 bg-[#423731] p-3 rounded-lg">
                     <div className="font-medium mb-2">Расчёт:</div>
                     <div>• Доступно к распределению: {formatCurrency(((parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses)).toString()))}</div>
                     <div>• На каждого: {formatCurrency(((parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses)) / 2).toString())}</div>

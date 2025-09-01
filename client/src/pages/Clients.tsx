@@ -230,7 +230,7 @@ export default function ClientsPage() {
     
     if (isLoadingProjects) {
       return (
-        <div className="min-h-screen bg-slate-50 p-4">
+        <div className="min-h-screen bg-[#423731] p-4">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-center h-64">
               <div className="text-lg">Загрузка проектов...</div>
@@ -243,7 +243,7 @@ export default function ClientsPage() {
     if (projectsError) {
       console.error('Projects error:', projectsError);
       return (
-        <div className="min-h-screen bg-slate-50 p-4">
+        <div className="min-h-screen bg-[#423731] p-4">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-center h-64">
               <div className="text-lg text-red-600">Ошибка загрузки проектов</div>
@@ -254,9 +254,9 @@ export default function ClientsPage() {
     }
 
     return (
-      <div className="min-h-screen bg-slate-50 pb-20">
+      <div className="min-h-screen bg-[#423731] pb-20">
         {/* Header for client users */}
-        <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
+        <header className="bg-[#dfd0c1] shadow-sm border-b border-slate-200 sticky top-0 z-40">
           <div className="px-4 py-3 flex justify-between items-center">
             <h1 className="text-xl font-semibold text-slate-900">Мои проекты</h1>
             <Button 
@@ -279,7 +279,7 @@ export default function ClientsPage() {
               {clientProjects.map((project: any) => (
                 <Card 
                   key={project.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50"
+                  className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-[#423731]"
                   onClick={() => setLocation(`/projects/${project.projectId}`)}
                 >
                   <CardHeader className="pb-3">
@@ -356,9 +356,9 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-screen bg-[#423731] pb-20">
       {/* Header with back button */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-[#dfd0c1] shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
           <div className="flex items-center">
             <Button 
@@ -548,7 +548,7 @@ export default function ClientsPage() {
               {(clients as Client[] || []).map((client: Client) => (
             <Card 
               key={client.id} 
-              className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50"
+              className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-[#423731]"
               onClick={() => setLocation(`/clients/${client.id}`)}
             >
             <CardHeader className="pb-3">
@@ -656,7 +656,7 @@ export default function ClientsPage() {
               {(deletedClients as Client[] || []).map((client: Client) => (
                 <Card 
                   key={client.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50 opacity-70"
+                  className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-[#423731] opacity-70"
                   onClick={() => setLocation(`/clients/${client.id}`)}
                 >
                   <CardHeader className="pb-3">

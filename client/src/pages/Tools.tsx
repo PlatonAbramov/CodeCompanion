@@ -909,7 +909,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
                 e.stopPropagation();
                 setSelectedPhoto(null);
               }}
-              className="absolute -top-2 -right-2 z-[10000] w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-100 rounded-full text-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-110"
+              className="absolute -top-2 -right-2 z-[10000] w-10 h-10 flex items-center justify-center bg-[#dfd0c1] hover:bg-gray-100 rounded-full text-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-110"
               data-testid="button-close-photo"
               title="Закрыть (ESC)"
               style={{ pointerEvents: 'auto' }}
@@ -921,7 +921,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
             
             {/* Image container */}
             <div 
-              className="relative bg-white rounded-lg p-2 shadow-2xl"
+              className="relative bg-[#dfd0c1] rounded-lg p-2 shadow-2xl"
               onClick={(e) => e.stopPropagation()} // Prevent closing when clicking on image container
             >
               <img

@@ -346,21 +346,21 @@ export function VoiceExpenseAssistant({ currentProjectId, onExpenseCreated }: Vo
       >
         {isProcessing ? (
           <>
-            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+            <div className="w-6 h-6 bg-[#dfd0c1]/20 rounded-full flex items-center justify-center mr-3">
               <Loader2 size={16} className="text-white animate-spin" />
             </div>
             Обработка...
           </>
         ) : isListening ? (
           <>
-            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+            <div className="w-6 h-6 bg-[#dfd0c1]/20 rounded-full flex items-center justify-center mr-3">
               <MicOff size={16} className="text-white" />
             </div>
             Остановить
           </>
         ) : (
           <>
-            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center mr-3">
+            <div className="w-6 h-6 bg-[#dfd0c1]/20 rounded-full flex items-center justify-center mr-3">
               <Mic size={16} className="text-white" />
             </div>
             Голос

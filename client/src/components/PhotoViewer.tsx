@@ -141,7 +141,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-white hover:bg-white/20"
+              className="h-8 w-8 text-white hover:bg-[#dfd0c1]/20"
               onClick={handleZoomOut}
               data-testid="button-zoom-out"
             >
@@ -155,7 +155,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-white hover:bg-white/20"
+              className="h-8 w-8 text-white hover:bg-[#dfd0c1]/20"
               onClick={handleZoomIn}
               data-testid="button-zoom-in"
             >
@@ -165,7 +165,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-white hover:bg-white/20"
+              className="h-8 w-8 text-white hover:bg-[#dfd0c1]/20"
               onClick={handleRotate}
               data-testid="button-rotate"
             >
@@ -177,7 +177,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 bg-black/70 text-white hover:bg-white/20"
+          className="h-8 w-8 bg-black/70 text-white hover:bg-[#dfd0c1]/20"
           onClick={handleDownload}
           data-testid="button-download"
         >
@@ -189,7 +189,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
       <Button
         variant="ghost"
         size="icon"
-        className="absolute top-4 right-4 z-20 bg-black/70 hover:bg-white/20 text-white"
+        className="absolute top-4 right-4 z-20 bg-black/70 hover:bg-[#dfd0c1]/20 text-white"
         onClick={onClose}
         data-testid="button-close-photo"
       >
@@ -202,7 +202,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
           <Button
             variant="ghost"
             size="icon"
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 bg-black/70 hover:bg-white/20 text-white"
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 bg-black/70 hover:bg-[#dfd0c1]/20 text-white"
             onClick={() => onNavigate('prev')}
             data-testid="button-prev-photo"
           >
@@ -212,7 +212,7 @@ export function PhotoViewer({ photo, photos, currentIndex, onNavigate, onClose }
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 bg-black/70 hover:bg-white/20 text-white"
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 bg-black/70 hover:bg-[#dfd0c1]/20 text-white"
             onClick={() => onNavigate('next')}
             data-testid="button-next-photo"
           >

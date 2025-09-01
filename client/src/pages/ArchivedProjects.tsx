@@ -102,13 +102,13 @@ function ProjectCard({
         )}
         
         <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="bg-slate-50 rounded-lg p-2">
+          <div className="bg-[#423731] rounded-lg p-2">
             <p className="text-xs text-slate-500">{t('totalCost')}</p>
             <p className="font-semibold text-slate-900">
               {formatCurrency(project.totalCost)}
             </p>
           </div>
-          <div className="bg-slate-50 rounded-lg p-2">
+          <div className="bg-[#423731] rounded-lg p-2">
             <p className="text-xs text-slate-500">Статус</p>
             <p className="font-semibold text-gray-600">Архивный</p>
           </div>
@@ -212,7 +212,7 @@ export default function ArchivedProjects() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-slate-500">Загрузка...</p>
@@ -222,9 +222,9 @@ export default function ArchivedProjects() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#423731]">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-[#dfd0c1] shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center">

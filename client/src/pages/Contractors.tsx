@@ -180,7 +180,7 @@ export default function Contractors() {
   // Проверка авторизации
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
         <p>Загрузка...</p>
       </div>
     );
@@ -188,7 +188,7 @@ export default function Contractors() {
 
   if (user.role !== 'admin' && user.role !== 'director') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
         <p>Доступ запрещен</p>
       </div>
     );
@@ -228,9 +228,9 @@ export default function Contractors() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-screen bg-[#423731] pb-20">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-10">
+      <header className="bg-[#dfd0c1] border-b border-slate-200 px-4 py-3 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Users size={24} className="text-primary" />
@@ -390,7 +390,7 @@ export default function Contractors() {
             {contractors?.map((contractor) => (
               <Card 
                 key={contractor.id} 
-                className="bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-0 rounded-lg cursor-pointer"
+                className="bg-[#dfd0c1] shadow-sm hover:shadow-md transition-shadow duration-200 border-0 rounded-lg cursor-pointer"
                 onClick={() => setLocation(`/contractor/${contractor.id}`)}
               >
                 <CardHeader className="pb-3">

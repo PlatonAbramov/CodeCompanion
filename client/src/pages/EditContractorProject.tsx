@@ -138,7 +138,7 @@ export default function EditContractorProject() {
   // Authorization check
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
         <p>Загрузка...</p>
       </div>
     );
@@ -146,7 +146,7 @@ export default function EditContractorProject() {
 
   if (user.role !== 'admin' && user.role !== 'director') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
         <p>Доступ запрещен</p>
       </div>
     );
@@ -154,7 +154,7 @@ export default function EditContractorProject() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-slate-500">Загрузка...</p>
@@ -165,7 +165,7 @@ export default function EditContractorProject() {
 
   if (!assignment || !contractor) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Назначение не найдено</h2>
           <p className="text-slate-500 mb-4">Возможно, назначение было удалено</p>
@@ -180,9 +180,9 @@ export default function EditContractorProject() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#423731]">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-[#dfd0c1] shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
           <div className="flex items-center">
             <Button 
