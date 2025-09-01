@@ -375,9 +375,15 @@ export class InvoiceParser {
       // Автоматически определяем колонки
       const columnMap = this.detectColumns(headers);
 
+      let processedRows = 0;
+      let skippedRows = 0;
+
       for (let i = 1; i < rawData.length; i++) {
         const row = rawData[i] as any[];
-        if (!row || row.length === 0 || row.every(cell => !cell)) {
+        
+        // Пропускаем только полностью пустые строки или undefined
+        if (!row || row.length === 0) {
+          skippedRows++;
           continue;
         }
 
@@ -396,8 +402,24 @@ export class InvoiceParser {
           item.totalCost = item.quantity * item.price;
         }
 
-        items.push(item);
+        // Пропускаем строки только если в них вообще нет полезных данных
+        const hasUsefulData = item.name && item.name !== `Позиция ${i}` || 
+                             item.quantity || 
+                             item.price || 
+                             item.totalCost || 
+                             (item.unit && item.unit.trim() !== '') ||
+                             (item.description && item.description.trim() !== '');
+
+        if (hasUsefulData) {
+          items.push(item);
+          processedRows++;
+        } else {
+          skippedRows++;
+        }
       }
+
+      console.log(`Excel parsing: processed ${processedRows} rows, skipped ${skippedRows} rows, total data rows: ${rawData.length - 1}`);
+      console.log(`Column mapping:`, columnMap);
 
       return {
         success: items.length > 0,
@@ -624,8 +646,15 @@ export class InvoiceParser {
    * Получает значение ячейки из массива
    */
   private getCellValue(row: any[], columnIndex: number): string | undefined {
-    if (columnIndex === -1 || !row[columnIndex]) return undefined;
-    return String(row[columnIndex]).trim();
+    if (columnIndex === -1 || columnIndex >= row.length) return undefined;
+    
+    const cellValue = row[columnIndex];
+    if (cellValue === null || cellValue === undefined) return undefined;
+    
+    const stringValue = String(cellValue).trim();
+    if (stringValue === '' || stringValue === 'undefined' || stringValue === 'null') return undefined;
+    
+    return stringValue;
   }
 
 
