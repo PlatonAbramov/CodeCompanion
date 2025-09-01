@@ -414,12 +414,15 @@ export class InvoiceParser {
           items.push(item);
           processedRows++;
         } else {
+          console.log(`Skipping row ${i}: name="${item.name}", quantity=${item.quantity}, price=${item.price}, totalCost=${item.totalCost}, unit="${item.unit}", description="${item.description}"`);
           skippedRows++;
         }
       }
 
       console.log(`Excel parsing: processed ${processedRows} rows, skipped ${skippedRows} rows, total data rows: ${rawData.length - 1}`);
       console.log(`Column mapping:`, columnMap);
+      console.log(`Headers:`, headers);
+      console.log(`First 5 data rows:`, rawData.slice(1, 6));
 
       return {
         success: items.length > 0,
