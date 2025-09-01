@@ -255,7 +255,27 @@ export class InvoiceParser {
         // Объединяем все части описания
         description = descriptionParts.join(' ').trim();
         
-        if (description && foundPosition) {
+        // Если не нашли позицию в отдельной строке, попробуем извлечь из первой части описания
+        if (!foundPosition && descriptionParts.length > 0) {
+          const firstPart = descriptionParts[0];
+          const posAtStart = firstPart.match(/^(\d+)\s+(.+)/);
+          if (posAtStart) {
+            position = parseInt(posAtStart[1]);
+            descriptionParts[0] = posAtStart[2].trim();
+            description = descriptionParts.join(' ').trim();
+            foundPosition = true;
+            console.log(`Found position ${position} at start of description`);
+          }
+        }
+        
+        // Если все еще не нашли позицию, используем следующий порядковый номер
+        if (!foundPosition) {
+          position = items.length + 1;
+          console.log(`Assigning position ${position} to multi-line item`);
+        }
+        
+        // Добавляем элемент если есть описание
+        if (description) {
           items.push({
             position,
             name: description,
