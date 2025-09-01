@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { HardHat, Globe } from "lucide-react";
+import logoImage from "@assets/1 (1)_1756713794265.jpg";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -32,8 +33,12 @@ export default function Login() {
         <Card className="shadow-xl">
           <CardContent className="p-8">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                <HardHat className="text-white text-2xl" size={32} />
+              <div className="w-24 h-24 mx-auto mb-4 rounded-2xl overflow-hidden shadow-lg">
+                <img 
+                  src={logoImage} 
+                  alt="PLATON ABRAMOV GROUP" 
+                  className="w-full h-full object-cover"
+                />
               </div>
               <h1 className="text-2xl font-bold text-slate-900 mb-2">
                 {t('loginTitle')}
