@@ -11,7 +11,7 @@ import { Plus, Search, User, Calendar, Phone, Mail, Briefcase, AlertTriangle } f
 import { format, differenceInDays, differenceInYears, differenceInMonths } from "date-fns";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useAuth } from "@/hooks/useAuth";
-// import { PersonnelForm } from "@/components/PersonnelForm";
+import { PersonnelForm } from "@/components/PersonnelForm";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface Personnel {
