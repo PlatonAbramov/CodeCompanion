@@ -33,16 +33,13 @@ export default function Login() {
         <Card className="shadow-xl">
           <CardContent className="p-8">
             <div className="text-center mb-8">
-              <div className="w-24 h-24 mx-auto mb-4 rounded-2xl overflow-hidden shadow-lg">
+              <div className="w-80 h-20 mx-auto mb-4 rounded-xl overflow-hidden shadow-lg">
                 <img 
                   src={logoImage} 
                   alt="PLATON ABRAMOV GROUP" 
                   className="w-full h-full object-cover"
                 />
               </div>
-              <h1 className="text-2xl font-bold text-slate-900 mb-2">
-                {t('loginTitle')}
-              </h1>
               <p className="text-slate-600">
                 {t('loginSubtitle')}
               </p>
