@@ -92,16 +92,16 @@ export default function AdvancesList() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <p className="text-slate-500">{t('loading')}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#423731]">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-[#dfd0c1] shadow-sm border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center">

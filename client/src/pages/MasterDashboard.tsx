@@ -39,9 +39,9 @@ export default function MasterDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#423731]">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-[#dfd0c1] shadow-sm border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -125,7 +125,7 @@ export default function MasterDashboard() {
       </div>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#dfd0c1] border-t border-slate-200 px-4 py-2">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2">
         <div className="flex items-center justify-around">
           <button className="flex flex-col items-center py-2 text-primary">
             <Home size={20} className="mb-1" />

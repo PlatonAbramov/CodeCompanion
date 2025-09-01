@@ -85,7 +85,7 @@ export default function ContractorDetail() {
   // Проверка авторизации
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <p>Загрузка...</p>
       </div>
     );
@@ -93,7 +93,7 @@ export default function ContractorDetail() {
 
   if (user.role !== 'admin' && user.role !== 'director') {
     return (
-      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <p>Доступ запрещен</p>
       </div>
     );
@@ -105,7 +105,7 @@ export default function ContractorDetail() {
 
   if (contractorLoading || expensesLoading) {
     return (
-      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-slate-500">Загрузка...</p>
@@ -116,7 +116,7 @@ export default function ContractorDetail() {
 
   if (!contractor) {
     return (
-      <div className="min-h-screen bg-[#423731] flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Подрядчик не найден</h2>
           <p className="text-slate-500 mb-4">Возможно, подрядчик был удален</p>
@@ -139,9 +139,9 @@ export default function ContractorDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-[#423731] pb-20">
+    <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header */}
-      <header className="bg-[#dfd0c1] shadow-sm border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
           <div className="flex items-center">
             <Button 
@@ -376,7 +376,7 @@ export default function ContractorDetail() {
             ) : (
               <div className="space-y-3">
                 {expenses.map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between p-3 bg-[#423731] rounded-lg">
+                  <div key={expense.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium text-slate-700">

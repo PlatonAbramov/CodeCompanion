@@ -24,7 +24,7 @@ export default function ClientProjects() {
 
   if (isLoadingProjects) {
     return (
-      <div className="min-h-screen bg-[#423731] p-4">
+      <div className="min-h-screen bg-slate-50 p-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="text-lg">Загрузка проектов...</div>
@@ -37,7 +37,7 @@ export default function ClientProjects() {
   if (projectsError) {
     console.error('Projects error:', projectsError);
     return (
-      <div className="min-h-screen bg-[#423731] p-4">
+      <div className="min-h-screen bg-slate-50 p-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="text-lg text-red-600">Ошибка загрузки проектов</div>
@@ -48,9 +48,9 @@ export default function ClientProjects() {
   }
 
   return (
-    <div className="min-h-screen bg-[#423731] pb-20">
+    <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header for client users */}
-      <header className="bg-[#dfd0c1] shadow-sm border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
           <h1 className="text-xl font-semibold text-slate-900">Мои проекты</h1>
         </div>
@@ -63,7 +63,7 @@ export default function ClientProjects() {
             {clientProjects.map((project: any) => (
               <Card 
                 key={project.id} 
-                className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-[#423731]"
+                className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50"
                 onClick={() => setLocation(`/projects/${project.projectId}`)}
               >
                 <CardHeader className="pb-3">

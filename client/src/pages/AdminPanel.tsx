@@ -277,7 +277,7 @@ export default function AdminPanel() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-[#423731] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
@@ -304,7 +304,7 @@ export default function AdminPanel() {
   });
 
   return (
-    <div className="min-h-screen bg-[#423731] p-4 md:p-6">
+    <div className="min-h-screen bg-slate-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Заголовок */}
         <div className="flex items-center justify-between">

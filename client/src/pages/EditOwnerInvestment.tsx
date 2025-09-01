@@ -106,17 +106,17 @@ export default function EditOwnerInvestment() {
   };
 
   if (isLoading) {
-    return <div className="min-h-screen bg-[#423731] p-4">Загрузка...</div>;
+    return <div className="min-h-screen bg-slate-50 p-4">Загрузка...</div>;
   }
 
   if (!ownerInvestment) {
-    return <div className="min-h-screen bg-[#423731] p-4">Вложение не найдено</div>;
+    return <div className="min-h-screen bg-slate-50 p-4">Вложение не найдено</div>;
   }
 
   return (
-    <div className="min-h-screen bg-[#423731]">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-[#dfd0c1] shadow-sm border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
           <div className="flex items-center">
             <Button 
