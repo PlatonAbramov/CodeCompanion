@@ -33,7 +33,7 @@ export default function Login() {
         <Card className="shadow-xl">
           <CardContent className="p-8">
             <div className="text-center mb-8">
-              <div className="w-80 h-20 mx-auto mb-4 rounded-xl overflow-hidden shadow-lg">
+              <div className="w-80 h-32 mx-auto mb-4 rounded-xl overflow-hidden shadow-lg">
                 <img 
                   src={logoImage} 
                   alt="PLATON ABRAMOV GROUP" 
