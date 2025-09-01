@@ -134,8 +134,8 @@ export function Personnel() {
   };
   
   const handleCreate = () => {
-    // TODO: Implement personnel creation form
-    console.log('Create personnel form not yet implemented');
+    setSelectedPerson(null);
+    setShowForm(true);
   };
   
   // Check access after all hooks
