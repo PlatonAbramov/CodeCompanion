@@ -106,6 +106,7 @@ export default function ProjectDetail() {
   const [expensesSortOrder, setExpensesSortOrder] = useState<'asc' | 'desc'>('desc');
   const [expensesFilterByUser, setExpensesFilterByUser] = useState<string>('all');
   const [isCompleteProjectDialogOpen, setIsCompleteProjectDialogOpen] = useState(false);
+  const [isPaymentsOpen, setIsPaymentsOpen] = useState(false);
   
   // Extract project ID from URL
   const projectId = location.split('/')[2];
@@ -127,6 +128,20 @@ export default function ProjectDetail() {
 
   const { data: documents = [] } = useQuery<Document[]>({
     queryKey: ['/api/projects', projectId, 'documents'],
+  });
+
+  // Get client payments for this project (only for clients)
+  const { data: clientPayments = [] } = useQuery<Array<{
+    id: string;
+    amount: number;
+    description?: string;
+    paymentDate: string;
+    paymentMethod?: string;
+    clientId: string;
+    clientName: string;
+  }>>({
+    queryKey: ['/api/projects', projectId, 'client-payments'],
+    enabled: user?.role === 'client',
   });
 
   // Document create mutation
@@ -789,6 +804,85 @@ export default function ProjectDetail() {
                   {t('exportPDF')}
                 </Button>
               )}
+                </CollapsibleContent>
+              </Collapsible>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Client Payment Information - only for clients */}
+        {user?.role === 'client' && project && (
+          <Card className="mb-6 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <Collapsible open={isPaymentsOpen} onOpenChange={setIsPaymentsOpen}>
+                <CollapsibleTrigger asChild>
+                  <div className="flex items-center justify-between cursor-pointer -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-lg">
+                    <h3 className="font-semibold text-slate-900">Информация о платежах</h3>
+                    <div className="w-9 h-9 flex items-center justify-center">
+                      {isPaymentsOpen ? (
+                        <ChevronUp size={16} className="text-slate-500" />
+                      ) : (
+                        <ChevronDown size={16} className="text-slate-500" />
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent>
+                  <div className="space-y-4 mt-4">
+                    {/* Payment Summary */}
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-slate-50">
+                        <span className="text-slate-600 font-medium">Стоимость проекта:</span>
+                        <span className="font-semibold text-slate-900">
+                          {Number(project.totalCost).toLocaleString()} AED
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-green-50">
+                        <span className="text-green-700 font-medium">Оплачено:</span>
+                        <span className="font-semibold text-green-600">
+                          {clientPayments.reduce((sum, payment) => sum + payment.amount, 0).toLocaleString()} AED
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-orange-50">
+                        <span className="text-orange-700 font-medium">Осталось заплатить:</span>
+                        <span className="font-semibold text-orange-600">
+                          {(Number(project.totalCost) - clientPayments.reduce((sum, payment) => sum + payment.amount, 0)).toLocaleString()} AED
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Payment History */}
+                    {clientPayments.length > 0 && (
+                      <div className="mt-6">
+                        <h4 className="text-sm font-medium text-slate-900 mb-3">История платежей</h4>
+                        <div className="space-y-2">
+                          {clientPayments.map((payment) => (
+                            <div key={payment.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3">
+                                  <span className="font-medium text-slate-900">
+                                    {payment.amount.toLocaleString()} AED
+                                  </span>
+                                  {payment.paymentMethod && (
+                                    <span className="text-xs px-2 py-1 bg-slate-100 rounded-full text-slate-600">
+                                      {payment.paymentMethod}
+                                    </span>
+                                  )}
+                                </div>
+                                {payment.description && (
+                                  <p className="text-sm text-slate-500 mt-1">{payment.description}</p>
+                                )}
+                              </div>
+                              <div className="text-sm text-slate-500">
+                                {new Date(payment.paymentDate).toLocaleDateString('ru-RU')}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CollapsibleContent>
               </Collapsible>
             </CardContent>

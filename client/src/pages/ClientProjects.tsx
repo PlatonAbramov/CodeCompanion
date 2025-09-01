@@ -89,9 +89,13 @@ export default function ClientProjects() {
                     <span className="font-medium">Стоимость:</span>
                     <span className="ml-2">{Number(project.totalCost).toLocaleString()} AED</span>
                   </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
+                  <div className="flex items-center text-sm text-green-600">
                     <span className="font-medium">Оплачено:</span>
                     <span className="ml-2">{Number(project.totalPaid).toLocaleString()} AED</span>
+                  </div>
+                  <div className="flex items-center text-sm text-orange-600">
+                    <span className="font-medium">Осталось заплатить:</span>
+                    <span className="ml-2">{(Number(project.totalCost) - Number(project.totalPaid)).toLocaleString()} AED</span>
                   </div>
                   {project.contractNumber && (
                     <div className="flex items-center text-sm text-muted-foreground">
