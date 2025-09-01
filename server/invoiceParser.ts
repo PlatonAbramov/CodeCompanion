@@ -194,9 +194,14 @@ export class InvoiceParser {
       for (let i = 0; i < dataLines.length; i++) {
         const line = dataLines[i].trim();
         
+        // Пропускаем заголовки таблицы
+        if (line.includes('Unit Price') || line.includes('Total (AED)') || line.includes('Description')) {
+          continue;
+        }
+        
         // Ищем строки которые заканчиваются числами: ... количество цена сумма
-        // Это может быть как отдельная строка с числами, так и строка с текстом и числами в конце
-        const endsWithNumbers = line.match(/(\d+)\s+(\d+(?:[,\.]\d+)?)\s+(\d+(?:[,\.]\d+)?)\s*$/);
+        // Также обрабатываем числа с запятыми в количестве (9,5 для позиции 61)
+        const endsWithNumbers = line.match(/(\d+(?:[,\.]\d+)?)\s+(\d+(?:[,\.]\d+)?)\s+(\d+(?:[,\.]\d+)?)\s*$/);
         if (endsWithNumbers) {
           const quantity = this.parseNumber(endsWithNumbers[1]);
           const price = this.parseNumber(endsWithNumbers[2]);
@@ -235,7 +240,15 @@ export class InvoiceParser {
         const descriptionParts: string[] = [];
         
         // Сначала проверим, есть ли описание в той же строке что и числа
-        const textBeforeNumbers = endLine.line.substring(0, endLine.line.lastIndexOf(String(endLine.quantity))).trim();
+        // Находим где начинаются числа в конце строки
+        const numbersMatch = endLine.line.match(/(\d+(?:[,\.]\d+)?)\s+(\d+(?:[,\.]\d+)?)\s+(\d+(?:[,\.]\d+)?)\s*$/);
+        let textBeforeNumbers = '';
+        
+        if (numbersMatch) {
+          // Извлекаем текст до начала группы чисел (количество цена сумма)
+          const numbersStartIndex = endLine.line.lastIndexOf(numbersMatch[0]);
+          textBeforeNumbers = endLine.line.substring(0, numbersStartIndex).trim();
+        }
         
         if (textBeforeNumbers) {
           // В строке есть текст перед числами - это может быть позиция и/или описание
