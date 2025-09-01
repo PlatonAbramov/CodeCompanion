@@ -194,22 +194,33 @@ export class InvoiceParser {
       for (let i = 0; i < dataLines.length; i++) {
         const line = dataLines[i].trim();
         
-        // Ищем завершающие строки элементов (только числа: количество цена сумма)
-        const numbersOnlyMatch = line.match(/^\s*(\d+)\s+(\d+(?:[,\.]\d+)?)\s+(\d+(?:[,\.]\d+)?)\s*$/);
-        if (numbersOnlyMatch) {
-          const quantity = this.parseNumber(numbersOnlyMatch[1]);
-          const price = this.parseNumber(numbersOnlyMatch[2]);
-          const total = this.parseNumber(numbersOnlyMatch[3]);
+        // Ищем строки которые заканчиваются числами: ... количество цена сумма
+        // Это может быть как отдельная строка с числами, так и строка с текстом и числами в конце
+        const endsWithNumbers = line.match(/(\d+)\s+(\d+(?:[,\.]\d+)?)\s+(\d+(?:[,\.]\d+)?)\s*$/);
+        if (endsWithNumbers) {
+          const quantity = this.parseNumber(endsWithNumbers[1]);
+          const price = this.parseNumber(endsWithNumbers[2]);
+          const total = this.parseNumber(endsWithNumbers[3]);
           
           if (quantity && price && total) {
-            itemEndLines.push({
-              index: i,
-              line: line,
-              quantity,
-              price,
-              total
-            });
-            console.log(`Found item end line ${i}: "${line}" -> ${quantity} × ${price} = ${total}`);
+            // Проверяем что это не просто числа в середине текста
+            const beforeNumbers = line.substring(0, line.lastIndexOf(endsWithNumbers[1])).trim();
+            
+            // Это завершающая строка если:
+            // 1. Перед числами нет текста (только числа)
+            // 2. Или перед числами есть текст который выглядит как часть описания
+            const isEndLine = !beforeNumbers || !beforeNumbers.match(/^\d+$/);
+            
+            if (isEndLine) {
+              itemEndLines.push({
+                index: i,
+                line: line,
+                quantity,
+                price,
+                total
+              });
+              console.log(`Found item end line ${i}: "${line}" -> ${quantity} × ${price} = ${total}`);
+            }
           }
         }
       }
@@ -220,33 +231,64 @@ export class InvoiceParser {
       for (const endLine of itemEndLines) {
         let position = items.length + 1;
         let description = '';
-        
-        // Идем назад от завершающей строки, собирая описание
-        let startIndex = endLine.index - 1;
         let foundPosition = false;
         const descriptionParts: string[] = [];
         
-        // Ищем начало элемента (номер позиции)
+        // Сначала проверим, есть ли описание в той же строке что и числа
+        const textBeforeNumbers = endLine.line.substring(0, endLine.line.lastIndexOf(String(endLine.quantity))).trim();
+        
+        if (textBeforeNumbers) {
+          // В строке есть текст перед числами - это может быть позиция и/или описание
+          const posAndDesc = textBeforeNumbers.match(/^(\d+)\s+(.+)$/);
+          if (posAndDesc) {
+            // Строка начинается с позиции, затем описание
+            position = parseInt(posAndDesc[1]);
+            descriptionParts.push(posAndDesc[2]);
+            foundPosition = true;
+            console.log(`Found position ${position} and description in same line`);
+          } else {
+            // Строка содержит только описание (продолжение предыдущей строки)
+            descriptionParts.push(textBeforeNumbers);
+          }
+        }
+        
+        // Теперь идем назад, собирая остальные части описания
         for (let j = endLine.index - 1; j >= 0; j--) {
           const line = dataLines[j].trim();
           
-          // Проверяем, является ли строка номером позиции
-          const positionMatch = line.match(/^(\d+)$/);
-          if (positionMatch) {
-            position = parseInt(positionMatch[1]);
-            foundPosition = true;
-            console.log(`Found position ${position} at line ${j}`);
+          // Если мы уже нашли позицию, пропускаем поиск
+          if (foundPosition) {
+            // Проверяем, не начинается ли это другой элемент
+            if (line.match(/^\d+\s/) || line.match(/^\d+$/)) {
+              break;
+            }
+          } else {
+            // Проверяем, является ли строка номером позиции
+            const positionMatch = line.match(/^(\d+)$/);
+            if (positionMatch) {
+              position = parseInt(positionMatch[1]);
+              foundPosition = true;
+              console.log(`Found position ${position} at line ${j}`);
+              continue;
+            }
+            
+            // Проверяем, является ли строка началом элемента (позиция + начало описания)
+            const posWithText = line.match(/^(\d+)\s+(.+)/);
+            if (posWithText) {
+              position = parseInt(posWithText[1]);
+              descriptionParts.unshift(posWithText[2]);
+              foundPosition = true;
+              console.log(`Found position ${position} with text at line ${j}`);
+              break;
+            }
+          }
+          
+          // Проверяем что это не завершающая строка другого элемента
+          if (line.match(/\d+\s+\d+(?:[,\.]\d+)?\s+\d+(?:[,\.]\d+)?\s*$/)) {
             break;
           }
           
-          // Проверяем, является ли строка началом другого элемента
-          const otherItemMatch = line.match(/^(\d+)\s+(.+)/);
-          if (otherItemMatch) {
-            // Это начало другого элемента, прекращаем поиск
-            break;
-          }
-          
-          // Добавляем строку к описанию (в обратном порядке)
+          // Добавляем строку к описанию
           if (line && !line.match(/^\d+\s+\d+\s+\d+$/)) {
             descriptionParts.unshift(line);
           }
