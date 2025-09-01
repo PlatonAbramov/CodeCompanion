@@ -484,9 +484,69 @@ export function PersonnelDetail() {
       </div>
       
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Left Column - Basic Info */}
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Left Column - Photo and Basic Info */}
+        <div className="space-y-4">
+          {/* Photo Card */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center">
+                <div className="relative group">
+                  {person.photoUrl ? (
+                    <div className="relative">
+                      <img 
+                        src={`/objects/${person.photoUrl.split('/').slice(-2).join('/')}`}
+                        alt={`${person.lastName} ${person.firstName}`}
+                        className="w-32 h-32 rounded-full object-cover mb-4 cursor-pointer"
+                        onClick={() => setSelectedPhoto(person.photoUrl || null)}
+                        onError={(e) => {
+                          console.error("Photo load error for:", person.photoUrl);
+                          // Hide image on error
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <div 
+                        className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer mb-4"
+                        onClick={() => setSelectedPhoto(person.photoUrl || null)}
+                      >
+                        <Plus className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center mb-4">
+                      <User className="w-16 h-16 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                
+                {isAdmin && (
+                  <ObjectUploader
+                    maxNumberOfFiles={1}
+                    maxFileSize={5242880} // 5MB
+                    onGetUploadParameters={handlePhotoUpload}
+                    onComplete={handlePhotoComplete}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Загрузить фото
+                  </ObjectUploader>
+                )}
+                
+                <div className="text-center mt-4">
+                  <p className="font-medium text-lg">{person.specialization}</p>
+                  <Badge 
+                    variant={person.status === 'active' ? 'default' : 
+                            person.status === 'dismissed' ? 'destructive' : 'secondary'}
+                    className="mt-2"
+                  >
+                    {person.status === 'active' ? 'Активен' :
+                     person.status === 'dismissed' ? 'Уволен' :
+                     person.status === 'vacation' ? 'Отпуск' : person.status}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
           {/* Contact Info */}
           <Card>
             <CardHeader>
@@ -513,88 +573,11 @@ export function PersonnelDetail() {
               )}
             </CardContent>
           </Card>
-          
-          {/* Work Info Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Основная информация</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm text-muted-foreground">Специализация</p>
-                <p className="font-medium text-lg">{person.specialization}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Статус</p>
-                <Badge 
-                  variant={person.status === 'active' ? 'default' : 
-                          person.status === 'dismissed' ? 'destructive' : 'secondary'}
-                  className="mt-1"
-                >
-                  {person.status === 'active' ? 'Активен' :
-                   person.status === 'dismissed' ? 'Уволен' :
-                   person.status === 'vacation' ? 'Отпуск' : person.status}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
         </div>
         
-        {/* Right Column - Photo */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Photo Card */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center">
-                <div className="relative group">
-                  {person.photoUrl ? (
-                    <div className="relative">
-                      <img 
-                        src={`/objects/${person.photoUrl.split('/').slice(-2).join('/')}`}
-                        alt={`${person.lastName} ${person.firstName}`}
-                        className="w-48 h-48 rounded-lg object-cover cursor-pointer"
-                        onClick={() => setSelectedPhoto(person.photoUrl || null)}
-                        onError={(e) => {
-                          console.error("Photo load error for:", person.photoUrl);
-                          // Hide image on error
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                      <div 
-                        className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                        onClick={() => setSelectedPhoto(person.photoUrl || null)}
-                      >
-                        <Plus className="w-8 h-8 text-white" />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="w-48 h-48 rounded-lg bg-muted flex items-center justify-center">
-                      <User className="w-24 h-24 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-                
-                {isAdmin && (
-                  <div className="mt-4">
-                    <ObjectUploader
-                      maxNumberOfFiles={1}
-                      maxFileSize={5242880} // 5MB
-                      onGetUploadParameters={handlePhotoUpload}
-                      onComplete={handlePhotoComplete}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Загрузить фото
-                    </ObjectUploader>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-      
-      {/* Detailed Info Tabs */}
-      <Tabs defaultValue="info">
+        {/* Right Column - Detailed Info */}
+        <div className="lg:col-span-2">
+          <Tabs defaultValue="info">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="info">Информация</TabsTrigger>
               <TabsTrigger value="documents">
@@ -970,7 +953,9 @@ export function PersonnelDetail() {
                 </Card>
               )}
             </TabsContent>
-      </Tabs>
+          </Tabs>
+        </div>
+      </div>
       
       {/* Forms and Dialogs */}
       {showEditForm && (
