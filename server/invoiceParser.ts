@@ -375,61 +375,134 @@ export class InvoiceParser {
       // Автоматически определяем колонки
       const columnMap = this.detectColumns(headers);
 
-      let processedRows = 0;
-      let skippedRows = 0;
+      console.log(`Excel parsing started. Headers:`, headers);
+      console.log(`Column mapping:`, columnMap);
 
+      // Сначала найдем все строки с завершающими данными (количество, цена, сумма)
+      const itemEndRows: Array<{index: number, row: any[], quantity: number, price: number, total: number, position?: number}> = [];
+      
       for (let i = 1; i < rawData.length; i++) {
         const row = rawData[i] as any[];
-        
-        // Пропускаем только полностью пустые строки или undefined
-        if (!row || row.length === 0) {
-          skippedRows++;
-          continue;
-        }
+        if (!row || row.length === 0) continue;
 
-        const item: ParsedInvoiceItem = {
-          position: i,
-          name: this.getCellValue(row, columnMap.name) || `Позиция ${i}`,
-          quantity: this.parseNumber(this.getCellValue(row, columnMap.quantity)),
-          unit: this.getCellValue(row, columnMap.unit),
-          price: this.parseNumber(this.getCellValue(row, columnMap.price)),
-          totalCost: this.parseNumber(this.getCellValue(row, columnMap.totalCost)),
-          description: this.getCellValue(row, columnMap.description)
-        };
+        const quantity = this.parseNumber(this.getCellValue(row, columnMap.quantity));
+        const price = this.parseNumber(this.getCellValue(row, columnMap.price)); 
+        const totalCost = this.parseNumber(this.getCellValue(row, columnMap.totalCost));
 
-        // Если общая стоимость не указана, рассчитываем
-        if (!item.totalCost && item.quantity && item.price) {
-          item.totalCost = item.quantity * item.price;
-        }
+        // Если есть количество И (цена ИЛИ общая стоимость), это завершающая строка элемента
+        if (quantity && (price || totalCost)) {
+          // Попробуем найти номер позиции в первой колонке или в названии
+          let position: number | undefined;
+          
+          // Проверяем первую колонку на номер позиции
+          const firstCol = this.getCellValue(row, 0);
+          if (firstCol) {
+            const posMatch = firstCol.match(/^(\d+)$/);
+            if (posMatch) {
+              position = parseInt(posMatch[1]);
+            }
+          }
 
-        // Пропускаем строки только если в них вообще нет полезных данных
-        const hasUsefulData = item.name && item.name !== `Позиция ${i}` || 
-                             item.quantity || 
-                             item.price || 
-                             item.totalCost || 
-                             (item.unit && item.unit.trim() !== '') ||
-                             (item.description && item.description.trim() !== '');
+          itemEndRows.push({
+            index: i,
+            row,
+            quantity,
+            price: price || 0,
+            total: totalCost || (quantity * (price || 0)),
+            position
+          });
 
-        if (hasUsefulData) {
-          items.push(item);
-          processedRows++;
-        } else {
-          console.log(`Skipping row ${i}: name="${item.name}", quantity=${item.quantity}, price=${item.price}, totalCost=${item.totalCost}, unit="${item.unit}", description="${item.description}"`);
-          skippedRows++;
+          console.log(`Found item end row ${i}: pos=${position}, qty=${quantity}, price=${price}, total=${totalCost || (quantity * (price || 0))}`);
         }
       }
 
-      console.log(`Excel parsing: processed ${processedRows} rows, skipped ${skippedRows} rows, total data rows: ${rawData.length - 1}`);
-      console.log(`Column mapping:`, columnMap);
-      console.log(`Headers:`, headers);
-      console.log(`First 5 data rows:`, rawData.slice(1, 6));
+      console.log(`Found ${itemEndRows.length} item end rows`);
+
+      // Теперь для каждой завершающей строки соберем полное описание
+      let processedRows = 0;
+      let usedRows = new Set<number>();
+
+      for (const endRow of itemEndRows) {
+        let position = endRow.position || (items.length + 1);
+        let descriptionParts: string[] = [];
+        
+        // Собираем описание из текущей строки и предыдущих
+        let startIndex = endRow.index;
+        
+        // Сначала проверим текущую строку на описание
+        const currentName = this.getCellValue(endRow.row, columnMap.name);
+        if (currentName && !currentName.match(/^(\d+)$/)) {
+          descriptionParts.push(currentName);
+        }
+
+        // Теперь идем назад, собирая описание, пока не найдем начало следующего элемента
+        for (let j = endRow.index - 1; j >= 1; j--) {
+          // Пропускаем уже использованные строки
+          if (usedRows.has(j)) break;
+          
+          const prevRow = rawData[j] as any[];
+          if (!prevRow || prevRow.length === 0) continue;
+
+          // Проверяем, есть ли в этой строке числовые данные (количество/цена/сумма)
+          const prevQty = this.parseNumber(this.getCellValue(prevRow, columnMap.quantity));
+          const prevPrice = this.parseNumber(this.getCellValue(prevRow, columnMap.price));
+          const prevTotal = this.parseNumber(this.getCellValue(prevRow, columnMap.totalCost));
+          
+          // Если есть числовые данные, это уже другой элемент
+          if (prevQty || prevPrice || prevTotal) {
+            break;
+          }
+
+          // Проверяем первую колонку на номер позиции
+          const firstCol = this.getCellValue(prevRow, 0);
+          if (firstCol) {
+            const posMatch = firstCol.match(/^(\d+)$/);
+            if (posMatch) {
+              // Это номер позиции для нашего элемента
+              position = parseInt(posMatch[1]);
+              usedRows.add(j);
+              continue;
+            }
+          }
+
+          // Собираем описание из колонки с названием
+          const prevName = this.getCellValue(prevRow, columnMap.name);
+          if (prevName && !prevName.match(/^(\d+)$/)) {
+            descriptionParts.unshift(prevName);
+            usedRows.add(j);
+          }
+        }
+
+        // Помечаем текущую строку как использованную
+        usedRows.add(endRow.index);
+
+        // Создаем элемент
+        const fullDescription = descriptionParts.join(' ').trim();
+        const item: ParsedInvoiceItem = {
+          position: position,
+          name: fullDescription || `Позиция ${position}`,
+          quantity: endRow.quantity,
+          unit: this.getCellValue(endRow.row, columnMap.unit),
+          price: endRow.price,
+          totalCost: endRow.total,
+          description: this.getCellValue(endRow.row, columnMap.description)
+        };
+
+        items.push(item);
+        processedRows++;
+
+        console.log(`Created item ${position}: "${fullDescription}" (${endRow.quantity} × ${endRow.price} = ${endRow.total})`);
+      }
+
+      const skippedRows = rawData.length - 1 - usedRows.size;
+      console.log(`Excel parsing: processed ${processedRows} items, used ${usedRows.size} rows, skipped ${skippedRows} rows, total data rows: ${rawData.length - 1}`);
 
       return {
         success: items.length > 0,
         items,
         format: 'XLSX',
         errors: items.length === 0 ? ['Не удалось извлечь данные из Excel файла'] : undefined,
-        suggestColumnMapping: columnMap.name === -1, // Если не нашли колонку с наименованием
+        suggestColumnMapping: columnMap.name === -1,
         rawData
       };
 
