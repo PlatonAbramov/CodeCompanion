@@ -28,7 +28,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-amber-900 to-stone-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Card className="shadow-xl">
           <CardContent className="p-8">
@@ -77,7 +77,7 @@ export default function Login() {
               <Button
                 type="submit"
                 disabled={isLoggingIn}
-                className="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="w-full bg-amber-900 text-white py-3 rounded-lg font-medium hover:bg-stone-900 transition-colors"
               >
                 {isLoggingIn ? t('loading') : t('login')}
               </Button>
