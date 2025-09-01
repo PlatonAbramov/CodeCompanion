@@ -180,7 +180,16 @@ export class InvoiceParser {
       for (let i = tableStartIndex; i < lines.length; i++) {
         const line = lines[i].trim();
         if (line.includes('Subtotal')) break;
-        if (line) dataLines.push(line);
+        
+        // Пропускаем заголовки таблицы и пустые строки
+        if (line && 
+            !line.includes('Unit Price') && 
+            !line.includes('Total (AED)') && 
+            !line.includes('Description') &&
+            !line.includes('Qty') &&
+            !line.match(/^S\.No\./)) {
+          dataLines.push(line);
+        }
       }
       
       console.log('\nCollected data lines:', dataLines.length);
