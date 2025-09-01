@@ -319,6 +319,16 @@ export class InvoiceParser {
         // Объединяем все части описания
         description = descriptionParts.join(' ').trim();
         
+        // Удаляем заголовки таблицы из описания первого элемента
+        if (position === 1) {
+          description = description
+            .replace(/Unit Price\s*\([^)]*\)/gi, '')
+            .replace(/Total\s*\([^)]*\)/gi, '')
+            .replace(/\b(Unit Price|Total|AED|Description|Qty)\b/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+        
         // Если не нашли позицию в отдельной строке, попробуем извлечь из первой части описания
         if (!foundPosition && descriptionParts.length > 0) {
           const firstPart = descriptionParts[0];
