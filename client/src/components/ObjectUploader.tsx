@@ -68,30 +68,6 @@ export function ObjectUploader({
         open={showModal}
         onRequestClose={() => setShowModal(false)}
         proudlyDisplayPoweredByUppy={false}
-        locale={{
-          strings: {
-            dropPasteImportBoth: 'Перетащите файлы сюда или %{browse}',
-            dropPasteImportFiles: 'Перетащите файлы сюда или %{browse}',
-            browse: 'выберите файлы',
-            uploadComplete: 'Загрузка завершена',
-            complete: 'Готово',
-            uploadingXFiles: {
-              0: 'Загрузка %{smart_count} файла',
-              1: 'Загрузка %{smart_count} файлов',
-              2: 'Загрузка %{smart_count} файлов',
-            },
-            xFilesSelected: {
-              0: '%{smart_count} файл выбран',
-              1: '%{smart_count} файла выбрано',
-              2: '%{smart_count} файлов выбрано',
-            },
-            cancel: 'Отмена',
-            done: 'Готово',
-            upload: 'Загрузить',
-            addMore: 'Добавить еще',
-            save: 'Сохранить',
-          }
-        }}
       />
     </div>
   );

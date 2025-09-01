@@ -250,6 +250,60 @@ export default function ImplementationSheetView() {
     setUploadingItemId(itemId);
   };
 
+  const handleCameraCapture = async (itemId: string) => {
+    // Создаем input элемент для камеры
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Использовать заднюю камеру
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        // Получаем URL для загрузки
+        const uploadURL = await objectStorageService.getUploadURL();
+        
+        // Загружаем файл
+        const uploadResponse = await fetch(uploadURL, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Upload failed');
+        }
+
+        // Устанавливаем ACL политику и получаем нормализованный URL
+        const photoUrl = await objectStorageService.setObjectAclPolicy(uploadURL, { visibility: 'private' });
+        
+        // Создаем запись фото
+        createPhotoMutation.mutate({
+          itemId,
+          photoUrl,
+          visibleToClient: true,
+        });
+
+        toast({
+          title: language === 'ru' ? "Фото добавлено" : "Photo added",
+        });
+      } catch (error) {
+        console.error('Camera capture error:', error);
+        toast({
+          title: language === 'ru' ? "Ошибка" : "Error",
+          description: language === 'ru' ? "Не удалось сделать фото" : "Failed to capture photo",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    input.click();
+  };
+
   const handleGetUploadParameters = async () => {
     try {
       const uploadURL = await objectStorageService.getUploadURL();
@@ -533,16 +587,28 @@ export default function ImplementationSheetView() {
                           📷🎥
                         </ObjectUploader>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 text-xs px-2"
-                          onClick={() => handlePhotoUpload(item.id)}
-                          data-testid={`button-upload-photo-${item.id}`}
-                        >
-                          <Camera className="h-3 w-3 mr-1" />
-                          {language === 'ru' ? 'Добавить' : 'Add'}
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-xs px-2"
+                            onClick={() => handlePhotoUpload(item.id)}
+                            data-testid={`button-upload-photo-${item.id}`}
+                          >
+                            <ImageIcon className="h-3 w-3 mr-1" />
+                            {language === 'ru' ? 'Добавить' : 'Add'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-xs px-2"
+                            onClick={() => handleCameraCapture(item.id)}
+                            data-testid={`button-camera-capture-${item.id}`}
+                          >
+                            <Camera className="h-3 w-3 mr-1" />
+                            {language === 'ru' ? 'Камера' : 'Camera'}
+                          </Button>
+                        </div>
                       )
                     )}
                   </div>

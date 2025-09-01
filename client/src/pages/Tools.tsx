@@ -626,14 +626,43 @@ export default function Tools() {
               />
 
               <div>
-                <Label htmlFor="photo">Фото *</Label>
-                <Input
-                  id="photo"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  required
-                />
+                <Label>Фото *</Label>
+                <div className="flex gap-2 mt-1">
+                  <div className="flex-1">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      className="cursor-pointer"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="whitespace-nowrap"
+                    onClick={() => {
+                      // Создаем input элемент для камеры
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.capture = 'environment'; // Использовать заднюю камеру
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) setSelectedFile(file);
+                      };
+                      input.click();
+                    }}
+                  >
+                    <Camera className="h-4 w-4 mr-1" />
+                    Сфотографировать
+                  </Button>
+                </div>
+                {selectedFile && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Выбран файл: {selectedFile.name}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
                   Сделайте фото инструмента и человека
                 </p>
