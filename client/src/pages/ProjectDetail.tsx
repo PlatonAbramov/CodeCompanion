@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { FileUploader } from "@/components/FileUploader";
 import { AssignClientModal } from "@/components/AssignClientModal";
-import { VoiceExpenseAssistant } from "@/components/VoiceExpenseAssistant";
+import { VoiceExpenseButton } from "@/components/VoiceExpenseButton";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -529,17 +529,6 @@ export default function ProjectDetail() {
                 </div>
                 Добавить расход
               </Button>
-              
-              {/* Голосовой помощник только для админов и директоров */}
-              {isAdminOrDirector && (
-                <VoiceExpenseAssistant 
-                  currentProjectId={projectId}
-                  onExpenseCreated={() => {
-                    queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
-                    queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
-                  }}
-                />
-              )}
             </div>
           )}
           
@@ -580,6 +569,19 @@ export default function ProjectDetail() {
                   </div>
                   Проект завершён
                 </Button>
+              )}
+
+              {/* Voice Expense Button - Hold to talk */}
+              {isAdminOrDirector && (
+                <div className="flex justify-center mt-2">
+                  <VoiceExpenseButton 
+                    currentProjectId={projectId}
+                    onExpenseCreated={() => {
+                      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
+                    }}
+                  />
+                </div>
               )}
 
             </>

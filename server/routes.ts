@@ -74,7 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       secure: isProduction,
       httpOnly: true,
       sameSite: isProduction ? 'none' : 'lax', // 'none' для production с HTTPS
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: 365 * 24 * 60 * 60 * 1000 // 1 year (практически бесконечно)
     }
   }));
 
