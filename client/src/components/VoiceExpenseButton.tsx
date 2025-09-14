@@ -229,18 +229,26 @@ export function VoiceExpenseButton({ currentProjectId, onExpenseCreated }: Voice
     try {
       const response = await apiRequest('/api/voice/parse-expense', {
         method: 'POST',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           transcript: transcript.trim(),
-          currentProjectId: currentProjectId 
+          projects: projects.map(p => ({ id: p.id, name: p.name })),
+          currentProjectId,
         }),
       });
       
+      if (!response.ok) {
+        throw new Error('Ошибка при обработке команды');
+      }
+      
       const result = await response.json();
       
-      if (result.success && result.parsedExpense) {
-        const parsedExpense = result.parsedExpense;
-        const needsContractor = parsedExpense.category === 'contractor_payments' && 
-                                contractors.length > 0;
+      if (result.success && result.data) {
+        const parsedExpense = result.data;
+        
+        // Проверяем, есть ли в тексте "оплата подрядчикам"
+        const needsContractor = transcript.toLowerCase().includes('оплата подрядчикам') || 
+                               transcript.toLowerCase().includes('оплату подрядчикам') ||
+                               transcript.toLowerCase().includes('подрядчикам');
         
         parsedExpense.needsContractor = needsContractor;
         setParsedData(parsedExpense);
