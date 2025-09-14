@@ -12,11 +12,22 @@ import logoImage from "@assets/1 (1)_1756713794265.jpg";
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const { user, login, isLoggingIn } = useAuth();
+  const { user, login, isLoggingIn, isLoading } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [, setLocation] = useLocation();
 
-  // Redirect logic is handled by AuthenticatedApp component
+  // Redirect authenticated users to their dashboard
+  useEffect(() => {
+    if (!isLoading && user) {
+      if (user.role === 'admin' || user.role === 'director') {
+        setLocation('/director');
+      } else if (user.role === 'master') {
+        setLocation('/master');
+      } else if (user.role === 'client') {
+        setLocation('/client-projects');
+      }
+    }
+  }, [user, isLoading, setLocation]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
