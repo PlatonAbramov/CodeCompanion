@@ -16,6 +16,7 @@ interface QuickAddContractorProps {
 }
 
 export function QuickAddContractor({ onContractorAdded }: QuickAddContractorProps) {
+  // ALWAYS call all hooks unconditionally at the top
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -32,11 +33,6 @@ export function QuickAddContractor({ onContractorAdded }: QuickAddContractorProp
       isActive: true,
     },
   });
-
-  // Only show for admin and director roles - check AFTER all hooks
-  if (!user || (user.role !== 'admin' && user.role !== 'director')) {
-    return null;
-  }
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertContractor) => {
@@ -70,6 +66,14 @@ export function QuickAddContractor({ onContractorAdded }: QuickAddContractorProp
   const onSubmit = (data: InsertContractor) => {
     createMutation.mutate(data);
   };
+
+  // Check access rights - AFTER all hooks are called
+  const hasAccess = user && (user.role === 'admin' || user.role === 'director');
+
+  // Don't render anything if no access, but all hooks were still called
+  if (!hasAccess) {
+    return null;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
