@@ -21,11 +21,6 @@ export function QuickAddContractor({ onContractorAdded }: QuickAddContractorProp
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Only show for admin and director roles
-  if (!user || (user.role !== 'admin' && user.role !== 'director')) {
-    return null;
-  }
-
   const form = useForm<InsertContractor>({
     resolver: zodResolver(insertContractorSchema),
     defaultValues: {
@@ -37,6 +32,11 @@ export function QuickAddContractor({ onContractorAdded }: QuickAddContractorProp
       isActive: true,
     },
   });
+
+  // Only show for admin and director roles - check AFTER all hooks
+  if (!user || (user.role !== 'admin' && user.role !== 'director')) {
+    return null;
+  }
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertContractor) => {
