@@ -130,21 +130,87 @@ export class InvoiceParser {
       const pdfData = await pdfParse(buffer);
       const text = pdfData.text;
 
+      console.log('=== PDF TEXT CONTENT ===');
+      console.log(text.substring(0, 2000)); // Log first 2000 chars for debugging
+
       // Улучшенный алгоритм парсинга табличных данных
       const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
       const items: ParsedInvoiceItem[] = [];
 
-      // Ищем заголовок таблицы
+      // Ищем заголовок таблицы с поддержкой разных форматов
       let tableStartIndex = -1;
+      
+      // Варианты заголовков для разных форматов инвойсов
+      const headerPatterns = [
+        // Английские варианты
+        (line: string) => line.includes('No.') && line.includes('Description') && line.includes('Quantity'),
+        (line: string) => line.includes('S.No') && line.includes('Description'),
+        (line: string) => line.includes('Item') && line.includes('Description') && (line.includes('Qty') || line.includes('Quantity')),
+        (line: string) => line.includes('№') && line.includes('Description'),
+        (line: string) => /\bNo\b/i.test(line) && /\bDesc/i.test(line),
+        (line: string) => line.includes('#') && line.includes('Description'),
+        // Русские варианты
+        (line: string) => line.includes('№') && line.includes('Наименование'),
+        (line: string) => line.includes('№') && line.includes('Описание'),
+        (line: string) => line.includes('Поз') && line.includes('Наименование'),
+        (line: string) => /№.*п\/п/i.test(line) && (line.includes('Наименование') || line.includes('Название')),
+        (line: string) => line.includes('Наименование') && (line.includes('Кол-во') || line.includes('Количество')),
+        (line: string) => line.includes('Наименование') && line.includes('Цена'),
+        (line: string) => line.includes('Позиция') && line.includes('Работы'),
+        // Арабские/интернациональные варианты  
+        (line: string) => line.includes('رقم') || line.includes('الوصف'),
+        // Общие паттерны с номером и описанием
+        (line: string) => /^(#|№|No\.?|S\.?No\.?|Pos\.?|Item|Поз\.?)\s/i.test(line) && line.length > 20,
+      ];
       
       // Ищем заголовок таблицы
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         
-        // Ищем заголовок таблицы
-        if (line.includes('No.') && line.includes('Description') && line.includes('Quantity')) {
-          tableStartIndex = i + 1; // Начинаем с следующей строки после заголовка
-          break;
+        for (const pattern of headerPatterns) {
+          if (pattern(line)) {
+            tableStartIndex = i + 1;
+            console.log(`Found table header at line ${i}: "${line}"`);
+            break;
+          }
+        }
+        if (tableStartIndex !== -1) break;
+      }
+
+      // Если не нашли заголовок, попробуем найти данные таблицы напрямую
+      if (tableStartIndex === -1) {
+        console.log('No table header found, trying to find table data directly...');
+        
+        // Ищем первую строку с паттерном "номер текст числа" или "1. описание количество цена"
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
+          // Паттерн: номер (1, 1., 01) + текст + числа в конце
+          if (/^(\d{1,3})[.\s)]?\s*[а-яёa-z]/i.test(line)) {
+            // Проверяем что строка или следующие содержат числа
+            const hasNumbers = /\d+\s+\d+\s*$/.test(line) || 
+                              (lines[i+1] && /\d+\s+\d+\s*$/.test(lines[i+1]));
+            if (hasNumbers) {
+              tableStartIndex = i;
+              console.log(`Found table data starting at line ${i}: "${line}"`);
+              break;
+            }
+          }
+        }
+      }
+
+      if (tableStartIndex === -1) {
+        // Последняя попытка: просто ищем строки с числовыми данными
+        console.log('Still no table found, searching for any numeric patterns...');
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          // Ищем строки с минимум 2 числами, разделенными пробелами
+          if (/\d+\s+\d+(?:\s+\d+)?/.test(line) && line.length > 10) {
+            tableStartIndex = Math.max(0, i - 2); // Начинаем на 2 строки раньше
+            console.log(`Found numeric data at line ${i}, starting from ${tableStartIndex}`);
+            break;
+          }
         }
       }
 
@@ -153,7 +219,8 @@ export class InvoiceParser {
           success: false,
           items: [],
           format: 'PDF',
-          errors: ['Не удалось найти заголовок таблицы в PDF документе']
+          errors: ['Не удалось найти табличные данные в PDF документе'],
+          suggestColumnMapping: true
         };
       }
 
@@ -172,14 +239,11 @@ export class InvoiceParser {
         }
       }
       
-      // Простой и прямой подход: собираем элементы по парам строк
-      // Элемент 1: строки 0-1 (Укрывочные... + 1 мебели...)
-      // Элемент 3: строки 3-4 (Стены... + 3 покраска...)
-      
+      // Собираем все строки данных таблицы
       const dataLines: string[] = [];
       for (let i = tableStartIndex; i < lines.length; i++) {
         const line = lines[i].trim();
-        if (line.includes('Subtotal')) break;
+        if (line.includes('Subtotal') || line.includes('Total in words')) break;
         
         // Пропускаем заголовки таблицы и пустые строки
         if (line && 
@@ -193,6 +257,60 @@ export class InvoiceParser {
       }
       
       console.log('\nCollected data lines:', dataLines.length);
+      
+      // НОВЫЙ АЛГОРИТМ: обработка слитых чисел (когда PDF не разделяет колонки пробелами)
+      // Паттерн: номер (1-3 цифры) на отдельной строке, потом описание, потом слитые числа
+      console.log('=== TRYING MERGED NUMBERS PARSING ===');
+      
+      for (let i = 0; i < dataLines.length - 2; i++) {
+        const line1 = dataLines[i].trim();
+        const line2 = dataLines[i + 1].trim();
+        const line3 = dataLines[i + 2].trim();
+        
+        // Проверяем паттерн: номер + описание + слитые числа
+        const isPosition = /^(\d{1,3})$/.test(line1);
+        const isDescription = line2.length > 3 && !/^\d+$/.test(line2);
+        const isMergedNumbers = /^\d{5,}$/.test(line3); // слитые числа без пробелов
+        
+        if (isPosition && isDescription && isMergedNumbers) {
+          const position = parseInt(line1);
+          const description = line2;
+          
+          // Пытаемся разобрать слитые числа
+          // Формат: количествоценасумма (например: 150005000 = 1, 5000, 5000)
+          const parsed = this.parseMergedNumbers(line3);
+          
+          if (parsed) {
+            // Проверяем, что такой элемент ещё не добавлен
+            const alreadyExists = items.some(item => item.position === position);
+            
+            if (!alreadyExists) {
+              items.push({
+                position,
+                name: description,
+                quantity: parsed.quantity,
+                unit: '',
+                price: parsed.price,
+                totalCost: parsed.total,
+                description: description
+              });
+              
+              console.log(`Created merged-numbers item ${position}: "${description}" (${parsed.quantity} × ${parsed.price} = ${parsed.total})`);
+            }
+          }
+        }
+      }
+      
+      // Если нашли элементы с слитыми числами, возвращаем их
+      if (items.length > 0) {
+        console.log(`Found ${items.length} items using merged numbers parsing`);
+        items.sort((a, b) => a.position - b.position);
+        return {
+          success: true,
+          items: items,
+          format: 'PDF'
+        };
+      }
       
       // Усовершенствованная логика парсинга для многострочных элементов
       console.log('=== ENHANCED MULTI-LINE PDF PARSING ===');
@@ -859,6 +977,83 @@ export class InvoiceParser {
     
     // Limit to prevent database overflow (precision 12, scale 3 = max 999999999.999)
     return Math.min(Math.abs(parsed), 999999999);
+  }
+
+  /**
+   * Парсит слитые числа из PDF (когда колонки сливаются без пробелов)
+   * Например: "150005000" = quantity:1, price:5000, total:5000
+   * Или: "12000020000" = quantity:1, price:20000, total:20000
+   */
+  private parseMergedNumbers(mergedString: string): { quantity: number; price: number; total: number } | null {
+    const digits = mergedString.replace(/\D/g, '');
+    const len = digits.length;
+    
+    if (len < 5) return null;
+    
+    // Пробуем разные разбивки и выбираем ту, где quantity * price = total
+    // Количество обычно 1-3 цифры, цена и сумма - остальное
+    
+    for (let qLen = 1; qLen <= 3; qLen++) {
+      if (qLen >= len) continue;
+      
+      const quantity = parseInt(digits.substring(0, qLen));
+      const remaining = digits.substring(qLen);
+      const remainingLen = remaining.length;
+      
+      // Пробуем разные разбивки цены и суммы
+      // Они должны быть примерно одинаковой длины или сумма чуть длиннее
+      for (let pLen = Math.floor(remainingLen / 2) - 1; pLen <= Math.ceil(remainingLen / 2) + 1; pLen++) {
+        if (pLen <= 0 || pLen >= remainingLen) continue;
+        
+        const price = parseInt(remaining.substring(0, pLen));
+        const total = parseInt(remaining.substring(pLen));
+        
+        // Проверяем математику: quantity * price должно быть близко к total
+        const expected = quantity * price;
+        const tolerance = Math.max(1, total * 0.01); // 1% погрешность
+        
+        if (Math.abs(expected - total) <= tolerance) {
+          console.log(`Parsed merged numbers "${mergedString}" -> qty:${quantity}, price:${price}, total:${total}`);
+          return { quantity, price, total };
+        }
+      }
+    }
+    
+    // Если математика не сошлась, пробуем эвристику для типичных случаев
+    // Например: 150005000 - явно 1 штука за 5000 = 5000
+    // Или: 13500035000 - 1 штука за 35000 = 35000
+    
+    // Попробуем паттерн где quantity=1 и цена=сумма
+    for (let splitPos = Math.floor(len / 2) - 2; splitPos <= Math.ceil(len / 2) + 2; splitPos++) {
+      if (splitPos <= 0 || splitPos >= len) continue;
+      
+      const firstPart = parseInt(digits.substring(0, splitPos));
+      const secondPart = parseInt(digits.substring(splitPos));
+      
+      // Если первая часть начинается с 1 и заканчивается как вторая часть
+      const firstStr = digits.substring(0, splitPos);
+      if (firstStr.startsWith('1') && firstStr.length > 1) {
+        const possiblePrice = parseInt(firstStr.substring(1));
+        if (possiblePrice === secondPart) {
+          console.log(`Parsed merged numbers "${mergedString}" using heuristic -> qty:1, price:${possiblePrice}, total:${secondPart}`);
+          return { quantity: 1, price: possiblePrice, total: secondPart };
+        }
+      }
+    }
+    
+    // Последняя попытка: если строка длинная, предположим qty=1 и разделим пополам
+    if (len >= 6) {
+      const halfLen = Math.floor(len / 2);
+      const price = parseInt(digits.substring(1, 1 + halfLen));
+      const total = parseInt(digits.substring(1 + halfLen));
+      
+      if (price === total) {
+        console.log(`Parsed merged numbers "${mergedString}" using fallback -> qty:1, price:${price}, total:${total}`);
+        return { quantity: 1, price, total };
+      }
+    }
+    
+    return null;
   }
 
   /**
