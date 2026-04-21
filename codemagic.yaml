@@ -5,9 +5,6 @@ workflows:
     integrations:
       app_store_connect: PAGCRM
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.platonabramov.app
       node: v22
       xcode: latest
       cocoapods: default
