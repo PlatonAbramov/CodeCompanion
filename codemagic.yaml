@@ -5,6 +5,8 @@ workflows:
     integrations:
       app_store_connect: PAGCRM
     environment:
+      groups:
+        - signing
       node: v22
       xcode: latest
       cocoapods: default
