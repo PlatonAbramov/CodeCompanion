@@ -7,9 +7,16 @@ workflows:
     environment:
       groups:
         - signing
+      vars:
+        APP_ID: 6762884165
       node: v22
       xcode: latest
     scripts:
+      - name: Increment build number
+        script: |
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_ID")
+          cd ios/App
+          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
       - name: Install dependencies
         script: npm install
       - name: Build web
