@@ -9,7 +9,6 @@ workflows:
         - signing
       node: v22
       xcode: latest
-      cocoapods: default
     scripts:
       - name: Install dependencies
         script: npm install
@@ -17,8 +16,6 @@ workflows:
         script: npm run build
       - name: Capacitor sync
         script: npx cap sync ios
-      - name: Install pods
-        script: cd ios/App && pod install
       - name: Set up keychain
         script: keychain initialize
       - name: Fetch signing files
