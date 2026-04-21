@@ -27,7 +27,8 @@ workflows:
           app-store-connect fetch-signing-files \
             com.platonabramov.app \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            --certificate-key-password ""
       - name: Add certs to keychain
         script: keychain add-certificates
       - name: Set up Xcode settings
