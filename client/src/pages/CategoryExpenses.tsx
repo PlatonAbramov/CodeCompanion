@@ -85,8 +85,10 @@ export default function CategoryExpenses() {
     queryKey: ['/api/projects', projectId],
   });
 
-  // Filter expenses by category
-  const expenses = allExpenses.filter(expense => expense.category === category);
+  // Filter expenses by category (handle "uncategorized" pseudo-category for empty/null values)
+  const expenses = category === 'uncategorized'
+    ? allExpenses.filter(expense => !expense.category || expense.category.trim() === '')
+    : allExpenses.filter(expense => expense.category === category);
 
   const goBack = () => {
     setLocation(`/expenses/${projectId}`);
@@ -110,7 +112,8 @@ export default function CategoryExpenses() {
       'salary_employees': 'Зарплата действующим сотрудникам',
       'salary_daily': 'Зарплата поднёвщикам',
       'contractor_payments': 'Оплата подрядчикам',
-      'other': 'Прочее'
+      'other': 'Прочее',
+      'uncategorized': 'Без категории'
     };
     return categoryMap[category] || category;
   };

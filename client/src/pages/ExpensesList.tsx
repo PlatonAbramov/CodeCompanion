@@ -65,14 +65,15 @@ export default function ExpensesList() {
       'salary_employees': 'Зарплата действующим сотрудникам',
       'salary_daily': 'Зарплата поднёвщикам',
       'contractor_payments': 'Оплата подрядчикам',
-      'other': 'Прочее'
+      'other': 'Прочее',
+      'uncategorized': 'Без категории'
     };
     return categoryMap[category] || category;
   };
 
   // Group expenses by category
   const expensesByCategory = expenses.reduce((acc, expense) => {
-    const category = expense.category;
+    const category = expense.category && expense.category.trim() !== '' ? expense.category : 'uncategorized';
     if (!acc[category]) {
       acc[category] = [];
     }
