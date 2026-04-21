@@ -8,10 +8,9 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.platonabramov.app
-      vars:
-        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
-        XCODE_SCHEME: "App"
       node: v18
+      xcode: latest
+      cocoapods: default
     scripts:
       - name: Install dependencies
         script: npm install
@@ -24,10 +23,7 @@ workflows:
       - name: Build iOS
         script: |
           xcode-project build-ipa \
-            --workspace "$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App"
     artifacts:
       - build/ios/ipa/*.ipa
-    publishing:
-      app_store_connect:
-        auth: integration
