@@ -8,7 +8,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.platonabramov.app
-        certificate_private_key: Encrypted(...)
       node: v18
       xcode: latest
       cocoapods: default
