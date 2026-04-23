@@ -155,7 +155,7 @@ export default function EditExpense() {
   ];
 
   if (isLoading) {
-    return <div className="p-4">Загрузка...</div>;
+    return <div className="p-4" />;
   }
 
   return (

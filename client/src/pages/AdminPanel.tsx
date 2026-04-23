@@ -566,7 +566,6 @@ export default function AdminPanel() {
                           <TableCell colSpan={5} className="text-center py-8">
                             <div className="flex items-center justify-center">
                               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-                              <span className="ml-2">Загрузка...</span>
                             </div>
                           </TableCell>
                         </TableRow>

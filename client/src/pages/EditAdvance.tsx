@@ -120,7 +120,7 @@ export default function EditAdvance() {
   };
 
   if (isLoading) {
-    return <div className="p-4">Загрузка...</div>;
+    return <div className="p-4" />;
   }
 
   return (

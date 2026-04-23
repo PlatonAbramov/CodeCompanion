@@ -117,7 +117,7 @@ export default function EditCustomerAdvance() {
   };
 
   if (isLoading) {
-    return <div className="p-4">Загрузка...</div>;
+    return <div className="p-4" />;
   }
 
   return (

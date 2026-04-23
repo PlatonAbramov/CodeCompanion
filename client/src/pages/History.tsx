@@ -245,7 +245,7 @@ function History() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8">Загрузка...</div>
+            <div className="py-8" />
           ) : auditLogs && auditLogs.length > 0 ? (
             <Table>
               <TableHeader>

@@ -421,9 +421,7 @@ export function PersonnelDetail() {
   
   if (isLoadingPerson || isLoadingDocs) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Загрузка...</p>
-      </div>
+      <div className="h-full" />
     );
   }
   
@@ -868,9 +866,7 @@ export function PersonnelDetail() {
               {/* Advances List */}
               {isLoadingAdvances ? (
                 <Card>
-                  <CardContent className="p-8 text-center">
-                    <p className="text-muted-foreground">Загрузка...</p>
-                  </CardContent>
+                  <CardContent className="p-8 text-center" />
                 </Card>
               ) : advances.length > 0 ? (
                 <div className="space-y-2">

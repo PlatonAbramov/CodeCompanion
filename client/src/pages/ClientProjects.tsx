@@ -26,9 +26,7 @@ export default function ClientProjects() {
     return (
       <div className="min-h-screen bg-slate-50 p-4">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-lg">Загрузка проектов...</div>
-          </div>
+          <div className="h-64" />
         </div>
       </div>
     );

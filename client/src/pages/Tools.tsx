@@ -386,7 +386,7 @@ export default function Tools() {
 
       {/* Tools Grid */}
       {isLoading ? (
-        <div className="text-center py-8">Загрузка...</div>
+        <div className="py-8" />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTools.map((tool) => (

@@ -189,9 +189,7 @@ export default function EmployeeManagement() {
 
       <div className="p-4 pb-20">
         {isLoading ? (
-          <div className="text-center py-8">
-            <p className="text-slate-500">{t('loading')}</p>
-          </div>
+          <div />
         ) : filteredEmployees.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center">

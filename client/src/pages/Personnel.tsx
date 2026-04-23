@@ -153,9 +153,7 @@ export function Personnel() {
   
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Загрузка...</p>
-      </div>
+      <div className="h-full" />
     );
   }
   

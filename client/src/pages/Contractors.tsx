@@ -180,9 +180,7 @@ export default function Contractors() {
   // Проверка авторизации
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p>Загрузка...</p>
-      </div>
+      <div className="min-h-screen bg-slate-50" />
     );
   }
 
@@ -382,9 +380,7 @@ export default function Contractors() {
 
         {/* Contractors List */}
         {isLoading ? (
-          <div className="text-center py-8">
-            <p className="text-slate-500">Загрузка...</p>
-          </div>
+          <div className="py-8" />
         ) : (
           <div className="space-y-3">
             {contractors?.map((contractor) => (

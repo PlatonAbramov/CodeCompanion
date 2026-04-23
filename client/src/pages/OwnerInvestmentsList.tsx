@@ -149,7 +149,7 @@ export default function OwnerInvestmentsList() {
   );
 
   if (isLoading) {
-    return <div className="min-h-screen bg-slate-50 p-4">Загрузка...</div>;
+    return <div className="min-h-screen bg-slate-50 p-4" />;
   }
 
   return (
