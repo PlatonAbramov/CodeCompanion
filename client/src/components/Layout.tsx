@@ -192,7 +192,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Основной контент с отступом снизу для навигации */}
-      <div className={showBottomNav ? "pb-24" : ""}>
+      <div className={showBottomNav ? "pb-24" : ""} data-app-content>
         {children}
       </div>
 

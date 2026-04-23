@@ -97,14 +97,19 @@
   }
 }
 
-/* Отступ сверху для шапок страниц — нужен только на iOS, где WebView рисует
-   контент под статус-баром/динамическим островом. На Android вебвью сам
-   отступает от статус-бара, поэтому правило ограничено iOS через @supports
-   (-webkit-touch-callout: none) — это проверка работает только в WebKit/iOS. */
+/* Отступ сверху для безопасной зоны iOS (чёлка/динамический остров).
+   Применяется ко всему контенту приложения через обёртку Layout, поэтому
+   срабатывает на всех страницах, карточках и подстраницах автоматически.
+   На Android правило не действует — вебвью сам отступает от статус-бара. */
 @supports (-webkit-touch-callout: none) {
-  header,
-  .page-header,
-  [data-page-header] {
-    padding-top: env(safe-area-inset-top, 0px) !important;
+  [data-app-content] {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Залипающие шапки должны "прилипать" не к самому верху экрана,
+     а ниже статус-бара/чёлки, иначе при прокрутке они уходят под неё. */
+  [data-app-content] .sticky.top-0,
+  [data-app-content] header.sticky {
+    top: env(safe-area-inset-top, 0px) !important;
   }
 }
