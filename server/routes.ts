@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { db } from "./db";
 import bcrypt from "bcrypt";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import pg from "pg";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -65,17 +67,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Session middleware
   const isProduction = process.env.NODE_ENV === 'production' || !!process.env.REPLIT_DOMAINS;
-  
+
+  // Сессии хранятся в PostgreSQL — это значит, что:
+  // 1. Перезапуск/деплой сервера НЕ выкидывает пользователей (раньше MemoryStore терял всё).
+  // 2. Срок жизни — 1 год; в Capacitor-приложении пользователь логинится один раз
+  //    и больше не видит экран входа, пока сам не нажмёт "Выход" или не переустановит приложение.
+  const PgSession = connectPgSimple(session);
+  const sessionPool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 3,
+  });
+  const sessionStore = new PgSession({
+    pool: sessionPool,
+    tableName: 'user_sessions',
+    createTableIfMissing: true,
+    pruneSessionInterval: 60 * 60, // чистим протухшие сессии раз в час
+  });
+
   app.use(session({
+    store: sessionStore,
+    name: 'pag.sid',
     secret: process.env.SESSION_SECRET || 'construction-app-secret',
     resave: false,
     saveUninitialized: false,
-    cookie: { 
+    rolling: true, // продлеваем cookie при каждом запросе — пользователь не вылетает
+    cookie: {
       secure: isProduction,
       httpOnly: true,
-      sameSite: isProduction ? 'none' : 'lax', // 'none' для production с HTTPS
-      maxAge: 365 * 24 * 60 * 60 * 1000 // 1 year (практически бесконечно)
-    }
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 год
+    },
   }));
 
   // Auth middleware
