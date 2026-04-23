@@ -13,11 +13,14 @@ export function Layout({ children }: LayoutProps) {
   const [location, setLocation] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Свайп-навигация: вправо — назад, влево — вперёд
+  // Свайп-жесты:
+  // - влево/вправо — навигация назад/вперёд
+  // - вниз на 80px от верха страницы — обновление страницы (pull-to-refresh)
   useEffect(() => {
     let startX = 0;
     let startY = 0;
     let startTime = 0;
+    let startScrollTop = 0;
     let tracking = false;
 
     const isInteractive = (target: EventTarget | null): boolean => {
@@ -60,6 +63,7 @@ export function Layout({ children }: LayoutProps) {
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       startTime = Date.now();
+      startScrollTop = window.scrollY || document.documentElement.scrollTop;
       tracking = true;
     };
 
@@ -76,18 +80,24 @@ export function Layout({ children }: LayoutProps) {
 
       const absDx = Math.abs(dx);
       const absDy = Math.abs(dy);
-
-      // Условия валидного горизонтального свайпа
-      const minDistance = 40;
       const maxDuration = 800;
 
+      if (dt > maxDuration) return;
+
+      // Pull-to-refresh: свайп вниз от самого верха страницы на 80+ пикселей
+      const pullThreshold = 80;
       if (
-        dt > maxDuration ||
-        absDx < minDistance ||
-        absDy > absDx * 0.6
+        startScrollTop <= 0 &&
+        dy >= pullThreshold &&
+        absDy > absDx * 1.5
       ) {
+        window.location.reload();
         return;
       }
+
+      // Горизонтальная навигация
+      const minDistance = 40;
+      if (absDx < minDistance || absDy > absDx * 0.6) return;
 
       if (dx > 0) {
         // Свайп слева направо — назад
