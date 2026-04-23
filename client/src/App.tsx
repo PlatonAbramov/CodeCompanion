@@ -7,45 +7,60 @@ import { LanguageProvider } from "@/components/LanguageProvider";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import Login from "@/pages/Login";
-import DirectorDashboard from "@/pages/DirectorDashboard";
-import MasterDashboard from "@/pages/MasterDashboard";
-import ProjectDetail from "@/pages/ProjectDetail";
-import AddExpense from "@/pages/AddExpense";
-import AddAdvance from "@/pages/AddAdvance";
-import AddCustomerAdvance from "@/pages/AddCustomerAdvance";
-import AdvancesList from "@/pages/AdvancesList";
-import CustomerAdvancesList from "@/pages/CustomerAdvancesList";
-import AddRevenue from "@/pages/AddRevenue";
-import RevenuesList from "@/pages/RevenuesList";
-import EditRevenue from "@/pages/EditRevenue";
-import EditAdvance from "@/pages/EditAdvance";
-import EditCustomerAdvance from "@/pages/EditCustomerAdvance";
-import EditExpense from "@/pages/EditExpense";
-import ExpensesList from "@/pages/ExpensesList";
-import CategoryExpenses from "@/pages/CategoryExpenses";
-import EmployeeManagement from "@/pages/EmployeeManagement";
-import OwnerInvestmentsList from "@/pages/OwnerInvestmentsList";
-import AddOwnerInvestment from "@/pages/AddOwnerInvestment";
-import EditOwnerInvestment from "@/pages/EditOwnerInvestment";
-import Contractors from "@/pages/Contractors";
-import ContractorDetail from "@/pages/ContractorDetail";
-import EditContractorProject from "@/pages/EditContractorProject";
-import Clients from "@/pages/Clients";
-import ClientDetail from "@/pages/ClientDetail";
-import Tools from "@/pages/Tools";
-import AdminPanel from "@/pages/AdminPanel";
-import ImplementationSheets from "@/pages/ImplementationSheets";
-import ImplementationSheetView from "@/pages/ImplementationSheetView";
-import Analytics from "@/pages/Analytics";
-import History from "@/pages/History";
-import ArchivedProjects from "@/pages/ArchivedProjects";
 import NotFound from "@/pages/not-found";
-import TestClient from "@/pages/TestClient";
-import ClientProjects from "@/pages/ClientProjects";
-import { Personnel } from "@/pages/Personnel";
-import { PersonnelDetail } from "@/pages/PersonnelDetail";
+
+// Lazy-загружаемые страницы — каждая попадает в отдельный chunk
+const DirectorDashboard = lazy(() => import("@/pages/DirectorDashboard"));
+const MasterDashboard = lazy(() => import("@/pages/MasterDashboard"));
+const ProjectDetail = lazy(() => import("@/pages/ProjectDetail"));
+const AddExpense = lazy(() => import("@/pages/AddExpense"));
+const AddAdvance = lazy(() => import("@/pages/AddAdvance"));
+const AddCustomerAdvance = lazy(() => import("@/pages/AddCustomerAdvance"));
+const AdvancesList = lazy(() => import("@/pages/AdvancesList"));
+const CustomerAdvancesList = lazy(() => import("@/pages/CustomerAdvancesList"));
+const AddRevenue = lazy(() => import("@/pages/AddRevenue"));
+const RevenuesList = lazy(() => import("@/pages/RevenuesList"));
+const EditRevenue = lazy(() => import("@/pages/EditRevenue"));
+const EditAdvance = lazy(() => import("@/pages/EditAdvance"));
+const EditCustomerAdvance = lazy(() => import("@/pages/EditCustomerAdvance"));
+const EditExpense = lazy(() => import("@/pages/EditExpense"));
+const ExpensesList = lazy(() => import("@/pages/ExpensesList"));
+const CategoryExpenses = lazy(() => import("@/pages/CategoryExpenses"));
+const EmployeeManagement = lazy(() => import("@/pages/EmployeeManagement"));
+const OwnerInvestmentsList = lazy(() => import("@/pages/OwnerInvestmentsList"));
+const AddOwnerInvestment = lazy(() => import("@/pages/AddOwnerInvestment"));
+const EditOwnerInvestment = lazy(() => import("@/pages/EditOwnerInvestment"));
+const Contractors = lazy(() => import("@/pages/Contractors"));
+const ContractorDetail = lazy(() => import("@/pages/ContractorDetail"));
+const EditContractorProject = lazy(() => import("@/pages/EditContractorProject"));
+const Clients = lazy(() => import("@/pages/Clients"));
+const ClientDetail = lazy(() => import("@/pages/ClientDetail"));
+const Tools = lazy(() => import("@/pages/Tools"));
+const AdminPanel = lazy(() => import("@/pages/AdminPanel"));
+const ImplementationSheets = lazy(() => import("@/pages/ImplementationSheets"));
+const ImplementationSheetView = lazy(() => import("@/pages/ImplementationSheetView"));
+const Analytics = lazy(() => import("@/pages/Analytics"));
+const History = lazy(() => import("@/pages/History"));
+const ArchivedProjects = lazy(() => import("@/pages/ArchivedProjects"));
+const TestClient = lazy(() => import("@/pages/TestClient"));
+const ClientProjects = lazy(() => import("@/pages/ClientProjects"));
+// Named exports — оборачиваем через .then
+const Personnel = lazy(() =>
+  import("@/pages/Personnel").then((m) => ({ default: m.Personnel })),
+);
+const PersonnelDetail = lazy(() =>
+  import("@/pages/PersonnelDetail").then((m) => ({ default: m.PersonnelDetail })),
+);
+
+function PageFallback() {
+  return (
+    <div className="min-h-[40vh] flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  );
+}
 
 function AuthenticatedApp() {
   const { user, isLoading } = useAuth();
@@ -105,47 +120,49 @@ function AuthenticatedApp() {
   console.log('Current location:', location);
 
   return (
-    <Switch>
-      <Route path="/client-projects" component={ClientProjects} />
-      <Route path="/director" component={(user.role === 'admin' || user.role === 'director') ? DirectorDashboard : NotFound} />
-      <Route path="/master" component={user.role === 'master' ? MasterDashboard : NotFound} />
-      <Route path="/projects/:id">
-        {user.role ? <ProjectDetail /> : <NotFound />}
-      </Route>
-      <Route path="/add-expense" component={AddExpense} />
-      <Route path="/add-advance/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddAdvance : NotFound} />
-      <Route path="/add-customer-advance/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddCustomerAdvance : NotFound} />
-      <Route path="/advances/:projectId" component={AdvancesList} />
-      <Route path="/customer-advances/:projectId" component={CustomerAdvancesList} />
-      <Route path="/add-revenue" component={(user.role === 'admin' || user.role === 'director') ? AddRevenue : NotFound} />
-      <Route path="/revenues/:projectId" component={RevenuesList} />
-      <Route path="/edit-revenue/:projectId/:revenueId" component={(user.role === 'admin' || user.role === 'director') ? EditRevenue : NotFound} />
-      <Route path="/edit-advance/:projectId/:advanceId" component={(user.role === 'admin' || user.role === 'director') ? EditAdvance : NotFound} />
-      <Route path="/edit-customer-advance/:projectId/:advanceId" component={(user.role === 'admin' || user.role === 'director') ? EditCustomerAdvance : NotFound} />
-      <Route path="/edit-expense/:projectId/:expenseId" component={EditExpense} />
-      <Route path="/expenses/:projectId" component={ExpensesList} />
-      <Route path="/expenses/:projectId/:category" component={CategoryExpenses} />
-      <Route path="/owner-investments/:projectId" component={OwnerInvestmentsList} />
-      <Route path="/add-owner-investment/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddOwnerInvestment : NotFound} />
-      <Route path="/edit-owner-investment/:id" component={(user.role === 'admin' || user.role === 'director') ? EditOwnerInvestment : NotFound} />
-      <Route path="/employees" component={(user.role === 'admin' || user.role === 'director') ? EmployeeManagement : NotFound} />
-      <Route path="/contractors" component={(user.role === 'admin' || user.role === 'director') ? Contractors : NotFound} />
-      <Route path="/contractor/:id" component={(user.role === 'admin' || user.role === 'director') ? ContractorDetail : NotFound} />
-      <Route path="/contractor/:contractorId/project/:assignmentId" component={(user.role === 'admin' || user.role === 'director') ? EditContractorProject : NotFound} />
-      <Route path="/clients" component={(user.role === 'admin' || user.role === 'director') ? Clients : NotFound} />
-      <Route path="/test-client" component={TestClient} />
-      <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
-      <Route path="/tools" component={(user.role === 'admin' || user.role === 'director' || user.role === 'master') ? Tools : NotFound} />
-      <Route path="/personnel" component={(user.role === 'admin' || user.role === 'director') ? Personnel : NotFound} />
-      <Route path="/personnel/:id" component={(user.role === 'admin' || user.role === 'director') ? PersonnelDetail : NotFound} />
-      <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />
-      <Route path="/projects/:projectId/implementation-sheets" component={ImplementationSheets} />
-      <Route path="/implementation-sheets/:sheetId" component={ImplementationSheetView} />
-      <Route path="/analytics" component={(user.role === 'admin' || user.role === 'director') ? Analytics : NotFound} />
-      <Route path="/history/:projectId" component={(user.role === 'admin' || user.role === 'director') ? History : NotFound} />
-      <Route path="/archived-projects" component={(user.role === 'admin' || user.role === 'director') ? ArchivedProjects : NotFound} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<PageFallback />}>
+      <Switch>
+        <Route path="/client-projects" component={ClientProjects} />
+        <Route path="/director" component={(user.role === 'admin' || user.role === 'director') ? DirectorDashboard : NotFound} />
+        <Route path="/master" component={user.role === 'master' ? MasterDashboard : NotFound} />
+        <Route path="/projects/:id">
+          {user.role ? <ProjectDetail /> : <NotFound />}
+        </Route>
+        <Route path="/add-expense" component={AddExpense} />
+        <Route path="/add-advance/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddAdvance : NotFound} />
+        <Route path="/add-customer-advance/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddCustomerAdvance : NotFound} />
+        <Route path="/advances/:projectId" component={AdvancesList} />
+        <Route path="/customer-advances/:projectId" component={CustomerAdvancesList} />
+        <Route path="/add-revenue" component={(user.role === 'admin' || user.role === 'director') ? AddRevenue : NotFound} />
+        <Route path="/revenues/:projectId" component={RevenuesList} />
+        <Route path="/edit-revenue/:projectId/:revenueId" component={(user.role === 'admin' || user.role === 'director') ? EditRevenue : NotFound} />
+        <Route path="/edit-advance/:projectId/:advanceId" component={(user.role === 'admin' || user.role === 'director') ? EditAdvance : NotFound} />
+        <Route path="/edit-customer-advance/:projectId/:advanceId" component={(user.role === 'admin' || user.role === 'director') ? EditCustomerAdvance : NotFound} />
+        <Route path="/edit-expense/:projectId/:expenseId" component={EditExpense} />
+        <Route path="/expenses/:projectId" component={ExpensesList} />
+        <Route path="/expenses/:projectId/:category" component={CategoryExpenses} />
+        <Route path="/owner-investments/:projectId" component={OwnerInvestmentsList} />
+        <Route path="/add-owner-investment/:projectId" component={(user.role === 'admin' || user.role === 'director') ? AddOwnerInvestment : NotFound} />
+        <Route path="/edit-owner-investment/:id" component={(user.role === 'admin' || user.role === 'director') ? EditOwnerInvestment : NotFound} />
+        <Route path="/employees" component={(user.role === 'admin' || user.role === 'director') ? EmployeeManagement : NotFound} />
+        <Route path="/contractors" component={(user.role === 'admin' || user.role === 'director') ? Contractors : NotFound} />
+        <Route path="/contractor/:id" component={(user.role === 'admin' || user.role === 'director') ? ContractorDetail : NotFound} />
+        <Route path="/contractor/:contractorId/project/:assignmentId" component={(user.role === 'admin' || user.role === 'director') ? EditContractorProject : NotFound} />
+        <Route path="/clients" component={(user.role === 'admin' || user.role === 'director') ? Clients : NotFound} />
+        <Route path="/test-client" component={TestClient} />
+        <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
+        <Route path="/tools" component={(user.role === 'admin' || user.role === 'director' || user.role === 'master') ? Tools : NotFound} />
+        <Route path="/personnel" component={(user.role === 'admin' || user.role === 'director') ? Personnel : NotFound} />
+        <Route path="/personnel/:id" component={(user.role === 'admin' || user.role === 'director') ? PersonnelDetail : NotFound} />
+        <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />
+        <Route path="/projects/:projectId/implementation-sheets" component={ImplementationSheets} />
+        <Route path="/implementation-sheets/:sheetId" component={ImplementationSheetView} />
+        <Route path="/analytics" component={(user.role === 'admin' || user.role === 'director') ? Analytics : NotFound} />
+        <Route path="/history/:projectId" component={(user.role === 'admin' || user.role === 'director') ? History : NotFound} />
+        <Route path="/archived-projects" component={(user.role === 'admin' || user.role === 'director') ? ArchivedProjects : NotFound} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 
