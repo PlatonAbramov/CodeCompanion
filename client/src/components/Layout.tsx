@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Home, Users, Receipt, Wrench, Users as StaffIcon, LogOut, UserCheck, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
@@ -12,6 +12,100 @@ export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Свайп-навигация: вправо — назад, влево — вперёд
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+    let tracking = false;
+
+    const isInteractive = (target: EventTarget | null): boolean => {
+      let el = target as HTMLElement | null;
+      while (el) {
+        const tag = el.tagName;
+        if (
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          tag === 'SELECT' ||
+          tag === 'BUTTON' ||
+          el.isContentEditable
+        ) {
+          return true;
+        }
+        // Горизонтально скроллящиеся контейнеры
+        if (el.scrollWidth > el.clientWidth) {
+          const style = window.getComputedStyle(el);
+          if (
+            style.overflowX === 'auto' ||
+            style.overflowX === 'scroll'
+          ) {
+            return true;
+          }
+        }
+        el = el.parentElement;
+      }
+      return false;
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        tracking = false;
+        return;
+      }
+      if (isInteractive(e.target)) {
+        tracking = false;
+        return;
+      }
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      startTime = Date.now();
+      tracking = true;
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!tracking) return;
+      tracking = false;
+
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      const dt = Date.now() - startTime;
+
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      // Условия валидного горизонтального свайпа
+      const minDistance = 80;
+      const maxDuration = 800;
+
+      if (
+        dt > maxDuration ||
+        absDx < minDistance ||
+        absDy > absDx * 0.6
+      ) {
+        return;
+      }
+
+      if (dx > 0) {
+        // Свайп слева направо — назад
+        window.history.back();
+      } else {
+        // Свайп справа налево — вперёд
+        window.history.forward();
+      }
+    };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
 
   // Показываем нижнюю навигацию только для аутентифицированных пользователей
   const showBottomNav = user && location !== '/login';
