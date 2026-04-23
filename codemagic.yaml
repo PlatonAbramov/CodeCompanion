@@ -32,8 +32,12 @@ workflows:
         script: xcode-project use-profiles
       - name: Increment build number
         script: |
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_ID")
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_ID")
+          if [ -z "$LATEST_BUILD_NUMBER" ]; then
+            LATEST_BUILD_NUMBER=1
+          fi
           NEW_BUILD_NUMBER=$(($LATEST_BUILD_NUMBER + 1))
+          echo "New build number: $NEW_BUILD_NUMBER"
           cd ios/App
           agvtool new-version -all $NEW_BUILD_NUMBER
       - name: Build iOS
