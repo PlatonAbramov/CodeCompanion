@@ -1,6 +1,8 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
-import { Home, Users, Receipt, Wrench, Users as StaffIcon, LogOut, UserCheck } from "lucide-react";
+import { useState } from "react";
+import { Home, Users, Receipt, Wrench, Users as StaffIcon, LogOut, UserCheck, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -8,134 +10,143 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Показываем нижнюю навигацию только для аутентифицированных пользователей
   const showBottomNav = user && location !== '/login';
 
+  const isActive = (prefix: string) => location.startsWith(prefix);
+
+  const go = (path: string) => {
+    setMenuOpen(false);
+    setLocation(path);
+  };
+
+  // Собираем список пунктов меню для текущей роли
+  const menuItems: { label: string; icon: any; path: string; active: boolean; testId: string }[] = [];
+
+  if (user?.role === 'client') {
+    menuItems.push({
+      label: 'Мои проекты',
+      icon: Receipt,
+      path: '/client-projects',
+      active: isActive('/client-projects'),
+      testId: 'menu-clients',
+    });
+  } else if (user) {
+    menuItems.push({
+      label: 'Главная',
+      icon: Home,
+      path: user.role === 'master' ? '/master' : '/director',
+      active: location === '/director' || location === '/master' || location === '/admin',
+      testId: 'menu-home',
+    });
+    menuItems.push({
+      label: 'Подрядчики',
+      icon: Users,
+      path: '/contractors',
+      active: isActive('/contractors'),
+      testId: 'menu-contractors',
+    });
+    if (user.role !== 'master') {
+      menuItems.push({
+        label: 'Заказчики',
+        icon: Receipt,
+        path: '/clients',
+        active: isActive('/clients'),
+        testId: 'menu-customers',
+      });
+    }
+    if (user.role === 'admin' || user.role === 'director' || user.role === 'master') {
+      menuItems.push({
+        label: 'Инструменты',
+        icon: Wrench,
+        path: '/tools',
+        active: isActive('/tools'),
+        testId: 'menu-tools',
+      });
+    }
+    if (user.role === 'admin' || user.role === 'director') {
+      menuItems.push({
+        label: 'Персонал',
+        icon: UserCheck,
+        path: '/personnel',
+        active: isActive('/personnel'),
+        testId: 'menu-personnel',
+      });
+      menuItems.push({
+        label: 'Сотрудники',
+        icon: StaffIcon,
+        path: '/admin',
+        active: isActive('/admin'),
+        testId: 'menu-staff',
+      });
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Основной контент с отступом снизу для навигации */}
-      <div className={showBottomNav ? "pb-20" : ""}> 
+      <div className={showBottomNav ? "pb-24" : ""}>
         {children}
       </div>
-      
-      {/* Фиксированная нижняя навигация */}
+
+      {/* Фиксированная нижняя навигация - одна кнопка-меню */}
       {showBottomNav && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
-          <div className="flex justify-around items-center h-16 px-4">
-            
-            {/* Навигация для клиентов - только заказчики */}
-            {user?.role === 'client' ? (
-              <>
-                <Link href="/client-projects" data-testid="nav-clients">
-                  <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                    location.startsWith('/client-projects') 
-                      ? 'text-blue-600 bg-blue-50' 
-                      : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                  }`}>
-                    <Receipt size={20} />
-                    <span className="text-xs mt-1">Мои проекты</span>
-                  </div>
-                </Link>
-                
-                {/* Кнопка выхода для клиентов */}
+        <div
+          className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <div className="flex justify-center items-center h-16 px-4">
+            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+              <SheetTrigger asChild>
                 <button
-                  onClick={() => {
-                    console.log('Client logout clicked');
-                    logout();
-                  }}
-                  className="flex flex-col items-center justify-center p-2 rounded-lg transition-colors text-gray-600 hover:text-blue-600 hover:bg-gray-50"
-                  data-testid="nav-logout"
+                  className="flex flex-col items-center justify-center px-6 py-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+                  data-testid="nav-menu"
+                  aria-label="Меню"
                 >
-                  <LogOut size={20} />
-                  <span className="text-xs mt-1">Выход</span>
+                  <Menu size={24} />
+                  <span className="text-xs mt-1">Меню</span>
                 </button>
-              </>
-            ) : (
-              <>
-                {/* Главная - только для не-клиентов */}
-                <Link href={user?.role === 'master' ? '/master' : '/director'} data-testid="nav-home">
-                  <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                    location === '/director' || location === '/master' || location === '/admin' 
-                      ? 'text-blue-600 bg-blue-50' 
-                      : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                  }`}>
-                    <Home size={20} />
-                    <span className="text-xs mt-1">Главная</span>
-                  </div>
-                </Link>
-
-                {/* Подрядчики - видны всем кроме заказчиков */}
-                <Link href="/contractors" data-testid="nav-contractors">
-                  <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                    location.startsWith('/contractors') 
-                      ? 'text-blue-600 bg-blue-50' 
-                      : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                  }`}>
-                    <Users size={20} />
-                    <span className="text-xs mt-1">Подрядчики</span>
-                  </div>
-                </Link>
-
-                {/* Заказчики - видны всем кроме мастеров */}
-                {user?.role !== 'master' && (
-                  <Link href="/clients" data-testid="nav-clients">
-                    <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                      location.startsWith('/clients') 
-                        ? 'text-blue-600 bg-blue-50' 
-                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                    }`}>
-                      <Receipt size={20} />
-                      <span className="text-xs mt-1">Заказчики</span>
-                    </div>
-                  </Link>
-                )}
-
-                {/* Инструменты - для admin/director/master */}
-                {(user?.role === 'admin' || user?.role === 'director' || user?.role === 'master') && (
-                  <Link href="/tools" data-testid="nav-tools">
-                    <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                      location.startsWith('/tools') 
-                        ? 'text-blue-600 bg-blue-50' 
-                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                    }`}>
-                      <Wrench size={20} />
-                      <span className="text-xs mt-1">Инструменты</span>
-                    </div>
-                  </Link>
-                )}
-
-                {/* Персонал (только для admin/director) */}
-                {(user?.role === 'admin' || user?.role === 'director') && (
-                  <Link href="/personnel" data-testid="nav-personnel">
-                    <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                      location.startsWith('/personnel') 
-                        ? 'text-blue-600 bg-blue-50' 
-                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                    }`}>
-                      <UserCheck size={20} />
-                      <span className="text-xs mt-1">Персонал</span>
-                    </div>
-                  </Link>
-                )}
-
-                {/* Сотрудники (только для admin/director) */}
-                {(user?.role === 'admin' || user?.role === 'director') && (
-                  <Link href="/admin" data-testid="nav-staff">
-                    <div className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                      location.startsWith('/admin') 
-                        ? 'text-blue-600 bg-blue-50' 
-                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                    }`}>
-                      <StaffIcon size={20} />
-                      <span className="text-xs mt-1">Сотрудники</span>
-                    </div>
-                  </Link>
-                )}
-              </>
-            )}
-
+              </SheetTrigger>
+              <SheetContent side="bottom" className="rounded-t-2xl">
+                <SheetHeader>
+                  <SheetTitle>Меню</SheetTitle>
+                </SheetHeader>
+                <div className="grid grid-cols-1 gap-1 mt-4 pb-4">
+                  {menuItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.path}
+                        onClick={() => go(item.path)}
+                        className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-colors ${
+                          item.active
+                            ? 'text-blue-600 bg-blue-50'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                        data-testid={item.testId}
+                      >
+                        <Icon size={20} />
+                        <span className="font-medium">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      logout();
+                    }}
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left text-red-600 hover:bg-red-50 transition-colors mt-2"
+                    data-testid="nav-logout"
+                  >
+                    <LogOut size={20} />
+                    <span className="font-medium">Выход</span>
+                  </button>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       )}
