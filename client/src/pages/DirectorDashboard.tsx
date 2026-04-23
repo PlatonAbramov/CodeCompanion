@@ -377,10 +377,7 @@ export default function DirectorDashboard() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header
-        className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 3.5rem)' }}
-      >
+      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
