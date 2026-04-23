@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -17,40 +16,36 @@ interface LoginData {
   password: string;
 }
 
+const AUTH_KEY = ['auth', 'me'] as const;
+
+async function fetchAuthMe(): Promise<User | null> {
+  try {
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    if (res.status === 401) return null;
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.user ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [forceUpdate, setForceUpdate] = useState(0);
 
-  // Check authentication on mount
-  useEffect(() => {
-    let isMounted = true;
-    
-    const checkAuth = async () => {
-      try {
-        const res = await apiRequest('/api/auth/me');
-        const userData = await res.json();
-        if (isMounted) {
-          setUser(userData.user);
-        }
-      } catch (error) {
-        // User not authenticated
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    checkAuth();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  // Один запрос на всю сессию: данные шарятся между всеми компонентами,
+  // которые вызывают useAuth. Инвалидация только при login/logout.
+  const {
+    data: user = null,
+    isLoading,
+  } = useQuery<User | null>({
+    queryKey: AUTH_KEY,
+    queryFn: fetchAuthMe,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
 
   // Login mutation
   const loginMutation = useMutation({
@@ -62,14 +57,13 @@ export function useAuth() {
       return res.json();
     },
     onSuccess: (data) => {
-      setUser(data.user);
-      setIsLoading(false);
-      setForceUpdate(prev => prev + 1);
+      // Сразу кладём пользователя в кэш — useAuth увидит обновлённые данные
+      queryClient.setQueryData(AUTH_KEY, data.user);
       toast({
         title: "Успешно",
         description: "Вход выполнен успешно",
       });
-      
+
       // Force page reload to ensure clean state
       setTimeout(() => {
         if (data.user.role === 'admin' || data.user.role === 'director') {
@@ -81,7 +75,7 @@ export function useAuth() {
         }
       }, 500);
     },
-    onError: (error: any) => {
+    onError: () => {
       toast({
         title: "Ошибка",
         description: "Неверный логин или пароль",
@@ -99,9 +93,7 @@ export function useAuth() {
       return res.json();
     },
     onSuccess: () => {
-      setUser(null);
-      setIsLoading(false);
-      setForceUpdate(prev => prev + 1);
+      queryClient.setQueryData(AUTH_KEY, null);
       queryClient.clear();
       toast({
         title: "Успешно",
@@ -129,6 +121,6 @@ export function useAuth() {
     logout,
     isLoggingIn: loginMutation.isPending,
     isLoggingOut: logoutMutation.isPending,
-    forceUpdate // Include force update in return to trigger re-render
+    forceUpdate: 0,
   };
 }

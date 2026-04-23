@@ -54,13 +54,23 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: 30000, // Автообновление каждые 30 секунд
-      refetchOnWindowFocus: true, // Обновление при фокусе на окне
-      staleTime: 10000, // Данные считаются устаревшими через 10 секунд
-      retry: false,
+      // Данные считаются свежими 30 сек — за это время повторное монтирование
+      // компонента не вызовет новый запрос.
+      staleTime: 30_000,
+      // Кэш живёт 5 минут после того, как ни один компонент его не использует.
+      gcTime: 5 * 60_000,
+      // Не перезапрашивать автоматически — данные обновляются точечной
+      // инвалидацией после мутаций.
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      retry: 1,
+      // При повторном открытии страницы показываем прошлые данные мгновенно,
+      // свежие подтягиваются в фоне (если staleTime истёк).
+      placeholderData: (prev: unknown) => prev,
     },
     mutations: {
-      retry: false,
+      retry: 0,
     },
   },
 });
