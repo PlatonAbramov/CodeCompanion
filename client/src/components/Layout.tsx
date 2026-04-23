@@ -78,7 +78,7 @@ export function Layout({ children }: LayoutProps) {
       const absDy = Math.abs(dy);
 
       // Условия валидного горизонтального свайпа
-      const minDistance = 80;
+      const minDistance = 40;
       const maxDuration = 800;
 
       if (
