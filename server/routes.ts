@@ -79,7 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   const sessionStore = new PgSession({
     pool: sessionPool,
-    tableName: 'user_sessions',
+    tableName: 'session',
     createTableIfMissing: true,
     pruneSessionInterval: 60 * 60, // чистим протухшие сессии раз в час
   });
