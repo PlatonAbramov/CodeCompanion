@@ -10,6 +10,7 @@ import { useLocation } from "wouter";
 import { useEffect, lazy, Suspense } from "react";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
+import { PageFallback } from "@/components/skeletons";
 
 // Lazy-загружаемые страницы — каждая попадает в отдельный chunk
 const DirectorDashboard = lazy(() => import("@/pages/DirectorDashboard"));
@@ -53,14 +54,6 @@ const Personnel = lazy(() =>
 const PersonnelDetail = lazy(() =>
   import("@/pages/PersonnelDetail").then((m) => ({ default: m.PersonnelDetail })),
 );
-
-function PageFallback() {
-  return (
-    <div className="min-h-[40vh] flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-    </div>
-  );
-}
 
 function AuthenticatedApp() {
   const { user, isLoading } = useAuth();

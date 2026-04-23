@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ListSkeleton } from "@/components/skeletons";
 import { 
   HardHat, LogOut, Plus, Home, Receipt, PlusCircle,
   Check, Calendar
@@ -72,10 +73,8 @@ export default function MasterDashboard() {
       <div className="px-4 pb-20">
         <h3 className="text-lg font-semibold text-slate-900 mb-4">Проекты</h3>
         
-        {isLoading ? (
-          <div className="text-center py-8">
-            <p className="text-slate-500">{t('loading')}</p>
-          </div>
+        {isLoading && projects.length === 0 ? (
+          <ListSkeleton count={4} />
         ) : projects.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center">

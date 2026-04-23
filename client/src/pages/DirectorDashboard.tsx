@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ListSkeleton } from "@/components/skeletons";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -679,10 +680,8 @@ export default function DirectorDashboard() {
           </DialogContent>
         </Dialog>
         
-        {isLoading ? (
-          <div className="text-center py-8">
-            <p className="text-slate-500">{t('loading')}</p>
-          </div>
+        {isLoading && projects.length === 0 ? (
+          <ListSkeleton count={4} />
         ) : (
           <div className="space-y-3">
             {projects.map((project) => (
