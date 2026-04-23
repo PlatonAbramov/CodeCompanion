@@ -382,7 +382,7 @@ export default function ImplementationSheetView() {
   }
 
   return (
-    <div className="container mx-auto px-4 pb-8" data-page-header>
+    <div className="container mx-auto px-4 py-8" data-page-header>
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">
           <Link href={`/projects/${sheet.projectId}/implementation-sheets`}>

@@ -270,8 +270,8 @@ export default function Tools() {
   };
 
   return (
-    <div className="container mx-auto px-4 pb-20" data-page-header>
-      <div className="flex items-center justify-between mb-6 pb-6">
+    <div className="container mx-auto py-6 px-4 pb-20" data-page-header>
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
