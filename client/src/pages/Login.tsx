@@ -56,31 +56,44 @@ export default function Login() {
               </p>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6" autoComplete="on" method="post" action="/api/auth/login">
               <div>
-                <Label className="block text-sm font-medium text-slate-700 mb-2">
+                <Label htmlFor="login-username" className="block text-sm font-medium text-slate-700 mb-2">
                   {t('username')}
                 </Label>
                 <Input
+                  id="login-username"
+                  name="username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder={t('username')}
                   required
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  inputMode="text"
                   className="w-full px-4 py-3"
                 />
               </div>
               
               <div>
-                <Label className="block text-sm font-medium text-slate-700 mb-2">
+                <Label htmlFor="login-password" className="block text-sm font-medium text-slate-700 mb-2">
                   {t('password')}
                 </Label>
                 <Input
+                  id="login-password"
+                  name="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t('password')}
                   required
+                  autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className="w-full px-4 py-3"
                 />
               </div>

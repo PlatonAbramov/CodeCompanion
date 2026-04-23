@@ -31,8 +31,23 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Долгие cache-заголовки для собранной статики (имена файлов содержат хэш Vite,
+// поэтому immutable безопасно). Срабатывает до express.static в server/vite.ts.
+// Cloudflare CDN с Cache Rules `/assets/*` Edge TTL 1 month подхватит это автоматически.
+app.use((req, res, next) => {
+  if (req.method === "GET" && req.path.startsWith("/assets/")) {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  }
+  next();
+});
+
 // Serve uploaded files statically
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static('uploads', {
+  maxAge: '7d',
+  setHeaders: (res) => {
+    res.setHeader("Cache-Control", "public, max-age=604800");
+  },
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();
