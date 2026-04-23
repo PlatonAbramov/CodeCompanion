@@ -12,11 +12,6 @@ workflows:
       node: v22
       xcode: latest
     scripts:
-      - name: Increment build number
-        script: |
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_ID")
-          cd ios/App
-          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
       - name: Install dependencies
         script: npm install
       - name: Build web
@@ -35,6 +30,12 @@ workflows:
         script: keychain add-certificates
       - name: Set up Xcode settings
         script: xcode-project use-profiles
+      - name: Increment build number
+        script: |
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_ID")
+          NEW_BUILD_NUMBER=$(($LATEST_BUILD_NUMBER + 1))
+          cd ios/App
+          agvtool new-version -all $NEW_BUILD_NUMBER
       - name: Build iOS
         script: |
           xcode-project build-ipa \
