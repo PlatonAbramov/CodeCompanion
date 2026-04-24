@@ -7,9 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   MoreVertical, Download, Eye, Plus, Edit,
-  FileText, Trash2, ChevronDown, ChevronUp,
+  FileText, Trash2, ChevronDown, ChevronUp, ChevronRight,
   History, Archive, ArchiveRestore, Upload, ArrowUpDown,
-  Calendar, DollarSign, User, Users, CheckCircle, AlertCircle
+  Calendar, DollarSign, User, Users, CheckCircle, AlertCircle,
+  Search, Bell, Pencil, Receipt
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -332,6 +333,124 @@ function MobileProjectHero({
   );
 }
 
+/* ====== DESKTOP HELPERS =================================== */
+
+function StatusPill({ status, size = 'md' }: { status?: string; size?: 'sm' | 'md' }) {
+  const s = getStatusInfo(status);
+  const small = size === 'sm';
+  return (
+    <span
+      className="inline-flex items-center gap-1.5"
+      style={{
+        background: s.bg,
+        color: s.color,
+        borderRadius: 999,
+        fontSize: small ? 10 : 11,
+        fontWeight: 600,
+        height: small ? 20 : 24,
+        padding: small ? '0 8px' : '0 10px',
+      }}
+    >
+      <span
+        className="rounded-full"
+        style={{ background: s.dot, width: 6, height: 6 }}
+      />
+      {s.label}
+    </span>
+  );
+}
+
+function ProgressRing({ value, color, size = 96 }: { value: number; color: string; size?: number }) {
+  const stroke = 9;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (Math.min(100, Math.max(0, value)) / 100) * circumference;
+  return (
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--corp-line)"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          style={{ transition: 'stroke-dashoffset .4s ease' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span
+          className="text-[18px] font-bold"
+          style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)', letterSpacing: '-0.5px' }}
+        >
+          {Math.round(value)}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function DesktopFinanceRow({
+  label,
+  amount,
+  tone = 'ink',
+  isLast,
+}: {
+  label: string;
+  amount: string | number;
+  tone?: 'ink' | 'pos' | 'neg';
+  isLast?: boolean;
+}) {
+  return (
+    <div
+      className="flex items-center justify-between py-2.5"
+      style={{ borderBottom: isLast ? 'none' : '1px solid var(--corp-line)' }}
+    >
+      <span className="text-[13px]" style={{ color: 'var(--corp-ink-2)' }}>{label}</span>
+      <MoneyAED amount={String(amount)} size={14} weight={700} tone={tone} />
+    </div>
+  );
+}
+
+function TeamMemberRow({ name, role }: { name: string; role: string }) {
+  const initial = (name || '?').trim().charAt(0).toUpperCase();
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <div
+        className="flex items-center justify-center flex-shrink-0"
+        style={{
+          width: 28,
+          height: 28,
+          background: 'rgba(91,88,235,0.10)',
+          color: 'var(--corp-accent)',
+          borderRadius: '50%',
+          fontSize: 11,
+          fontWeight: 700,
+        }}
+      >
+        {initial}
+      </div>
+      <span className="text-[13px]" style={{ color: 'var(--corp-ink)' }}>
+        <span style={{ fontWeight: 600 }}>{name}</span>
+        <span style={{ color: 'var(--corp-muted)', marginLeft: 6 }}>·</span>
+        <span style={{ color: 'var(--corp-muted)', marginLeft: 6 }}>{role}</span>
+      </span>
+    </div>
+  );
+}
+
 function MobileActionTile({
   onClick,
   icon,
@@ -390,6 +509,7 @@ export default function ProjectDetail() {
   const [expensesFilterByUser, setExpensesFilterByUser] = useState<string>('all');
   const [isCompleteProjectDialogOpen, setIsCompleteProjectDialogOpen] = useState(false);
   const [isPaymentsOpen, setIsPaymentsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'expenses' | 'documents' | 'team' | 'timeline'>('overview');
 
   const projectId = location.split('/')[2];
 
@@ -659,58 +779,578 @@ export default function ProjectDetail() {
   const totalPaid = clientPayments.reduce((sum, p) => sum + p.amount, 0);
   const remainingToPay = Number(project.totalCost) - totalPaid;
 
+  // Computed values for desktop dashboard
+  const desktopInitials = getProjectInitials(project.name);
+  const desktopTotalCost = parseFloat(project.totalCost || '0');
+  const desktopTotalExpenses = parseFloat(financialSummary?.totalExpenses || '0');
+  const desktopCurrentProfit = parseFloat(financialSummary?.currentProfit || '0');
+  const desktopRatio = desktopTotalCost > 0 ? Math.min(100, (desktopTotalExpenses / desktopTotalCost) * 100) : 0;
+  const desktopIsOverBudget = desktopCurrentProfit < 0;
+  const desktopRingColor = desktopIsOverBudget ? 'var(--corp-neg)' : 'var(--corp-pos)';
+  const desktopProjectIdShort = project.id.slice(0, 4).toUpperCase();
+  const desktopDaysLeft = (() => {
+    if (!project.endDate) return null;
+    const ms = new Date(project.endDate).getTime() - Date.now();
+    return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+  })();
+  const desktopRecentExpenses = filteredAndSortedExpenses.slice(0, 5);
+
+  const tabsConfig = [
+    { key: 'overview' as const, label: 'Обзор', count: undefined as number | undefined },
+    { key: 'expenses' as const, label: 'Расходы', count: expenses.length },
+    { key: 'documents' as const, label: 'Документы', count: documents.length },
+    { key: 'team' as const, label: 'Команда', count: uniqueUsers.length },
+    { key: 'timeline' as const, label: 'Таймлайн', count: undefined },
+  ];
+
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }} data-page-header>
-      <CorpHeader
-        title={project.name}
-        subtitle={project.location || undefined}
-        onBack={goBack}
-        action={
-          isAdminOrDirector ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="w-9 h-9 rounded-lg flex items-center justify-center"
-                  style={{ color: 'var(--corp-ink-2)' }}
-                  data-testid="button-project-menu"
-                >
-                  <MoreVertical size={18} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setLocation(`/history/${projectId}`)} data-testid="menu-history">
-                  <History className="h-4 w-4 mr-2" />
-                  История изменений
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleArchive()} data-testid="menu-archive">
-                  {project.status === 'archived' ? (
-                    <>
-                      <ArchiveRestore className="h-4 w-4 mr-2" />
-                      Разархивировать
-                    </>
-                  ) : (
-                    <>
-                      <Archive className="h-4 w-4 mr-2" />
-                      Архивировать
-                    </>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  style={{ color: 'var(--corp-neg)' }}
-                  data-testid="menu-delete-project"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Удалить проект
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : undefined
-        }
-      />
+      {/* === MOBILE HEADER (lg:hidden) ============================ */}
+      <div className="lg:hidden">
+        <CorpHeader
+          title={project.name}
+          subtitle={project.location || undefined}
+          onBack={goBack}
+          action={
+            isAdminOrDirector ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-9 h-9 rounded-lg flex items-center justify-center"
+                    style={{ color: 'var(--corp-ink-2)' }}
+                    data-testid="button-project-menu"
+                  >
+                    <MoreVertical size={18} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setLocation(`/history/${projectId}`)} data-testid="menu-history">
+                    <History className="h-4 w-4 mr-2" />
+                    История изменений
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleArchive()} data-testid="menu-archive">
+                    {project.status === 'archived' ? (
+                      <>
+                        <ArchiveRestore className="h-4 w-4 mr-2" />
+                        Разархивировать
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="h-4 w-4 mr-2" />
+                        Архивировать
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    style={{ color: 'var(--corp-neg)' }}
+                    data-testid="menu-delete-project"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Удалить проект
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : undefined
+          }
+        />
+      </div>
 
-      <div className="p-4 space-y-3">
+      {/* === DESKTOP HEADER (hidden lg:block) ===================== */}
+      <div className="hidden lg:block" style={{ background: 'var(--corp-surface)' }}>
+        {/* Top utility bar */}
+        <div
+          className="px-8 h-14 flex items-center gap-4"
+          style={{ borderBottom: '1px solid var(--corp-line)' }}
+        >
+          <nav className="flex items-center gap-2 text-[13px]">
+            <button
+              type="button"
+              onClick={goBack}
+              className="hover:underline"
+              style={{ color: 'var(--corp-muted)' }}
+              data-testid="breadcrumb-projects"
+            >
+              Проекты
+            </button>
+            <ChevronRight size={14} style={{ color: 'var(--corp-muted)' }} />
+            <span style={{ color: 'var(--corp-ink)', fontWeight: 600 }}>{project.name}</span>
+          </nav>
+
+          <div className="flex-1" />
+
+          <div className="relative max-w-md flex-1">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2"
+              style={{ color: 'var(--corp-muted)' }}
+            />
+            <input
+              type="text"
+              placeholder="Поиск по проектам, расходам..."
+              className="w-full h-9 pl-9 pr-12 text-[13px] outline-none"
+              style={{
+                background: 'var(--corp-surface-2)',
+                color: 'var(--corp-ink)',
+                border: '1px solid transparent',
+                borderRadius: 'var(--corp-r)',
+              }}
+              data-testid="input-search-desktop"
+            />
+            <kbd
+              className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-semibold"
+              style={{
+                background: 'var(--corp-surface)',
+                color: 'var(--corp-muted)',
+                border: '1px solid var(--corp-line)',
+                borderRadius: 4,
+                fontFamily: 'var(--corp-mono)',
+              }}
+            >
+              ⌘K
+            </kbd>
+          </div>
+
+          <button
+            type="button"
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[var(--corp-surface-2)]"
+            style={{ color: 'var(--corp-ink-2)' }}
+            data-testid="button-bell-desktop"
+          >
+            <Bell size={16} />
+          </button>
+
+          {user?.role !== 'client' && (
+            <button
+              type="button"
+              onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[13px] font-semibold transition-colors"
+              style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+              data-testid="button-topbar-add-expense"
+            >
+              <Plus size={14} />
+              Расход
+            </button>
+          )}
+        </div>
+
+        {/* Hero block */}
+        <div className="px-8 pt-6 pb-4 flex items-start gap-5">
+          <div
+            className="flex items-center justify-center flex-shrink-0"
+            style={{
+              width: 80,
+              height: 80,
+              background: 'rgba(91,88,235,0.10)',
+              color: 'var(--corp-accent)',
+              borderRadius: 16,
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {desktopInitials}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-1.5">
+              <StatusPill status={project.status} />
+              <span
+                className="text-[12px]"
+                style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)', letterSpacing: '0.02em' }}
+              >
+                #PRJ-{desktopProjectIdShort}
+              </span>
+            </div>
+            <h1
+              className="text-[32px] font-bold leading-tight truncate"
+              style={{ color: 'var(--corp-ink)', letterSpacing: '-0.6px' }}
+              data-testid="text-project-title-desktop"
+            >
+              {project.name}
+              {project.location ? (
+                <span style={{ color: 'var(--corp-muted)', fontWeight: 600 }}> · {project.location}</span>
+              ) : null}
+            </h1>
+            <div
+              className="text-[13px] mt-1.5 flex items-center gap-2 flex-wrap"
+              style={{ color: 'var(--corp-muted)' }}
+            >
+              {project.endDate && (
+                <span style={{ fontFamily: 'var(--corp-mono)' }}>до {fmtDateRu(project.endDate)}</span>
+              )}
+              {project.endDate && uniqueUsers.length > 0 && <span>·</span>}
+              {uniqueUsers.length > 0 && (
+                <span>
+                  <span style={{ fontFamily: 'var(--corp-mono)' }}>{uniqueUsers.length}</span> участников
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {isAdminOrDirector && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 h-10 px-3.5 text-[13px] font-semibold transition-colors"
+                    style={{
+                      background: 'var(--corp-surface)',
+                      color: 'var(--corp-ink)',
+                      border: '1px solid var(--corp-line)',
+                      borderRadius: 'var(--corp-r)',
+                    }}
+                    data-testid="button-edit-desktop"
+                  >
+                    <Pencil size={14} />
+                    Редактировать
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setLocation(`/history/${projectId}`)} data-testid="menu-history-desktop">
+                    <History className="h-4 w-4 mr-2" />
+                    История изменений
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleArchive()} data-testid="menu-archive-desktop">
+                    {project.status === 'archived' ? (
+                      <>
+                        <ArchiveRestore className="h-4 w-4 mr-2" />
+                        Разархивировать
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="h-4 w-4 mr-2" />
+                        Архивировать
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    style={{ color: 'var(--corp-neg)' }}
+                    data-testid="menu-delete-project-desktop"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Удалить проект
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {user?.role !== 'client' && (
+              <button
+                type="button"
+                onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
+                className="inline-flex items-center gap-1.5 h-10 px-3.5 text-[13px] font-semibold transition-colors"
+                style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-accent-hover)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--corp-accent)'; }}
+                data-testid="button-hero-add-expense"
+              >
+                <Plus size={14} />
+                Расход
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div
+          className="px-8 flex items-end gap-6"
+          style={{ borderBottom: '1px solid var(--corp-line)' }}
+        >
+          {tabsConfig.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className="h-12 inline-flex items-center text-[13px] font-semibold transition-colors"
+                style={{
+                  color: isActive ? 'var(--corp-ink)' : 'var(--corp-muted)',
+                  borderBottom: isActive ? '2px solid var(--corp-ink)' : '2px solid transparent',
+                  marginBottom: -1,
+                }}
+                data-testid={`tab-${tab.key}`}
+              >
+                {tab.label}
+                {tab.count != null && (
+                  <span
+                    className="ml-1.5"
+                    style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-muted)' }}
+                  >
+                    · {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* === DESKTOP CONTENT (hidden lg:block) ==================== */}
+      <div className="hidden lg:block px-8 py-6">
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-3 gap-5">
+            {/* LEFT (2 cols) */}
+            <div className="col-span-2 space-y-5">
+              {/* Прогресс проекта */}
+              <div
+                className="p-5"
+                style={{
+                  background: 'var(--corp-surface)',
+                  border: '1px solid var(--corp-line)',
+                  borderRadius: 'var(--corp-r-lg)',
+                }}
+              >
+                <h3
+                  className="text-[14px] font-bold mb-4"
+                  style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
+                >
+                  Прогресс проекта
+                </h3>
+                <div className="flex items-center gap-6">
+                  <ProgressRing value={desktopRatio} color={desktopRingColor} size={96} />
+                  <div className="grid grid-cols-3 gap-6 flex-1">
+                    {project.startDate && (
+                      <div>
+                        <div
+                          className="text-[10px] font-bold uppercase mb-1"
+                          style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+                        >
+                          Старт
+                        </div>
+                        <div
+                          className="text-[15px] font-bold"
+                          style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}
+                        >
+                          {fmtDateRu(project.startDate)}
+                        </div>
+                      </div>
+                    )}
+                    {project.endDate && (
+                      <div>
+                        <div
+                          className="text-[10px] font-bold uppercase mb-1"
+                          style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+                        >
+                          Дедлайн
+                        </div>
+                        <div
+                          className="text-[15px] font-bold"
+                          style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}
+                        >
+                          {fmtDateRu(project.endDate)}
+                        </div>
+                      </div>
+                    )}
+                    {desktopDaysLeft != null && (
+                      <div>
+                        <div
+                          className="text-[10px] font-bold uppercase mb-1"
+                          style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+                        >
+                          Дней осталось
+                        </div>
+                        <div
+                          className="text-[15px] font-bold"
+                          style={{
+                            color: desktopDaysLeft < 7 ? 'var(--corp-neg)' : 'var(--corp-ink)',
+                            fontFamily: 'var(--corp-mono)',
+                          }}
+                        >
+                          {desktopDaysLeft}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Последние расходы */}
+              {isAdminOrDirector && (
+                <div
+                  className="p-5"
+                  style={{
+                    background: 'var(--corp-surface)',
+                    border: '1px solid var(--corp-line)',
+                    borderRadius: 'var(--corp-r-lg)',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3
+                      className="text-[14px] font-bold"
+                      style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
+                    >
+                      Последние расходы
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('expenses')}
+                      className="inline-flex items-center gap-1 text-[13px] font-semibold"
+                      style={{ color: 'var(--corp-accent)' }}
+                      data-testid="button-all-expenses-overview"
+                    >
+                      Все <ChevronRight size={14} />
+                    </button>
+                  </div>
+                  {desktopRecentExpenses.length === 0 ? (
+                    <p className="text-center py-6 text-[13px]" style={{ color: 'var(--corp-muted)' }}>
+                      Расходов пока нет
+                    </p>
+                  ) : (
+                    <div className="divide-y" style={{ borderColor: 'var(--corp-line)' }}>
+                      {desktopRecentExpenses.map((expense) => (
+                        <div
+                          key={expense.id}
+                          className="flex items-center gap-3 py-3"
+                          style={{ borderTop: 'none' }}
+                        >
+                          <div
+                            className="flex items-center justify-center flex-shrink-0"
+                            style={{
+                              width: 32,
+                              height: 32,
+                              background: 'var(--corp-surface-2)',
+                              color: 'var(--corp-ink-2)',
+                              borderRadius: 'var(--corp-r)',
+                            }}
+                          >
+                            <Receipt size={14} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div
+                              className="text-[13px] font-semibold truncate"
+                              style={{ color: 'var(--corp-ink)' }}
+                            >
+                              {expense.description || getCategoryLabel(expense.category)}
+                            </div>
+                            <div
+                              className="text-[11px] truncate"
+                              style={{ color: 'var(--corp-muted)' }}
+                            >
+                              {getCategoryLabel(expense.category)} · {expense.user?.name || 'Неизвестно'} ·{' '}
+                              <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(expense.createdAt)}</span>
+                            </div>
+                          </div>
+                          <MoneyAED amount={expense.amount} size={14} weight={700} tone="neg" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT (1 col) */}
+            <div className="col-span-1 space-y-5">
+              {/* Финансы */}
+              {financialSummary && isAdminOrDirector && (
+                <div
+                  className="p-5"
+                  style={{
+                    background: 'var(--corp-surface)',
+                    border: '1px solid var(--corp-line)',
+                    borderRadius: 'var(--corp-r-lg)',
+                  }}
+                >
+                  <h3
+                    className="text-[11px] font-bold uppercase mb-3"
+                    style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+                  >
+                    Финансы
+                  </h3>
+                  <DesktopFinanceRow label="Стоимость" amount={financialSummary.totalCost} tone="ink" />
+                  <DesktopFinanceRow label="Получено" amount={financialSummary.totalCustomerAdvances} tone="pos" />
+                  <DesktopFinanceRow label="Расходы" amount={financialSummary.totalExpenses} tone="neg" />
+                  <DesktopFinanceRow label="Авансы команды" amount={financialSummary.totalAdvances} tone="neg" />
+                  <DesktopFinanceRow
+                    label="Прибыль"
+                    amount={financialSummary.currentProfit}
+                    tone={parseFloat(financialSummary.currentProfit) >= 0 ? 'pos' : 'neg'}
+                    isLast
+                  />
+                </div>
+              )}
+
+              {/* Команда */}
+              {uniqueUsers.length > 0 && (
+                <div
+                  className="p-5"
+                  style={{
+                    background: 'var(--corp-surface)',
+                    border: '1px solid var(--corp-line)',
+                    borderRadius: 'var(--corp-r-lg)',
+                  }}
+                >
+                  <h3
+                    className="text-[11px] font-bold uppercase mb-2"
+                    style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+                  >
+                    Команда
+                  </h3>
+                  <div>
+                    {uniqueUsers.map((name) => (
+                      <TeamMemberRow key={name as string} name={name as string} role="Участник" />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Other tabs render existing collapsible content (already in mobile block) */}
+        {activeTab !== 'overview' && (
+          <div
+            className="p-6 text-center text-[13px]"
+            style={{
+              background: 'var(--corp-surface)',
+              border: '1px solid var(--corp-line)',
+              borderRadius: 'var(--corp-r-lg)',
+              color: 'var(--corp-muted)',
+            }}
+          >
+            {activeTab === 'expenses' && (
+              <button
+                type="button"
+                onClick={() => setLocation(`/expenses/${projectId}`)}
+                className="inline-flex items-center gap-2 text-[13px] font-semibold"
+                style={{ color: 'var(--corp-accent)' }}
+              >
+                Открыть полный список расходов <ChevronRight size={14} />
+              </button>
+            )}
+            {activeTab === 'documents' && (
+              <button
+                type="button"
+                onClick={() => setIsDocumentsOpen(true)}
+                className="inline-flex items-center gap-2 text-[13px] font-semibold"
+                style={{ color: 'var(--corp-accent)' }}
+              >
+                Раздел «Документы» доступен ниже на мобильной разметке. <ChevronRight size={14} />
+              </button>
+            )}
+            {activeTab === 'team' && (
+              <span>Список участников отображается в разделе «Обзор» справа.</span>
+            )}
+            {activeTab === 'timeline' && (
+              <button
+                type="button"
+                onClick={() => setLocation(`/history/${projectId}`)}
+                className="inline-flex items-center gap-2 text-[13px] font-semibold"
+                style={{ color: 'var(--corp-accent)' }}
+              >
+                Открыть историю изменений <ChevronRight size={14} />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* === MOBILE CONTENT (lg:hidden) =========================== */}
+      <div className="lg:hidden p-4 space-y-3">
         {/* === MOBILE HERO CARD (lg:hidden) ====================== */}
         <MobileProjectHero
           project={project}
