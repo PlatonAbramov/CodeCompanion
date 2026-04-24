@@ -13,9 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertToolSchema, insertToolMovementSchema, type Tool, type ToolMovement } from "@shared/schema";
 import { z } from "zod";
-import { Plus, Search, Camera, User, Package, ArrowUpDown, Eye, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Camera, User, Package, ArrowUpDown, Eye, MoreVertical, Edit, Trash2, Wrench, Bell } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { CorpHeader, MoneyAED, CorpEmpty, fmtDateRu } from "@/components/corp-ui";
+import { CorpHeader, MoneyAED, CorpEmpty, fmtDateRu, fmtNum } from "@/components/corp-ui";
 
 interface ToolWithPerson extends Tool {
   currentPerson?: { name: string; phone: string };
@@ -45,22 +45,28 @@ const SECTION_STYLE: React.CSSProperties = {
   borderRadius: 'var(--corp-r-lg)',
 };
 
-function StatusPill({ status }: { status: string | null }) {
+function StatusPill({ status, withDot = true }: { status: string | null; withDot?: boolean }) {
   const cfg =
-    status === 'AVAILABLE' ? { bg: 'rgba(22,163,74,0.10)', color: 'var(--corp-pos)', text: 'В наличии' } :
-    status === 'OUT' ? { bg: 'rgba(245,158,11,0.10)', color: 'var(--corp-warn, #f59e0b)', text: 'У человека' } :
-    status === 'WRITTEN_OFF' ? { bg: 'rgba(220,38,38,0.10)', color: 'var(--corp-neg)', text: 'Списан' } :
-    { bg: 'var(--corp-surface-2)', color: 'var(--corp-ink-3)', text: status || '—' };
+    status === 'AVAILABLE' ? { bg: 'rgba(22,163,74,0.10)', color: 'var(--corp-pos)', dot: 'var(--corp-pos)', text: 'В наличии' } :
+    status === 'OUT' ? { bg: 'rgba(91,88,235,0.10)', color: 'var(--corp-accent)', dot: 'var(--corp-accent)', text: 'В работе' } :
+    status === 'WRITTEN_OFF' ? { bg: 'rgba(220,38,38,0.10)', color: 'var(--corp-neg)', dot: 'var(--corp-neg)', text: 'Списан' } :
+    { bg: 'var(--corp-surface-2)', color: 'var(--corp-ink-3)', dot: 'var(--corp-ink-3)', text: status || '—' };
   return (
     <span
-      className="inline-flex items-center px-2 h-5 text-[10px] font-bold uppercase"
+      className="inline-flex items-center gap-1.5 px-2 h-6 text-[11px] font-semibold"
       style={{
         background: cfg.bg,
         color: cfg.color,
-        borderRadius: 'var(--corp-r-sm)',
-        letterSpacing: '0.04em',
+        borderRadius: 999,
+        letterSpacing: '-0.05px',
       }}
     >
+      {withDot && (
+        <span
+          className="inline-block rounded-full"
+          style={{ width: 6, height: 6, background: cfg.dot }}
+        />
+      )}
       {cfg.text}
     </span>
   );
@@ -283,6 +289,8 @@ export default function Tools() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }} data-page-header>
+      {/* === MOBILE HEADER (lg:hidden) ============================ */}
+      <div className="lg:hidden">
       <CorpHeader
         title="Инструменты"
         onBack={() => setLocation('/director')}
@@ -392,8 +400,107 @@ export default function Tools() {
           ) : undefined
         }
       />
+      </div>
 
-      <div className="p-4 space-y-4">
+      {/* === DESKTOP HEADER (hidden lg:block) ====================== */}
+      <div className="hidden lg:block" style={{ background: 'var(--corp-surface)' }}>
+        {/* Top utility bar */}
+        <div
+          className="px-8 h-14 flex items-center gap-4"
+          style={{ borderBottom: '1px solid var(--corp-line)' }}
+        >
+          <h2
+            className="text-[15px] font-semibold"
+            style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
+          >
+            Инструменты
+          </h2>
+
+          <div className="flex-1" />
+
+          <div className="relative max-w-md flex-1">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
+              style={{ color: 'var(--corp-muted)' }}
+            />
+            <input
+              type="text"
+              placeholder="Поиск по проектам, расходам..."
+              className="w-full h-9 pl-9 pr-12 text-[13px] outline-none"
+              style={{
+                background: 'var(--corp-surface-2)',
+                color: 'var(--corp-ink)',
+                border: '1px solid transparent',
+                borderRadius: 'var(--corp-r)',
+              }}
+              data-testid="input-search-tools-topbar"
+            />
+            <kbd
+              className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-semibold"
+              style={{
+                background: 'var(--corp-surface)',
+                color: 'var(--corp-muted)',
+                border: '1px solid var(--corp-line)',
+                borderRadius: 4,
+                fontFamily: 'var(--corp-mono)',
+              }}
+            >
+              ⌘K
+            </kbd>
+          </div>
+
+          <button
+            type="button"
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[var(--corp-surface-2)]"
+            style={{ color: 'var(--corp-ink-2)' }}
+            data-testid="button-bell-tools-desktop"
+          >
+            <Bell size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setLocation('/add-expense')}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[13px] font-semibold transition-colors"
+            style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+            data-testid="button-topbar-add-expense-tools"
+          >
+            <Plus size={14} />
+            Расход
+          </button>
+        </div>
+
+        {/* Page header */}
+        <div className="px-8 pt-6 pb-5 flex items-end justify-between gap-4">
+          <h1
+            className="text-[28px] font-bold leading-tight"
+            style={{ color: 'var(--corp-ink)', letterSpacing: '-0.6px' }}
+          >
+            Инструменты
+            <span
+              className="ml-2 text-[20px] font-semibold"
+              style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}
+            >
+              {tools.length}
+            </span>
+          </h1>
+
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="inline-flex items-center gap-1.5 h-10 px-3.5 text-[13px] font-semibold transition-colors"
+              style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+              data-testid="button-add-tool-desktop"
+            >
+              <Plus size={14} />
+              Добавить инструмент
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 lg:px-8 lg:pt-2 space-y-4">
         {/* Search */}
         <div className="relative">
           <Search
@@ -427,98 +534,116 @@ export default function Tools() {
             description={searchQuery || filterStatus !== 'all' ? 'Попробуйте изменить фильтры' : 'Добавьте первый инструмент'}
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {filteredTools.map((tool) => (
-              <div key={tool.id} className="p-4 transition-shadow hover:shadow-md" style={SECTION_STYLE} data-testid={`card-tool-${tool.id}`}>
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[14px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>
-                      {tool.name}
-                    </h3>
-                    {tool.inventoryNumber && (
-                      <p className="text-[11px]" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
-                        № {tool.inventoryNumber}
-                      </p>
-                    )}
+              <div
+                key={tool.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openToolDetail(tool)}
+                onKeyDown={(e) => { if (e.key === 'Enter') openToolDetail(tool); }}
+                className="group relative p-5 cursor-pointer transition-all hover:shadow-sm flex flex-col"
+                style={SECTION_STYLE}
+                data-testid={`card-tool-${tool.id}`}
+              >
+                {/* TOP ROW: icon + status pill */}
+                <div className="flex items-start justify-between gap-2 mb-5">
+                  <div
+                    className="w-12 h-12 flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: 'var(--corp-surface-2)',
+                      color: 'var(--corp-ink-3)',
+                      borderRadius: 'var(--corp-r)',
+                    }}
+                  >
+                    <Wrench size={18} />
                   </div>
-                  <div className="flex items-center gap-1">
-                    <StatusPill status={tool.status} />
-                    {canManage && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="h-7 w-7 flex items-center justify-center rounded transition-colors"
-                            style={{ color: 'var(--corp-ink-3)' }}
-                            data-testid={`button-menu-${tool.id}`}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditModal(tool)} data-testid={`menu-edit-${tool.id}`}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Редактировать
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(tool.id)}
-                            style={{ color: 'var(--corp-neg)' }}
-                            data-testid={`menu-delete-${tool.id}`}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Удалить
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
+                  <StatusPill status={tool.status} />
                 </div>
 
-                <div className="space-y-2 mt-3">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-3.5 w-3.5" style={{ color: 'var(--corp-ink-3)' }} />
-                    <MoneyAED amount={parseFloat(tool.cost) || 0} size={13} weight={600} tone="ink" />
-                  </div>
+                {/* NAME */}
+                <h3
+                  className="text-[15px] font-bold leading-snug"
+                  style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
+                >
+                  {tool.name}
+                </h3>
 
-                  {tool.status === 'OUT' && tool.currentPerson && (
-                    <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--corp-ink-2)' }}>
-                      <User className="h-3.5 w-3.5" style={{ color: 'var(--corp-ink-3)' }} />
-                      <span className="truncate">
-                        {tool.currentPerson.name}
-                        <span style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
-                          {' '}({tool.currentPerson.phone})
-                        </span>
-                      </span>
-                    </div>
-                  )}
+                {/* INV NUMBER */}
+                {tool.inventoryNumber && (
+                  <p
+                    className="text-[11px] mt-1"
+                    style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}
+                  >
+                    № {tool.inventoryNumber}
+                  </p>
+                )}
 
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => openToolDetail(tool)}
-                      className="flex-1 inline-flex items-center justify-center gap-1 h-8 text-[12px] font-semibold transition-colors"
-                      style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)', borderRadius: 'var(--corp-r-sm)' }}
-                      data-testid={`button-detail-${tool.id}`}
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      Детали
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openMovementModal(tool)}
-                      className="flex-1 inline-flex items-center justify-center gap-1 h-8 text-[12px] font-semibold transition-colors"
-                      style={{
-                        background: tool.status === 'AVAILABLE' ? 'var(--corp-accent)' : 'var(--corp-ink)',
-                        color: '#fff',
-                        borderRadius: 'var(--corp-r-sm)',
-                      }}
-                      data-testid={`button-movement-${tool.id}`}
-                    >
-                      <ArrowUpDown className="h-3.5 w-3.5" />
-                      {tool.status === 'AVAILABLE' ? 'Выдать' : 'Вернуть'}
-                    </button>
-                  </div>
+                {/* AMOUNT */}
+                <div className="mt-4 flex items-baseline gap-1.5">
+                  <span
+                    className="text-[22px] font-bold leading-none"
+                    style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)', letterSpacing: '-0.5px' }}
+                  >
+                    {fmtNum(parseFloat(tool.cost) || 0)}
+                  </span>
+                  <span
+                    className="text-[10px] font-bold uppercase"
+                    style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+                  >
+                    AED
+                  </span>
                 </div>
+
+                {/* CURRENT PERSON (if OUT) */}
+                {tool.status === 'OUT' && tool.currentPerson && (
+                  <div
+                    className="mt-3 pt-3 flex items-center gap-1.5 text-[11px]"
+                    style={{ borderTop: '1px solid var(--corp-line)', color: 'var(--corp-ink-3)' }}
+                  >
+                    <User className="h-3 w-3" style={{ color: 'var(--corp-muted)' }} />
+                    <span className="truncate">{tool.currentPerson.name}</span>
+                  </div>
+                )}
+
+                {/* HOVER ACTIONS: top-right kebab + bottom-right Выдать/Вернуть */}
+                {canManage && (
+                  <div
+                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="h-7 w-7 flex items-center justify-center rounded transition-colors"
+                          style={{ background: 'var(--corp-surface)', color: 'var(--corp-ink-3)', border: '1px solid var(--corp-line)' }}
+                          data-testid={`button-menu-${tool.id}`}
+                        >
+                          <MoreVertical className="h-3.5 w-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openMovementModal(tool)} data-testid={`menu-movement-${tool.id}`}>
+                          <ArrowUpDown className="mr-2 h-4 w-4" />
+                          {tool.status === 'AVAILABLE' ? 'Выдать' : 'Вернуть'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openEditModal(tool)} data-testid={`menu-edit-${tool.id}`}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Редактировать
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(tool.id)}
+                          style={{ color: 'var(--corp-neg)' }}
+                          data-testid={`menu-delete-${tool.id}`}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Удалить
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
               </div>
             ))}
           </div>
