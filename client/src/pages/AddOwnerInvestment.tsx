@@ -5,31 +5,45 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { CorpHeader } from "@/components/corp-ui";
+
+const SECTION_STYLE: React.CSSProperties = {
+  background: 'var(--corp-surface)',
+  border: '1px solid var(--corp-line)',
+  borderRadius: 'var(--corp-r-lg)',
+};
+
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <Label
+      className="block text-[10px] font-bold uppercase mb-1.5"
+      style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+    >
+      {children}
+      {required && <span style={{ color: 'var(--corp-neg)', marginLeft: 2 }}>*</span>}
+    </Label>
+  );
+}
 
 export default function AddOwnerInvestment() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Restrict access to admin and director only
   if (user && user.role !== 'admin' && user.role !== 'director') {
     setLocation('/master');
     return null;
   }
-  
-  // Extract project ID from URL
+
   const projectId = location.split('/')[2];
-  
-  // Get investor from URL params if specified
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const preSelectedInvestor = urlParams.get('investor');
 
@@ -37,158 +51,160 @@ export default function AddOwnerInvestment() {
     amount: '',
     investor: preSelectedInvestor || '',
     description: '',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
   });
 
   const createOwnerInvestmentMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest(`/api/projects/${projectId}/owner-investments`, {
-        method: 'POST',
-        body: JSON.stringify(data)
+        method: 'POST', body: JSON.stringify(data),
       });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'owner-investments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
-      toast({
-        title: "Успешно",
-        description: "Вложение добавлено",
-      });
+      toast({ title: "Успешно", description: "Вложение добавлено" });
       setLocation(`/owner-investments/${projectId}`);
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось добавить вложение",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось добавить вложение", variant: "destructive" });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!formData.amount || !formData.investor || !formData.date) {
-      toast({
-        title: "Ошибка",
-        description: "Заполните все обязательные поля",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Заполните все обязательные поля", variant: "destructive" });
       return;
     }
-
     createOwnerInvestmentMutation.mutate(formData);
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const goBack = () => setLocation(`/owner-investments/${projectId}`);
+
+  const formatNum = (s: string) => {
+    if (!s) return '';
+    return parseFloat(s || "0").toLocaleString("ru-RU");
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setLocation(`/owner-investments/${projectId}`)}
-              className="mr-3"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <h1 className="text-xl font-semibold text-slate-900">
-              Добавить вложение
-            </h1>
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      <CorpHeader title="Новое вложение" subtitle="Из своих средств" onBack={goBack} />
+
+      <main className="px-4 pt-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {/* Amount */}
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>Сумма (AED)</FieldLabel>
+            <div className="relative">
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                value={formData.amount}
+                onChange={(e) => handleInputChange('amount', e.target.value)}
+                placeholder="0.00"
+                required
+                className="pr-14 h-12 text-[20px] font-bold"
+                style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-neg)' }}
+                data-testid="input-amount"
+              />
+              <span
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold uppercase"
+                style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+              >
+                AED
+              </span>
+            </div>
+            {formData.amount && (
+              <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                {formatNum(formData.amount)}{'\u00A0'}AED
+              </p>
+            )}
           </div>
-        </div>
-      </header>
 
-      {/* Content */}
-      <div className="p-4">
-        <Card className="max-w-md mx-auto shadow-sm">
-          <CardHeader>
-            <CardTitle>Новое вложение из своих средств</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="amount">Сумма (AED) *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => handleInputChange('amount', e.target.value)}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
+          {/* Investor */}
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>Инвестор</FieldLabel>
+            <Select
+              value={formData.investor}
+              onValueChange={(v) => handleInputChange('investor', v)}
+            >
+              <SelectTrigger className="h-10 text-[13px]" data-testid="select-investor">
+                <SelectValue placeholder="Выберите инвестора" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vlad">Влад</SelectItem>
+                <SelectItem value="platon">Платон</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              <div>
-                <Label htmlFor="investor">Инвестор *</Label>
-                <Select 
-                  value={formData.investor} 
-                  onValueChange={(value) => handleInputChange('investor', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите инвестора" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="vlad">Влад</SelectItem>
-                    <SelectItem value="platon">Платон</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Date */}
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>Дата</FieldLabel>
+            <Input
+              id="date"
+              type="date"
+              value={formData.date}
+              onChange={(e) => handleInputChange('date', e.target.value)}
+              required
+              className="h-10 text-[13px]"
+              style={{ fontFamily: 'var(--corp-mono)' }}
+              data-testid="input-date"
+            />
+          </div>
 
-              <div>
-                <Label htmlFor="date">Дата *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => handleInputChange('date', e.target.value)}
-                  required
-                />
-              </div>
+          {/* Description */}
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel>Описание</FieldLabel>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => handleInputChange('description', e.target.value)}
+              placeholder="Опциональное описание вложения"
+              rows={3}
+              className="text-[13px] resize-none"
+              data-testid="input-description"
+            />
+          </div>
 
-              <div>
-                <Label htmlFor="description">Описание</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Опциональное описание вложения"
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setLocation(`/owner-investments/${projectId}`)}
-                >
-                  Отмена
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={createOwnerInvestmentMutation.isPending}
-                >
-                  {createOwnerInvestmentMutation.isPending ? "Добавление..." : "Добавить"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+          {/* Buttons */}
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={goBack}
+              className="flex-1 h-12 text-[14px] font-semibold transition-colors"
+              style={{
+                background: 'var(--corp-surface)',
+                border: '1px solid var(--corp-line)',
+                color: 'var(--corp-ink-2)',
+                borderRadius: 'var(--corp-r)',
+              }}
+              data-testid="button-cancel"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              disabled={createOwnerInvestmentMutation.isPending}
+              className="flex-1 h-12 text-[14px] font-semibold transition-colors disabled:opacity-50"
+              style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+              data-testid="button-submit-investment"
+            >
+              {createOwnerInvestmentMutation.isPending ? 'Добавление…' : 'Добавить'}
+            </button>
+          </div>
+        </form>
+      </main>
     </div>
   );
 }

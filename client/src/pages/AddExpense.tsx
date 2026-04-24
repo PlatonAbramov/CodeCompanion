@@ -4,43 +4,51 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/FileUploader";
 import { QuickAddContractor } from "@/components/QuickAddContractor";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Camera, Check } from "lucide-react";
+import { Camera, Check, FileText } from "lucide-react";
+import { CorpHeader } from "@/components/corp-ui";
 
-interface Project {
-  id: string;
-  name: string;
-}
+interface Project { id: string; name: string }
+interface Contractor { id: string; name: string; company?: string; specialization: string }
 
-interface Contractor {
-  id: string;
-  name: string;
-  company?: string;
-  specialization: string;
+const SECTION_STYLE: React.CSSProperties = {
+  background: 'var(--corp-surface)',
+  border: '1px solid var(--corp-line)',
+  borderRadius: 'var(--corp-r-lg)',
+};
+
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <Label
+      className="block text-[10px] font-bold uppercase mb-1.5"
+      style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+    >
+      {children}
+      {required && <span style={{ color: 'var(--corp-neg)', marginLeft: 2 }}>*</span>}
+    </Label>
+  );
 }
 
 export default function AddExpense() {
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { t } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Restrict access to admin, director and master
   if (user && user.role !== 'admin' && user.role !== 'director' && user.role !== 'master') {
     setLocation('/master');
     return null;
   }
 
-  // Extract projectId from URL query params if coming from project detail
   const urlParams = new URLSearchParams(window.location.search);
   const projectIdFromUrl = urlParams.get('projectId');
 
@@ -50,79 +58,48 @@ export default function AddExpense() {
     category: '',
     description: '',
     receiptUrl: '',
-    contractorId: ''
+    contractorId: '',
   });
   const [selectedReceipt, setSelectedReceipt] = useState<{
-    fileName: string;
-    fileUrl: string;
-    fileSize: number;
-    mimeType: string;
+    fileName: string; fileUrl: string; fileSize: number; mimeType: string;
   } | null>(null);
 
-  // Get user projects
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ['/api/projects'],
-  });
-
-  // Get contractors when contractor payment category is selected
+  const { data: projects = [] } = useQuery<Project[]>({ queryKey: ['/api/projects'] });
   const { data: contractors = [] } = useQuery<Contractor[]>({
     queryKey: ['/api/contractors'],
     enabled: formData.category === 'contractor_payments',
   });
 
-  // Create expense mutation
   const createExpenseMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('/api/expenses', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      const res = await apiRequest('/api/expenses', { method: 'POST', body: JSON.stringify(data) });
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      // Invalidate specific project queries if projectId is available
       if (formData.projectId) {
         queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'expenses'] });
         queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'financial-summary'] });
       }
-      toast({
-        title: "Успешно",
-        description: "Расход добавлен",
-      });
+      toast({ title: "Успешно", description: "Расход добавлен" });
       goBack();
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось добавить расход",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось добавить расход", variant: "destructive" });
     },
   });
 
   const goBack = () => {
-    // If we have a projectId, go back to that project's detail page
-    if (projectIdFromUrl) {
-      setLocation(`/projects/${projectIdFromUrl}`);
-    } else if (formData.projectId) {
-      setLocation(`/projects/${formData.projectId}`);
-    } else if (user?.role === 'admin' || user?.role === 'director') {
-      setLocation('/director');
-    } else {
-      setLocation('/master');
-    }
+    if (projectIdFromUrl) setLocation(`/projects/${projectIdFromUrl}`);
+    else if (formData.projectId) setLocation(`/projects/${formData.projectId}`);
+    else if (user?.role === 'admin' || user?.role === 'director') setLocation('/director');
+    else setLocation('/master');
   };
 
-  // Handle receipt upload
   const handleReceiptUpload = (files: Array<{
-    fileName: string;
-    fileUrl: string;
-    fileSize: number;
-    mimeType: string;
+    fileName: string; fileUrl: string; fileSize: number; mimeType: string;
   }>) => {
     if (files.length > 0) {
       const file = files[0];
@@ -133,23 +110,14 @@ export default function AddExpense() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate contractor selection for contractor payments
     if (formData.category === 'contractor_payments' && !formData.contractorId) {
-      toast({
-        title: "Ошибка",
-        description: "Выберите подрядчика для оплаты",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Выберите подрядчика для оплаты", variant: "destructive" });
       return;
     }
-
-    // Remove contractorId if not contractor payment category
     const dataToSubmit = {
       ...formData,
-      contractorId: formData.category === 'contractor_payments' ? formData.contractorId : undefined
+      contractorId: formData.category === 'contractor_payments' ? formData.contractorId : undefined,
     };
-
     createExpenseMutation.mutate(dataToSubmit);
   };
 
@@ -164,202 +132,194 @@ export default function AddExpense() {
     { value: 'other', label: 'Прочее' },
   ];
 
-  return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={goBack}
-              className="mr-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <h2 className="font-semibold text-slate-900">{t('addExpense')}</h2>
-          </div>
-        </div>
-      </header>
+  const formatNum = (s: string) => {
+    if (!s) return '';
+    const n = parseFloat(s || "0");
+    return n.toLocaleString("ru-RU");
+  };
 
-      <div className="p-4 pb-20">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Project Selection */}
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <Label className="block text-sm font-medium text-slate-700 mb-2">
-                Проект
-              </Label>
-              <Select 
-                value={formData.projectId} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Выберите проект" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+  return (
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      <CorpHeader title={t('addExpense') || 'Новый расход'} subtitle="Запись затрат по проекту" onBack={goBack} />
+
+      <main className="px-4 pt-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {/* Project */}
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel>Проект</FieldLabel>
+            <Select
+              value={formData.projectId}
+              onValueChange={(v) => setFormData(p => ({ ...p, projectId: v }))}
+            >
+              <SelectTrigger className="h-10 text-[13px]" data-testid="select-project">
+                <SelectValue placeholder="Выберите проект" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Amount */}
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <Label className="block text-sm font-medium text-slate-700 mb-2">
-                {t('amount')} *
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                  placeholder="0"
-                  required
-                  className="pr-12"
-                />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500">
-                  ₽
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>{t('amount') || 'Сумма'}</FieldLabel>
+            <div className="relative">
+              <Input
+                type="number"
+                value={formData.amount}
+                onChange={(e) => setFormData(p => ({ ...p, amount: e.target.value }))}
+                placeholder="0"
+                required
+                className="pr-14 h-12 text-[20px] font-bold"
+                style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-neg)' }}
+                data-testid="input-amount"
+              />
+              <span
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold uppercase"
+                style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+              >
+                AED
+              </span>
+            </div>
+            {formData.amount && (
+              <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                {formatNum(formData.amount)}{'\u00A0'}AED
+              </p>
+            )}
+          </div>
 
           {/* Category */}
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <Label className="block text-sm font-medium text-slate-700 mb-2">
-                {t('category')} *
-              </Label>
-              <Select 
-                value={formData.category} 
-                onValueChange={(value) => {
-                  setFormData(prev => ({ 
-                    ...prev, 
-                    category: value,
-                    // Reset contractor selection if category changes
-                    contractorId: value === 'contractor_payments' ? prev.contractorId : ''
-                  }));
-                }}
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>{t('category') || 'Категория'}</FieldLabel>
+            <Select
+              value={formData.category}
+              onValueChange={(v) => setFormData(p => ({
+                ...p,
+                category: v,
+                contractorId: v === 'contractor_payments' ? p.contractorId : '',
+              }))}
+            >
+              <SelectTrigger className="h-10 text-[13px]" data-testid="select-category">
+                <SelectValue placeholder="Выберите категорию" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map(c => (
+                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Contractor (conditional) */}
+          {formData.category === 'contractor_payments' && (
+            <div className="p-4" style={SECTION_STYLE}>
+              <div className="flex items-center justify-between mb-1.5">
+                <FieldLabel required>Подрядчик</FieldLabel>
+                <QuickAddContractor
+                  onContractorAdded={(id) => setFormData(p => ({ ...p, contractorId: id }))}
+                />
+              </div>
+              <Select
+                value={formData.contractorId}
+                onValueChange={(v) => setFormData(p => ({ ...p, contractorId: v }))}
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Выберите категорию" />
+                <SelectTrigger className="h-10 text-[13px]" data-testid="select-contractor">
+                  <SelectValue placeholder="Выберите подрядчика" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
-                    </SelectItem>
+                  {contractors.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </CardContent>
-          </Card>
-
-          {/* Contractor Selection - Only show for contractor payments */}
-          {formData.category === 'contractor_payments' && (
-            <Card className="shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm font-medium text-slate-700">
-                    Подрядчик *
-                  </Label>
-                  <QuickAddContractor 
-                    onContractorAdded={(contractorId) => {
-                      setFormData(prev => ({ ...prev, contractorId }));
-                    }}
-                  />
-                </div>
-                <Select 
-                  value={formData.contractorId} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, contractorId: value }))}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Выберите подрядчика" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contractors.map((contractor) => (
-                      <SelectItem key={contractor.id} value={contractor.id}>
-                        {contractor.company || contractor.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
+            </div>
           )}
 
           {/* Description */}
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <Label className="block text-sm font-medium text-slate-700 mb-2">
-                {t('description')}
-              </Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Дополнительная информация о расходе"
-                className="resize-none"
-                rows={3}
-              />
-            </CardContent>
-          </Card>
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel>{t('description') || 'Описание'}</FieldLabel>
+            <Textarea
+              value={formData.description}
+              onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
+              placeholder="Дополнительная информация о расходе"
+              className="resize-none text-[13px]"
+              rows={3}
+              data-testid="input-description"
+            />
+          </div>
 
-          {/* Receipt Upload */}
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <Label className="block text-sm font-medium text-slate-700 mb-2">
-                Чек (необязательно)
-              </Label>
-              <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
-                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Camera className="text-slate-400" size={24} />
-                </div>
-                <p className="text-sm text-slate-600 mb-2">
-                  Сфотографируйте или выберите файл
-                </p>
-                <FileUploader
-                  onUpload={handleReceiptUpload}
-                  maxFiles={1}
-                  maxFileSize={10485760}
-                  accept="image/*,.pdf"
-                >
-                  <div className="flex items-center gap-2">
-                    <Camera size={16} />
-                    <span>{t('attachFile')}</span>
-                  </div>
-                </FileUploader>
-                
-                {selectedReceipt && (
-                  <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center justify-center">
-                      <Check className="text-green-600 mr-2" size={16} />
-                      <span className="text-sm text-green-800">{selectedReceipt.fileName}</span>
-                    </div>
-                  </div>
-                )}
+          {/* Receipt */}
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel>Чек (необязательно)</FieldLabel>
+            <div
+              className="rounded-lg p-5 text-center"
+              style={{
+                border: '2px dashed var(--corp-line)',
+                background: 'var(--corp-surface-2)',
+              }}
+            >
+              <div
+                className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2"
+                style={{ background: 'var(--corp-surface)', color: 'var(--corp-ink-3)' }}
+              >
+                <Camera size={20} />
               </div>
-            </CardContent>
-          </Card>
+              <p className="text-[12px] mb-3" style={{ color: 'var(--corp-ink-3)' }}>
+                Сфотографируйте или выберите файл
+              </p>
+              <FileUploader
+                onUpload={handleReceiptUpload}
+                maxFiles={1}
+                maxFileSize={10485760}
+                accept="image/*,.pdf"
+              >
+                <div className="inline-flex items-center gap-1.5 text-[12px] font-semibold">
+                  <Camera size={13} />
+                  <span>{t('attachFile') || 'Прикрепить файл'}</span>
+                </div>
+              </FileUploader>
 
-          {/* Submit Button */}
-          <div className="pt-4">
-            <Button
+              {selectedReceipt && (
+                <div
+                  className="mt-3 p-2 flex items-center justify-center gap-2"
+                  style={{
+                    background: 'var(--corp-pos-soft)',
+                    border: '1px solid rgba(34, 197, 94, 0.25)',
+                    borderRadius: 'var(--corp-r)',
+                  }}
+                >
+                  <Check size={13} style={{ color: 'var(--corp-pos)' }} />
+                  <span
+                    className="text-[12px] font-semibold truncate"
+                    style={{ color: 'var(--corp-pos)' }}
+                  >
+                    {selectedReceipt.fileName}
+                  </span>
+                  <FileText size={12} style={{ color: 'var(--corp-pos)' }} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Submit */}
+          <div className="pt-2">
+            <button
               type="submit"
               disabled={createExpenseMutation.isPending}
-              className="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              className="w-full h-12 text-[14px] font-semibold transition-colors disabled:opacity-50"
+              style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+              data-testid="button-submit-expense"
             >
-              {createExpenseMutation.isPending ? t('loading') : t('addExpense')}
-            </Button>
+              {createExpenseMutation.isPending ? (t('loading') || 'Загрузка…') : (t('addExpense') || 'Добавить расход')}
+            </button>
           </div>
         </form>
-      </div>
+      </main>
     </div>
   );
 }

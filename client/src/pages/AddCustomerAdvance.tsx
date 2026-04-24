@@ -4,245 +4,203 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
+import { CorpHeader } from "@/components/corp-ui";
 
 interface Project {
-  id: string;
-  name: string;
-  location?: string;
-  totalCost: string;
-  status: string;
-  startDate?: string;
-  endDate?: string;
-  createdAt: string;
+  id: string; name: string; location?: string; totalCost: string;
+  status: string; startDate?: string; endDate?: string; createdAt: string;
+}
+
+const SECTION_STYLE: React.CSSProperties = {
+  background: 'var(--corp-surface)',
+  border: '1px solid var(--corp-line)',
+  borderRadius: 'var(--corp-r-lg)',
+};
+
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <Label
+      className="block text-[10px] font-bold uppercase mb-1.5"
+      style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+    >
+      {children}
+      {required && <span style={{ color: 'var(--corp-neg)', marginLeft: 2 }}>*</span>}
+    </Label>
+  );
 }
 
 export default function AddCustomerAdvance() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Restrict access to admin and director only
   if (user && user.role !== 'admin' && user.role !== 'director') {
     setLocation('/master');
     return null;
   }
 
-  // Extract projectId from URL path
   const projectId = location.split('/')[2];
 
   const [formData, setFormData] = useState({
     projectId: projectId || '',
     amount: '',
     description: '',
-    date: ''
+    date: '',
   });
 
-  // Get projects (for project selection if needed)
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ['/api/projects'],
-  });
+  const { data: projects = [] } = useQuery<Project[]>({ queryKey: ['/api/projects'] });
+  const { data: project } = useQuery<Project>({ queryKey: ['/api/projects', projectId] });
 
-  // Get specific project details
-  const { data: project } = useQuery<Project>({
-    queryKey: ['/api/projects', projectId],
-  });
-
-  // Create customer advance mutation
   const createCustomerAdvanceMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('/api/customer-advances', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      const res = await apiRequest('/api/customer-advances', { method: 'POST', body: JSON.stringify(data) });
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['/api/customer-advances'] });
       queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      // Invalidate specific project queries if projectId is available
       if (formData.projectId) {
         queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'customer-advances'] });
         queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'financial-summary'] });
       }
-      toast({
-        title: "Успешно",
-        description: "Аванс от заказчика добавлен",
-      });
+      toast({ title: "Успешно", description: "Аванс от заказчика добавлен" });
       goBack();
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось добавить аванс от заказчика",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось добавить аванс от заказчика", variant: "destructive" });
     },
   });
 
   const goBack = () => {
-    if (projectId) {
-      setLocation(`/projects/${projectId}`);
-    } else if (user?.role === 'admin' || user?.role === 'director') {
-      setLocation('/director');
-    } else {
-      setLocation('/master');
-    }
+    if (projectId) setLocation(`/projects/${projectId}`);
+    else if (user?.role === 'admin' || user?.role === 'director') setLocation('/director');
+    else setLocation('/master');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!formData.amount || !formData.date) {
-      toast({
-        title: "Ошибка",
-        description: "Необходимо заполнить сумму и дату",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Необходимо заполнить сумму и дату", variant: "destructive" });
       return;
     }
-
     createCustomerAdvanceMutation.mutate(formData);
   };
 
-  const formatCurrency = (amount: string) => {
-    if (!amount) return '';
-    const num = parseFloat(amount || "0");
-    return `${num.toLocaleString("ru-RU")} AED`;
+  const formatNum = (s: string) => {
+    if (!s) return '';
+    return parseFloat(s || "0").toLocaleString("ru-RU");
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={goBack}
-              className="mr-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <div>
-              <h2 className="font-semibold text-slate-900">Добавить аванс от заказчика</h2>
-              {project && (
-                <p className="text-sm text-slate-500">{project.name}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      <CorpHeader
+        title="Аванс от заказчика"
+        subtitle={project?.name || 'Поступление от клиента'}
+        onBack={goBack}
+      />
 
-      <div className="p-4 pb-20">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Project Selection (if no specific project) */}
+      <main className="px-4 pt-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           {!projectId && (
-            <Card className="shadow-sm">
-              <CardContent className="p-4">
-                <Label className="block text-sm font-medium text-slate-700 mb-2">
-                  Проект *
-                </Label>
-                <Select 
-                  value={formData.projectId} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, projectId: value }))}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Выберите проект" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
+            <div className="p-4" style={SECTION_STYLE}>
+              <FieldLabel required>Проект</FieldLabel>
+              <Select
+                value={formData.projectId}
+                onValueChange={(v) => setFormData(p => ({ ...p, projectId: v }))}
+              >
+                <SelectTrigger className="h-10 text-[13px]" data-testid="select-project">
+                  <SelectValue placeholder="Выберите проект" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map(pr => (
+                    <SelectItem key={pr.id} value={pr.id}>{pr.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           {/* Amount */}
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <Label className="block text-sm font-medium text-slate-700 mb-2">
-                Сумма аванса от заказчика *
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                  placeholder="0"
-                  className="pr-16"
-                  required
-                />
-                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 text-sm">
-                  AED
-                </span>
-              </div>
-              {formData.amount && (
-                <p className="text-sm text-slate-500 mt-2">
-                  {formatCurrency(formData.amount)}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>Сумма аванса от заказчика</FieldLabel>
+            <div className="relative">
+              <Input
+                type="number"
+                value={formData.amount}
+                onChange={(e) => setFormData(p => ({ ...p, amount: e.target.value }))}
+                placeholder="0"
+                required
+                className="pr-14 h-12 text-[20px] font-bold"
+                style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-pos)' }}
+                data-testid="input-amount"
+              />
+              <span
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold uppercase"
+                style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+              >
+                AED
+              </span>
+            </div>
+            {formData.amount && (
+              <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                {formatNum(formData.amount)}{'\u00A0'}AED
+              </p>
+            )}
+          </div>
 
           {/* Date */}
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <Label className="block text-sm font-medium text-slate-700 mb-2">
-                Дата получения аванса *
-              </Label>
-              <Input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                required
-              />
-            </CardContent>
-          </Card>
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>Дата получения аванса</FieldLabel>
+            <Input
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData(p => ({ ...p, date: e.target.value }))}
+              required
+              className="h-10 text-[13px]"
+              style={{ fontFamily: 'var(--corp-mono)' }}
+              data-testid="input-date"
+            />
+          </div>
 
           {/* Description */}
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <Label className="block text-sm font-medium text-slate-700 mb-2">
-                Описание (необязательно)
-              </Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Укажите детали аванса от заказчика..."
-                rows={3}
-              />
-            </CardContent>
-          </Card>
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel>Описание</FieldLabel>
+            <Textarea
+              value={formData.description}
+              onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
+              placeholder="Укажите детали аванса от заказчика…"
+              rows={3}
+              className="text-[13px] resize-none"
+              data-testid="input-description"
+            />
+          </div>
 
-          {/* Submit Button */}
-          <div className="pt-4">
-            <Button 
-              type="submit" 
-              className="w-full bg-primary text-white"
+          <div className="pt-2">
+            <button
+              type="submit"
               disabled={createCustomerAdvanceMutation.isPending}
+              className="w-full h-12 text-[14px] font-semibold transition-colors disabled:opacity-50"
+              style={{ background: 'var(--corp-pos)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+              data-testid="button-submit-customer-advance"
             >
-              {createCustomerAdvanceMutation.isPending ? 'Добавление...' : 'Добавить аванс от заказчика'}
-            </Button>
+              {createCustomerAdvanceMutation.isPending ? 'Добавление…' : 'Добавить аванс от заказчика'}
+            </button>
           </div>
         </form>
-      </div>
+      </main>
     </div>
   );
 }
