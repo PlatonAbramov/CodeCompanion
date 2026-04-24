@@ -12,7 +12,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Users, Plus, Edit2, Trash2, FileText, Phone, Mail, File, ChevronRight,
+  Search, Bell, SlidersHorizontal, MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CorpEmpty, fmtDateRu, fmtNum } from "@/components/corp-ui";
 
 interface Contractor {
@@ -40,6 +44,142 @@ interface ContractorForm {
   phone: string;
   email: string;
   specialization: string;
+}
+
+function getContractorInitial(name?: string): string {
+  if (!name) return '?';
+  return name.trim().charAt(0).toUpperCase();
+}
+
+function ContractorTableRow({
+  contractor,
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  contractor: Contractor;
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { data: stats } = useQuery<ContractorStats>({
+    queryKey: ['/api/contractors', contractor.id, 'stats'],
+  });
+  const initial = getContractorInitial(contractor.company || contractor.name);
+
+  return (
+    <tr
+      className="cursor-pointer transition-colors hover:bg-[var(--corp-surface-2)]"
+      style={{ borderTop: '1px solid var(--corp-line)' }}
+      onClick={onOpen}
+      data-testid={`contractor-row-${contractor.id}`}
+    >
+      {/* Компания */}
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex items-center justify-center flex-shrink-0"
+            style={{
+              width: 32,
+              height: 32,
+              background: 'rgba(91,88,235,0.10)',
+              color: 'var(--corp-accent)',
+              borderRadius: 'var(--corp-r)',
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            {initial}
+          </div>
+          <span
+            className="text-[13px] font-bold"
+            style={{ color: 'var(--corp-ink)', letterSpacing: '-0.1px' }}
+          >
+            {contractor.company || contractor.name}
+          </span>
+        </div>
+      </td>
+
+      {/* Контакт */}
+      <td className="px-5 py-3.5 text-[13px]" style={{ color: 'var(--corp-ink-2)' }}>
+        {contractor.company ? contractor.name : '—'}
+      </td>
+
+      {/* Специализация */}
+      <td className="px-5 py-3.5 text-[13px]" style={{ color: 'var(--corp-ink-2)' }}>
+        {contractor.specialization || '—'}
+      </td>
+
+      {/* Телефон */}
+      <td
+        className="px-5 py-3.5 text-[13px]"
+        style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}
+      >
+        {contractor.phone || '—'}
+      </td>
+
+      {/* Проектов */}
+      <td
+        className="px-5 py-3.5 text-[13px] text-right"
+        style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)', fontWeight: 600 }}
+      >
+        {stats ? stats.totalProjects : '—'}
+      </td>
+
+      {/* Выплачено */}
+      <td
+        className="px-5 py-3.5 text-[13px] text-right"
+        style={{ color: 'var(--corp-pos)', fontFamily: 'var(--corp-mono)', fontWeight: 700 }}
+      >
+        {stats ? fmtNum(stats.totalExpenses) : '—'}
+      </td>
+
+      {/* Осталось */}
+      <td
+        className="px-5 py-3.5 text-[13px] text-right"
+        style={{
+          color: stats && stats.remainingBudget < 0 ? 'var(--corp-neg)' : 'var(--corp-ink-2)',
+          fontFamily: 'var(--corp-mono)',
+          fontWeight: 700,
+        }}
+      >
+        {stats ? fmtNum(Math.abs(stats.remainingBudget)) : '—'}
+      </td>
+
+      {/* Actions */}
+      <td className="px-5 py-3.5 w-12" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="w-8 h-8 flex items-center justify-center rounded transition-colors hover:bg-[var(--corp-surface)]"
+              style={{ color: 'var(--corp-muted)' }}
+              data-testid={`button-row-menu-${contractor.id}`}
+            >
+              <MoreHorizontal size={16} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onOpen}>
+              <ChevronRight className="h-4 w-4 mr-2" />
+              Открыть
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onEdit}>
+              <Edit2 className="h-4 w-4 mr-2" />
+              Редактировать
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={onDelete}
+              style={{ color: 'var(--corp-neg)' }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Удалить
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </td>
+    </tr>
+  );
 }
 
 function ContractorStatsRow({ contractorId }: { contractorId: string }) {
@@ -254,9 +394,9 @@ export default function Contractors() {
       className="min-h-screen pb-24"
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
-      {/* Header */}
+      {/* === MOBILE HEADER (lg:hidden) ============================ */}
       <header
-        className="sticky top-0 z-40"
+        className="lg:hidden sticky top-0 z-40"
         style={{ background: 'var(--corp-surface)', borderBottom: '1px solid var(--corp-line)' }}
       >
         <div className="px-4 h-14 flex items-center justify-between gap-2">
@@ -305,6 +445,124 @@ export default function Contractors() {
         </div>
       </header>
 
+      {/* === DESKTOP HEADER (hidden lg:block) ====================== */}
+      <div className="hidden lg:block" style={{ background: 'var(--corp-surface)' }}>
+        {/* Top utility bar */}
+        <div
+          className="px-8 h-14 flex items-center gap-4"
+          style={{ borderBottom: '1px solid var(--corp-line)' }}
+        >
+          <h2
+            className="text-[15px] font-semibold"
+            style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
+          >
+            Подрядчики
+          </h2>
+
+          <div className="flex-1" />
+
+          <div className="relative max-w-md flex-1">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2"
+              style={{ color: 'var(--corp-muted)' }}
+            />
+            <input
+              type="text"
+              placeholder="Поиск по проектам, расходам..."
+              className="w-full h-9 pl-9 pr-12 text-[13px] outline-none"
+              style={{
+                background: 'var(--corp-surface-2)',
+                color: 'var(--corp-ink)',
+                border: '1px solid transparent',
+                borderRadius: 'var(--corp-r)',
+              }}
+              data-testid="input-search-contractors-desktop"
+            />
+            <kbd
+              className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-semibold"
+              style={{
+                background: 'var(--corp-surface)',
+                color: 'var(--corp-muted)',
+                border: '1px solid var(--corp-line)',
+                borderRadius: 4,
+                fontFamily: 'var(--corp-mono)',
+              }}
+            >
+              ⌘K
+            </kbd>
+          </div>
+
+          <button
+            type="button"
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[var(--corp-surface-2)]"
+            style={{ color: 'var(--corp-ink-2)' }}
+            data-testid="button-bell-contractors-desktop"
+          >
+            <Bell size={16} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setLocation('/add-expense')}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[13px] font-semibold transition-colors"
+            style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+            data-testid="button-topbar-add-expense-contractors"
+          >
+            <Plus size={14} />
+            Расход
+          </button>
+        </div>
+
+        {/* Page header */}
+        <div className="px-8 pt-6 pb-5 flex items-end justify-between gap-4">
+          <h1
+            className="text-[28px] font-bold leading-tight"
+            style={{ color: 'var(--corp-ink)', letterSpacing: '-0.6px' }}
+          >
+            Подрядчики
+            <span
+              className="ml-2 text-[20px] font-semibold"
+              style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}
+            >
+              {contractors?.length || 0}
+            </span>
+          </h1>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 h-10 px-3.5 text-[13px] font-semibold transition-colors"
+              style={{
+                background: 'var(--corp-surface)',
+                color: 'var(--corp-ink)',
+                border: '1px solid var(--corp-line)',
+                borderRadius: 'var(--corp-r)',
+              }}
+              data-testid="button-filters-contractors"
+            >
+              <SlidersHorizontal size={14} />
+              Фильтры
+            </button>
+
+            {isAdminOrDirector && (
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(true)}
+                className="inline-flex items-center gap-1.5 h-10 px-3.5 text-[13px] font-semibold transition-colors"
+                style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-accent-hover)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--corp-accent)'; }}
+                data-testid="button-add-contractor-desktop"
+              >
+                <Plus size={14} />
+                Добавить
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Edit modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="max-w-md">
@@ -315,8 +573,70 @@ export default function Contractors() {
         </DialogContent>
       </Dialog>
 
-      {/* List */}
-      <main className="px-4 pt-4">
+      {/* === DESKTOP TABLE (hidden lg:block) ====================== */}
+      <main className="hidden lg:block px-8">
+        {isLoading ? null : !contractors || contractors.length === 0 ? (
+          <CorpEmpty
+            icon={<Users size={28} />}
+            title="Подрядчики не найдены"
+            description="Добавьте первого подрядчика, чтобы начать работу"
+            actionLabel={isAdminOrDirector ? "Добавить подрядчика" : undefined}
+            onAction={isAdminOrDirector ? () => setIsCreateModalOpen(true) : undefined}
+          />
+        ) : (
+          <div
+            style={{
+              background: 'var(--corp-surface)',
+              border: '1px solid var(--corp-line)',
+              borderRadius: 'var(--corp-r-lg)',
+              overflow: 'hidden',
+            }}
+          >
+            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--corp-surface)' }}>
+                  {[
+                    { label: 'Компания', align: 'left' },
+                    { label: 'Контакт', align: 'left' },
+                    { label: 'Специализация', align: 'left' },
+                    { label: 'Телефон', align: 'left' },
+                    { label: 'Проектов', align: 'right' },
+                    { label: 'Выплачено', align: 'right' },
+                    { label: 'Осталось', align: 'right' },
+                    { label: '', align: 'right' },
+                  ].map((h, i) => (
+                    <th
+                      key={i}
+                      className="px-5 py-3 text-[10px] font-bold uppercase"
+                      style={{
+                        textAlign: h.align as any,
+                        color: 'var(--corp-muted)',
+                        letterSpacing: '0.06em',
+                      }}
+                    >
+                      {h.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {contractors.map((contractor) => (
+                  <ContractorTableRow
+                    key={contractor.id}
+                    contractor={contractor}
+                    onOpen={() => setLocation(`/contractor/${contractor.id}`)}
+                    onEdit={() => openEditModal(contractor)}
+                    onDelete={() => handleDeleteContractor(contractor.id)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </main>
+
+      {/* === MOBILE LIST (lg:hidden) ============================== */}
+      <main className="lg:hidden px-4 pt-4">
         {isLoading ? null : !contractors || contractors.length === 0 ? (
           <CorpEmpty
             icon={<Users size={28} />}
