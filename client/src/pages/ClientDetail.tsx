@@ -1,10 +1,10 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRoute, Link } from "wouter";
-import { ArrowLeft, Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, CreditCard, FileText, Calendar, DollarSign, User, TrendingUp, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useRoute, useLocation } from "wouter";
+import {
+  Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin,
+  CreditCard, FileText, Calendar, DollarSign, User, Users
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -17,16 +17,80 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientProjectSchema, insertClientPaymentSchema, type InsertClientProject, type InsertClientPayment } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { CorpHeader, MoneyAED, fmtDateRu } from "@/components/corp-ui";
+
+const SECTION_STYLE: React.CSSProperties = {
+  background: 'var(--corp-surface)',
+  border: '1px solid var(--corp-line)',
+  borderRadius: 'var(--corp-r-lg)',
+};
+const PRIMARY_BTN: React.CSSProperties = {
+  background: 'var(--corp-accent)',
+  color: '#fff',
+  borderRadius: 'var(--corp-r)',
+};
+const GHOST_BTN: React.CSSProperties = {
+  background: 'var(--corp-surface-2)',
+  color: 'var(--corp-ink-2)',
+  borderRadius: 'var(--corp-r)',
+};
+const DANGER_BTN: React.CSSProperties = {
+  background: 'var(--corp-neg)',
+  color: '#fff',
+  borderRadius: 'var(--corp-r)',
+};
+
+function StatusBadge({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'pos' | 'neg' | 'warn' | 'accent' | 'neutral' }) {
+  const cfg =
+    tone === 'pos' ? { bg: 'rgba(22,163,74,0.10)', color: 'var(--corp-pos)' } :
+    tone === 'neg' ? { bg: 'rgba(220,38,38,0.10)', color: 'var(--corp-neg)' } :
+    tone === 'warn' ? { bg: 'rgba(245,158,11,0.10)', color: '#f59e0b' } :
+    tone === 'accent' ? { bg: 'rgba(37,99,235,0.10)', color: 'var(--corp-accent)' } :
+    { bg: 'var(--corp-surface-2)', color: 'var(--corp-ink-3)' };
+  return (
+    <span
+      className="inline-flex items-center px-2 h-5 text-[10px] font-bold uppercase whitespace-nowrap"
+      style={{ background: cfg.bg, color: cfg.color, borderRadius: 'var(--corp-r-sm)', letterSpacing: '0.04em' }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function StatCard({ label, value, icon, tone = 'ink' }: {
+  label: string;
+  value: React.ReactNode;
+  icon: React.ReactNode;
+  tone?: 'ink' | 'pos' | 'neg' | 'warn' | 'accent';
+}) {
+  const color =
+    tone === 'pos' ? 'var(--corp-pos)' :
+    tone === 'neg' ? 'var(--corp-neg)' :
+    tone === 'warn' ? '#f59e0b' :
+    tone === 'accent' ? 'var(--corp-accent)' :
+    'var(--corp-ink)';
+  return (
+    <div className="p-4" style={SECTION_STYLE}>
+      <div className="flex items-start justify-between mb-2">
+        <span className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>{label}</span>
+        <span style={{ color }}>{icon}</span>
+      </div>
+      <div className="text-[20px] font-bold" style={{ color, fontFamily: 'var(--corp-mono)' }}>
+        {value}
+      </div>
+    </div>
+  );
+}
 
 export default function ClientDetailPage() {
   const [, params] = useRoute("/clients/:id");
+  const [, setLocation] = useLocation();
   const clientId = params?.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
-  
+
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isEditProjectDialogOpen, setIsEditProjectDialogOpen] = useState(false);
@@ -39,7 +103,7 @@ export default function ClientDetailPage() {
     enabled: !!clientId,
   });
 
-  const { data: clientStats, isLoading: statsLoading } = useQuery({
+  const { data: clientStats } = useQuery({
     queryKey: ["/api/clients", clientId, "stats"],
     enabled: !!clientId,
   });
@@ -58,7 +122,6 @@ export default function ClientDetailPage() {
     queryKey: ["/api/projects"],
   });
 
-  // Get all users with role 'client' for employee assignment
   const { data: clientUsers = [] } = useQuery({
     queryKey: ["/api/users", "client"],
     queryFn: async () => {
@@ -67,7 +130,6 @@ export default function ClientDetailPage() {
     },
   });
 
-  // Get currently assigned employees for this client
   const { data: assignedEmployees = [] } = useQuery({
     queryKey: ["/api/clients", clientId, "employees"],
     queryFn: async () => {
@@ -77,18 +139,11 @@ export default function ClientDetailPage() {
     enabled: !!clientId,
   });
 
-  // Safe access to data with defaults
   const safeClient = client as any;
-  const safeStats = clientStats as any || {
-    totalProjects: 0,
-    totalPayments: 0,
-    remainingAmount: 0
-  };
+  const safeStats = clientStats as any || { totalProjects: 0, totalPayments: 0, remainingAmount: 0 };
   const safeClientProjects = clientProjects as any[] || [];
   const safeClientPayments = clientPayments as any[] || [];
   const safeAllProjects = allProjects as any[] || [];
-  
-  console.log("Available projects for assignment:", safeAllProjects);
 
   const projectForm = useForm<InsertClientProject>({
     resolver: zodResolver(insertClientProjectSchema),
@@ -131,38 +186,27 @@ export default function ClientDetailPage() {
 
   const assignProjectMutation = useMutation({
     mutationFn: async (data: InsertClientProject) => {
-      console.log("Making API request to:", `/api/clients/${clientId}/projects`);
-      console.log("Request data:", data);
       const response = await fetch(`/api/clients/${clientId}/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      console.log("Response status:", response.status);
       if (!response.ok) {
         const error = await response.text();
-        console.error("Response error:", error);
         throw new Error(`Failed to assign project: ${error}`);
       }
       return response.json();
     },
-    onSuccess: (data) => {
-      console.log("Project assigned successfully, result:", data);
-      console.log("Invalidating queries and closing dialog...");
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] });
       setIsProjectDialogOpen(false);
       projectForm.reset();
       toast({ title: "Проект назначен успешно" });
     },
     onError: (error) => {
-      console.error("Assignment failed:", error);
-      toast({
-        title: "Ошибка",
-        description: `Не удалось назначить проект: ${error.message}`,
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: `Не удалось назначить проект: ${error.message}`, variant: "destructive" });
     },
   });
 
@@ -184,11 +228,7 @@ export default function ClientDetailPage() {
       toast({ title: "Платеж добавлен успешно" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось добавить платеж",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось добавить платеж", variant: "destructive" });
     },
   });
 
@@ -205,26 +245,20 @@ export default function ClientDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] });
       setIsEditProjectDialogOpen(false);
       setEditingProject(null);
       editProjectForm.reset();
       toast({ title: "Проект обновлен успешно" });
     },
     onError: (error) => {
-      toast({
-        title: "Ошибка",
-        description: `Не удалось обновить проект: ${error.message}`,
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: `Не удалось обновить проект: ${error.message}`, variant: "destructive" });
     },
   });
 
   const deletePaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const response = await fetch(`/api/client-payments/${paymentId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(`/api/client-payments/${paymentId}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Failed to delete payment");
       return response.json();
     },
@@ -234,34 +268,24 @@ export default function ClientDetailPage() {
       toast({ title: "Платеж удален успешно" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось удалить платеж",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось удалить платеж", variant: "destructive" });
     },
   });
 
   const removeProjectMutation = useMutation({
     mutationFn: async (assignmentId: string) => {
-      const response = await fetch(`/api/client-projects/${assignmentId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(`/api/client-projects/${assignmentId}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Failed to remove project");
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] });
       toast({ title: "Проект отвязан успешно" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось отвязать проект",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось отвязать проект", variant: "destructive" });
     },
   });
 
@@ -280,19 +304,13 @@ export default function ClientDetailPage() {
       toast({ title: "Сотрудники назначены успешно" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось назначить сотрудников",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось назначить сотрудников", variant: "destructive" });
     },
   });
 
   const removeEmployeeMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const response = await apiRequest(`/api/clients/${clientId}/employees/${userId}`, {
-        method: "DELETE",
-      });
+      const response = await apiRequest(`/api/clients/${clientId}/employees/${userId}`, { method: "DELETE" });
       return response.json();
     },
     onSuccess: () => {
@@ -300,36 +318,21 @@ export default function ClientDetailPage() {
       toast({ title: "Сотрудник отвязан успешно" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось отвязать сотрудника",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось отвязать сотрудника", variant: "destructive" });
     },
   });
 
-  // Employee assignment handlers
   const handleEmployeeToggle = (userId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedEmployees(prev => [...prev, userId]);
-    } else {
-      setSelectedEmployees(prev => prev.filter(id => id !== userId));
-    }
+    if (checked) setSelectedEmployees(prev => [...prev, userId]);
+    else setSelectedEmployees(prev => prev.filter(id => id !== userId));
   };
 
   const onEmployeeAssignSubmit = () => {
-    if (selectedEmployees.length > 0) {
-      assignEmployeesMutation.mutate(selectedEmployees);
-    }
+    if (selectedEmployees.length > 0) assignEmployeesMutation.mutate(selectedEmployees);
   };
 
   const onProjectSubmit = (data: InsertClientProject) => {
-    console.log("Submitting project assignment:", data);
-    console.log("Client ID:", clientId);
-    assignProjectMutation.mutate({
-      ...data,
-      clientId: clientId!,
-    });
+    assignProjectMutation.mutate({ ...data, clientId: clientId! });
   };
 
   const onPaymentSubmit = (data: InsertClientPayment) => {
@@ -338,10 +341,7 @@ export default function ClientDetailPage() {
 
   const onEditProjectSubmit = (data: InsertClientProject) => {
     if (editingProject) {
-      updateProjectMutation.mutate({
-        id: editingProject.id,
-        updates: data
-      });
+      updateProjectMutation.mutate({ id: editingProject.id, updates: data });
     }
   };
 
@@ -366,657 +366,608 @@ export default function ClientDetailPage() {
   };
 
   const handleRemoveProject = (assignmentId: string, projectName: string) => {
-    console.log("handleRemoveProject called with:", { assignmentId, projectName });
-    console.trace("Remove project stack trace");
     if (window.confirm(`Вы уверены, что хотите отвязать проект "${projectName}"?`)) {
-      console.log("User confirmed removal, calling mutation");
       removeProjectMutation.mutate(assignmentId);
-    } else {
-      console.log("User cancelled removal");
     }
   };
 
   if (clientLoading || !safeClient) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className="h-32 bg-gray-200 rounded"></div>
-            <div className="h-32 bg-gray-200 rounded"></div>
-            <div className="h-32 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }} />;
   }
 
-  const stats = clientStats || { totalPayments: 0, totalProjects: 0, remainingAmount: 0 };
+  const canManage = user?.role === 'admin' || user?.role === 'director';
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link href="/clients">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Назад к заказчикам
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Building2 className="w-8 h-8" />
-              {safeClient?.name}
-            </h1>
-            {safeClient?.company && (
-              <p className="text-lg text-muted-foreground">{safeClient.company}</p>
-            )}
-          </div>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }} data-page-header>
+      <CorpHeader
+        title={safeClient?.name || 'Заказчик'}
+        subtitle={safeClient?.company || undefined}
+        onBack={() => setLocation('/clients')}
+        action={<StatusBadge tone={safeClient?.isActive ? 'pos' : 'neutral'}>{safeClient?.isActive ? 'Активный' : 'Неактивный'}</StatusBadge>}
+      />
+
+      <div className="p-4 space-y-4">
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <StatCard
+            label="Всего проектов"
+            value={safeStats.totalProjects}
+            icon={<FileText size={16} />}
+            tone="accent"
+          />
+          <StatCard
+            label="Общая сумма платежей"
+            value={<MoneyAED amount={safeStats.totalPayments} size={20} weight={700} tone="pos" />}
+            icon={<DollarSign size={16} />}
+            tone="pos"
+          />
+          <StatCard
+            label="Остаток к доплате"
+            value={<MoneyAED amount={safeStats.remainingAmount} size={20} weight={700} tone={safeStats.remainingAmount > 0 ? 'warn' : 'pos'} />}
+            icon={<CreditCard size={16} />}
+            tone={safeStats.remainingAmount > 0 ? 'warn' : 'pos'}
+          />
         </div>
-        <Badge variant={safeClient?.isActive ? "default" : "secondary"}>
-          {safeClient?.isActive ? "Активный" : "Неактивный"}
-        </Badge>
-      </div>
 
-      {/* Statistics Cards */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Всего проектов</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{safeStats.totalProjects}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Общая сумма платежей</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(safeStats.totalPayments)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Остаток к доплате</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${safeStats.remainingAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-              {formatCurrency(safeStats.remainingAmount)}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Client Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Информация о заказчике</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+        {/* Client Information */}
+        <div className="p-4" style={SECTION_STYLE}>
+          <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Информация о заказчике</h3>
+          <div className="grid gap-3 md:grid-cols-2 text-[13px]">
             {safeClient?.contactPerson && (
-              <div>
-                <strong>Контактное лицо:</strong> {safeClient.contactPerson}
+              <div className="flex items-center gap-2" style={{ color: 'var(--corp-ink-2)' }}>
+                <User size={15} style={{ color: 'var(--corp-ink-3)' }} />
+                <span><span style={{ color: 'var(--corp-muted)' }}>Контактное лицо:</span> {safeClient.contactPerson}</span>
               </div>
             )}
             {safeClient?.phone && (
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4" />
-                <strong>Телефон:</strong> {safeClient.phone}
+              <div className="flex items-center gap-2" style={{ color: 'var(--corp-ink-2)' }}>
+                <Phone size={15} style={{ color: 'var(--corp-ink-3)' }} />
+                <span style={{ fontFamily: 'var(--corp-mono)' }}>{safeClient.phone}</span>
               </div>
             )}
             {safeClient?.email && (
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                <strong>Email:</strong> {safeClient.email}
+              <div className="flex items-center gap-2" style={{ color: 'var(--corp-ink-2)' }}>
+                <Mail size={15} style={{ color: 'var(--corp-ink-3)' }} />
+                <span style={{ fontFamily: 'var(--corp-mono)' }}>{safeClient.email}</span>
               </div>
             )}
             {safeClient?.address && (
-              <div className="flex items-start gap-2 md:col-span-2">
-                <MapPin className="w-4 h-4 mt-1" />
-                <div>
-                  <strong>Адрес:</strong> {safeClient.address}
-                </div>
+              <div className="flex items-start gap-2 md:col-span-2" style={{ color: 'var(--corp-ink-2)' }}>
+                <MapPin size={15} style={{ color: 'var(--corp-ink-3)', marginTop: 2 }} />
+                <span><span style={{ color: 'var(--corp-muted)' }}>Адрес:</span> {safeClient.address}</span>
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      <Tabs defaultValue="projects" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="projects">Проекты</TabsTrigger>
-          <TabsTrigger value="payments">Платежи</TabsTrigger>
-          <TabsTrigger value="employees">Сотрудники</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="projects" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="projects">Проекты</TabsTrigger>
+            <TabsTrigger value="payments">Платежи</TabsTrigger>
+            <TabsTrigger value="employees">Сотрудники</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="projects" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-semibold">Проекты заказчика</h3>
-            {(user?.role === 'admin' || user?.role === 'director') && (
-              <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Назначить проект
-                  </Button>
-                </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Назначить проект заказчику</DialogTitle>
-                </DialogHeader>
-                <Form {...projectForm}>
-                  <form onSubmit={projectForm.handleSubmit(onProjectSubmit, (errors) => {
-                    console.log("Form validation errors:", errors);
-                  })} className="space-y-4"
-                    onChange={() => {
-                      console.log("Form changed, current values:", projectForm.getValues());
-                      console.log("Project ID:", projectForm.watch('projectId'));
-                    }}>
-                    <FormField
-                      control={projectForm.control}
-                      name="projectId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Проект *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Выберите проект" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {safeAllProjects.length === 0 ? (
-                                <div className="p-2 text-sm text-muted-foreground">Нет доступных проектов</div>
-                              ) : (
-                                safeAllProjects.map((project: any) => (
-                                  <SelectItem key={project.id} value={project.id}>
-                                    {project.name}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={projectForm.control}
-                        name="contractAmount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Сумма договора (д.إ)</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                {...field}
-                                value={field.value || ""}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={projectForm.control}
-                        name="contractNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Номер договора</FormLabel>
-                            <FormControl>
-                              <Input placeholder="№ договора" {...field} value={field.value || ""} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <FormField
-                      control={projectForm.control}
-                      name="contractDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Дата договора</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="date"
-                              {...field}
-                              value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                              onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={projectForm.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Описание работ</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Описание работ по договору" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="flex justify-end space-x-2">
-                      <Button type="button" variant="outline" onClick={() => setIsProjectDialogOpen(false)}>
-                        Отмена
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={assignProjectMutation.isPending || !projectForm.watch('projectId')}
-                        onClick={() => {
-                          console.log("Assign button clicked");
-                          console.log("Form values:", projectForm.getValues());
-                          console.log("Form state:", projectForm.formState);
-                          console.log("Project ID:", projectForm.watch('projectId'));
-                          console.log("Is valid:", projectForm.formState.isValid);
-                          console.log("Errors:", projectForm.formState.errors);
-                        }}
-                      >
-                        {assignProjectMutation.isPending ? "Назначение..." : "Назначить"}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            {safeClientProjects.map((project: any) => (
-              <Card key={project.id}>
-                <CardContent className="pt-6">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Building2 className="w-4 h-4 text-blue-600" />
-                        <h4 className="font-semibold">{project.projectName}</h4>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        <User className="w-4 h-4 inline mr-1" />
-                        {client && typeof client === 'object' && 'name' in client ? (client as any).name : 'Заказчик не указан'}
-                      </p>
-                      
-                      {/* Financial Information */}
-                      <div className="grid grid-cols-2 gap-4 mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Стоимость проекта</p>
-                          <p className="text-sm font-medium">{formatCurrency(project.totalCost || '0')}</p>
+          {/* Projects tab */}
+          <TabsContent value="projects" className="space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Проекты заказчика</h3>
+              {canManage && (
+                <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold transition-colors"
+                      style={PRIMARY_BTN}
+                    >
+                      <Plus size={14} /> Назначить проект
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Назначить проект заказчику</DialogTitle>
+                    </DialogHeader>
+                    <Form {...projectForm}>
+                      <form onSubmit={projectForm.handleSubmit(onProjectSubmit)} className="space-y-4">
+                        <FormField
+                          control={projectForm.control}
+                          name="projectId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Проект *</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Выберите проект" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {safeAllProjects.length === 0 ? (
+                                    <div className="p-2 text-[12px]" style={{ color: 'var(--corp-muted)' }}>Нет доступных проектов</div>
+                                  ) : (
+                                    safeAllProjects.map((project: any) => (
+                                      <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                                    ))
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={projectForm.control}
+                            name="contractAmount"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Сумма договора, AED</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number" step="0.01" placeholder="0.00"
+                                    className="h-12 text-[18px] font-bold"
+                                    style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-accent)' }}
+                                    {...field}
+                                    value={field.value || ""}
+                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={projectForm.control}
+                            name="contractNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Номер договора</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="№ договора" {...field} value={field.value || ""} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Сумма договора</p>
-                          <p className="text-sm font-medium">
-                            {project.contractAmount ? formatCurrency(project.contractAmount) : 'Не указана'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">К доплате</p>
-                          <p className="text-sm font-medium text-orange-600">
-                            {project.contractAmount ? 
-                              formatCurrency(parseFloat(project.contractAmount.toString()) - parseFloat(project.totalPaid || '0')) 
-                              : 'Не указана'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Оплачено</p>
-                          <p className="text-sm font-medium text-green-600">
-                            {formatCurrency(project.totalPaid || '0')}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Contract Details */}
-                      {project.contractNumber && (
-                        <p className="text-xs mb-1">
-                          <strong>Номер договора:</strong> {project.contractNumber}
-                        </p>
-                      )}
-                      {project.contractDate && (
-                        <p className="text-xs mb-1">
-                          <strong>Дата договора:</strong> {new Date(project.contractDate).toLocaleDateString('ru-RU')}
-                        </p>
-                      )}
-                      {project.description && (
-                        <p className="text-xs text-muted-foreground">{project.description}</p>
-                      )}
-                    </div>
-                    <div className="flex space-x-2">
-                      <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
-                        {project.status === 'active' ? 'Активный' : 'Завершен'}
-                      </Badge>
-                      {(user?.role === 'admin' || user?.role === 'director') && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditProject(project)}
-                            className="text-blue-600 hover:text-blue-700"
+                        <FormField
+                          control={projectForm.control}
+                          name="contractDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Дата договора</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="date"
+                                  {...field}
+                                  value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                                  onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={projectForm.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Описание работ</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="Описание работ по договору" {...field} value={field.value || ""} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsProjectDialogOpen(false)}
+                            className="flex-1 h-10 text-[13px] font-semibold"
+                            style={GHOST_BTN}
                           >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRemoveProject(project.id, project.projectName)}
-                            className="text-red-600 hover:text-red-700"
+                            Отмена
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={assignProjectMutation.isPending || !projectForm.watch('projectId')}
+                            className="flex-1 h-10 text-[13px] font-semibold disabled:opacity-50"
+                            style={PRIMARY_BTN}
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </>
-                      )}
+                            {assignProjectMutation.isPending ? "Назначение..." : "Назначить"}
+                          </button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {safeClientProjects.map((project: any) => {
+                const remaining = project.contractAmount
+                  ? parseFloat(project.contractAmount.toString()) - parseFloat(project.totalPaid || '0')
+                  : null;
+                return (
+                  <div key={project.id} className="p-4" style={SECTION_STYLE}>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Building2 size={16} style={{ color: 'var(--corp-accent)' }} />
+                        <h4 className="text-[14px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>{project.projectName}</h4>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <StatusBadge tone={project.status === 'active' ? 'pos' : 'neutral'}>
+                          {project.status === 'active' ? 'Активный' : 'Завершен'}
+                        </StatusBadge>
+                        {canManage && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleEditProject(project)}
+                              className="w-8 h-8 flex items-center justify-center rounded"
+                              style={{ color: 'var(--corp-accent)' }}
+                              title="Редактировать"
+                            >
+                              <Edit2 size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProject(project.id, project.projectName)}
+                              className="w-8 h-8 flex items-center justify-center rounded"
+                              style={{ color: 'var(--corp-neg)' }}
+                              title="Отвязать"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
+
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="p-2.5" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
+                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Стоимость</div>
+                        <MoneyAED amount={project.totalCost || '0'} size={14} weight={700} tone="ink" />
+                      </div>
+                      <div className="p-2.5" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
+                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Сумма договора</div>
+                        {project.contractAmount
+                          ? <MoneyAED amount={project.contractAmount} size={14} weight={700} tone="ink" />
+                          : <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>Не указана</span>}
+                      </div>
+                      <div className="p-2.5" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
+                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Оплачено</div>
+                        <MoneyAED amount={project.totalPaid || '0'} size={14} weight={700} tone="pos" />
+                      </div>
+                      <div className="p-2.5" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
+                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>К доплате</div>
+                        {remaining !== null
+                          ? <MoneyAED amount={remaining} size={14} weight={700} tone={remaining > 0 ? 'neg' : 'pos'} />
+                          : <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>—</span>}
+                      </div>
+                    </div>
+
+                    {(project.contractNumber || project.contractDate || project.description) && (
+                      <div className="text-[12px] space-y-1">
+                        {project.contractNumber && (
+                          <p style={{ color: 'var(--corp-ink-3)' }}>
+                            <span style={{ color: 'var(--corp-muted)' }}>Номер договора:</span>{' '}
+                            <span style={{ fontFamily: 'var(--corp-mono)' }}>{project.contractNumber}</span>
+                          </p>
+                        )}
+                        {project.contractDate && (
+                          <p style={{ color: 'var(--corp-ink-3)' }}>
+                            <span style={{ color: 'var(--corp-muted)' }}>Дата:</span>{' '}
+                            <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(project.contractDate)}</span>
+                          </p>
+                        )}
+                        {project.description && (
+                          <p style={{ color: 'var(--corp-ink-3)' }}>{project.description}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-            {(!safeClientProjects || safeClientProjects.length === 0) && (
-              <div className="text-center py-8">
-                <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Проекты не назначены</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
+                );
+              })}
+              {(!safeClientProjects || safeClientProjects.length === 0) && (
+                <div className="p-8 text-center" style={SECTION_STYLE}>
+                  <FileText size={28} className="mx-auto mb-2" style={{ color: 'var(--corp-muted)' }} />
+                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Проекты не назначены</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
-        <TabsContent value="payments" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-semibold">Платежи заказчика</h3>
-            {(user?.role === 'admin' || user?.role === 'director') && (
-              <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Добавить платеж
-                  </Button>
-                </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Добавить платеж</DialogTitle>
-                </DialogHeader>
-                <Form {...paymentForm}>
-                  <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
-                    <FormField
-                      control={paymentForm.control}
-                      name="projectId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Проект *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Выберите проект" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {safeClientProjects.map((project: any) => (
-                                <SelectItem key={project.projectId} value={project.projectId}>
-                                  {project.projectName}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={paymentForm.control}
-                        name="amount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Сумма платежа (د.إ) *</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                {...field}
-                                value={field.value || ""}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={paymentForm.control}
-                        name="paymentDate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Дата платежа *</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="date"
-                                {...field}
-                                value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                                onChange={(e) => field.onChange(new Date(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <FormField
-                      control={paymentForm.control}
-                      name="paymentMethod"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Способ оплаты</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Банковский перевод, наличные и т.д." {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={paymentForm.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Описание</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Описание платежа" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="flex justify-end space-x-2">
-                      <Button type="button" variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>
-                        Отмена
-                      </Button>
-                      <Button type="submit" disabled={createPaymentMutation.isPending}>
-                        Добавить
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-            )}
-          </div>
+          {/* Payments tab */}
+          <TabsContent value="payments" className="space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Платежи заказчика</h3>
+              {canManage && (
+                <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold transition-colors"
+                      style={PRIMARY_BTN}
+                    >
+                      <Plus size={14} /> Добавить платеж
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Добавить платеж</DialogTitle>
+                    </DialogHeader>
+                    <Form {...paymentForm}>
+                      <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
+                        <FormField
+                          control={paymentForm.control}
+                          name="projectId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Проект *</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Выберите проект" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {safeClientProjects.map((project: any) => (
+                                    <SelectItem key={project.projectId} value={project.projectId}>{project.projectName}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={paymentForm.control}
+                            name="amount"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Сумма платежа, AED *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number" step="0.01" placeholder="0.00"
+                                    className="h-12 text-[18px] font-bold"
+                                    style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-pos)' }}
+                                    {...field}
+                                    value={field.value || ""}
+                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={paymentForm.control}
+                            name="paymentDate"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Дата платежа *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="date" {...field}
+                                    value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                                    onChange={(e) => field.onChange(new Date(e.target.value))}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <FormField
+                          control={paymentForm.control}
+                          name="paymentMethod"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Способ оплаты</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Банковский перевод, наличные и т.д." {...field} value={field.value || ""} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={paymentForm.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Описание</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="Описание платежа" {...field} value={field.value || ""} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="flex gap-2 pt-2">
+                          <button type="button" onClick={() => setIsPaymentDialogOpen(false)} className="flex-1 h-10 text-[13px] font-semibold" style={GHOST_BTN}>
+                            Отмена
+                          </button>
+                          <button type="submit" disabled={createPaymentMutation.isPending} className="flex-1 h-10 text-[13px] font-semibold disabled:opacity-50" style={PRIMARY_BTN}>
+                            {createPaymentMutation.isPending ? 'Добавление...' : 'Добавить'}
+                          </button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
 
-          <div className="space-y-4">
-            {safeClientPayments.map((payment: any) => (
-              <Card key={payment.id}>
-                <CardContent className="pt-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
+            <div className="space-y-3">
+              {safeClientPayments.map((payment: any) => (
+                <div key={payment.id} className="p-4" style={SECTION_STYLE}>
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="space-y-1 flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <CreditCard className="w-4 h-4" />
-                        <span className="font-semibold">{formatCurrency(payment.amount)}</span>
+                        <CreditCard size={15} style={{ color: 'var(--corp-pos)' }} />
+                        <MoneyAED amount={payment.amount} size={16} weight={700} tone="pos" />
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Проект: {payment.projectName}
+                      <p className="text-[12px]" style={{ color: 'var(--corp-ink-3)' }}>
+                        Проект: <span style={{ color: 'var(--corp-ink-2)' }}>{payment.projectName}</span>
                       </p>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(payment.paymentDate).toLocaleDateString('ru-RU')}
+                      <div className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                        <Calendar size={12} />
+                        <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(payment.paymentDate)}</span>
                       </div>
                       {payment.paymentMethod && (
-                        <p className="text-sm">
-                          <strong>Способ:</strong> {payment.paymentMethod}
+                        <p className="text-[12px]" style={{ color: 'var(--corp-ink-3)' }}>
+                          <span style={{ color: 'var(--corp-muted)' }}>Способ:</span> {payment.paymentMethod}
                         </p>
                       )}
                       {payment.description && (
-                        <p className="text-sm text-muted-foreground">{payment.description}</p>
+                        <p className="text-[12px]" style={{ color: 'var(--corp-ink-3)' }}>{payment.description}</p>
                       )}
                     </div>
-                    {(user?.role === 'admin' || user?.role === 'director') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
+                    {canManage && (
+                      <button
+                        type="button"
                         onClick={() => handleDeletePayment(payment.id)}
-                        className="text-red-600 hover:text-red-700"
+                        className="w-8 h-8 flex items-center justify-center rounded flex-shrink-0"
+                        style={{ color: 'var(--corp-neg)' }}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                        <Trash2 size={15} />
+                      </button>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {(!safeClientPayments || safeClientPayments.length === 0) && (
-              <div className="text-center py-8">
-                <CreditCard className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Платежи не найдены</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="employees" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-semibold">Сотрудники заказчика</h3>
-            <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Users className="w-4 h-4 mr-2" />
-                  Назначить сотрудников
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Назначить сотрудников заказчика</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Выберите сотрудников с ролью "client" для назначения к заказчику:
-                  </p>
-                  
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {clientUsers.length === 0 ? (
-                      <div className="text-center py-4 text-muted-foreground">
-                        Пользователи с ролью "client" не найдены
-                      </div>
-                    ) : (
-                      clientUsers.map((user: any) => {
-                        const isAlreadyAssigned = assignedEmployees.some((emp: any) => emp.id === user.id);
-                        const isSelected = selectedEmployees.includes(user.id);
-                        
-                        return (
-                          <div key={user.id} className="flex items-center space-x-3 p-3 border rounded">
-                            <Checkbox
-                              id={`user-${user.id}`}
-                              checked={isSelected}
-                              onCheckedChange={(checked) => handleEmployeeToggle(user.id, checked as boolean)}
-                              disabled={isAlreadyAssigned}
-                            />
-                            <div className="flex-1">
-                              <label htmlFor={`user-${user.id}`} className="text-sm font-medium cursor-pointer">
-                                {user.name}
-                              </label>
-                              <p className="text-xs text-muted-foreground">@{user.username}</p>
-                              {isAlreadyAssigned && (
-                                <Badge variant="secondary" className="text-xs mt-1">
-                                  Уже назначен
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                  
-                  <div className="flex justify-end space-x-2 pt-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => {
-                        setIsEmployeeDialogOpen(false);
-                        setSelectedEmployees([]);
-                      }}
-                    >
-                      Отмена
-                    </Button>
-                    <Button 
-                      onClick={onEmployeeAssignSubmit}
-                      disabled={selectedEmployees.length === 0 || assignEmployeesMutation.isPending}
-                    >
-                      {assignEmployeesMutation.isPending ? "Назначение..." : `Назначить (${selectedEmployees.length})`}
-                    </Button>
                   </div>
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+              ))}
+              {(!safeClientPayments || safeClientPayments.length === 0) && (
+                <div className="p-8 text-center" style={SECTION_STYLE}>
+                  <CreditCard size={28} className="mx-auto mb-2" style={{ color: 'var(--corp-muted)' }} />
+                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Платежи не найдены</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
-          <div className="space-y-4">
-            {assignedEmployees.map((employee: any) => (
-              <Card key={employee.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <User className="w-8 h-8 text-muted-foreground" />
-                      <div>
-                        <h4 className="font-medium">{employee.name}</h4>
-                        <p className="text-sm text-muted-foreground">@{employee.username}</p>
+          {/* Employees tab */}
+          <TabsContent value="employees" className="space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Сотрудники заказчика</h3>
+              <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold transition-colors"
+                    style={PRIMARY_BTN}
+                  >
+                    <Users size={14} /> Назначить сотрудников
+                  </button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Назначить сотрудников заказчика</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+                      Выберите пользователей с ролью «client» для назначения к заказчику:
+                    </p>
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {clientUsers.length === 0 ? (
+                        <div className="text-center py-4 text-[13px]" style={{ color: 'var(--corp-muted)' }}>
+                          Пользователи с ролью «client» не найдены
+                        </div>
+                      ) : (
+                        clientUsers.map((u: any) => {
+                          const isAlreadyAssigned = assignedEmployees.some((emp: any) => emp.id === u.id);
+                          const isSelected = selectedEmployees.includes(u.id);
+                          return (
+                            <div
+                              key={u.id}
+                              className="flex items-center gap-3 p-3"
+                              style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}
+                            >
+                              <Checkbox
+                                id={`user-${u.id}`}
+                                checked={isSelected}
+                                onCheckedChange={(checked) => handleEmployeeToggle(u.id, checked as boolean)}
+                                disabled={isAlreadyAssigned}
+                              />
+                              <div className="flex-1">
+                                <label htmlFor={`user-${u.id}`} className="text-[13px] font-semibold cursor-pointer" style={{ color: 'var(--corp-ink)' }}>
+                                  {u.name}
+                                </label>
+                                <p className="text-[11px]" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>@{u.username}</p>
+                                {isAlreadyAssigned && (
+                                  <div className="mt-1"><StatusBadge>Уже назначен</StatusBadge></div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => { setIsEmployeeDialogOpen(false); setSelectedEmployees([]); }}
+                        className="flex-1 h-10 text-[13px] font-semibold"
+                        style={GHOST_BTN}
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onEmployeeAssignSubmit}
+                        disabled={selectedEmployees.length === 0 || assignEmployeesMutation.isPending}
+                        className="flex-1 h-10 text-[13px] font-semibold disabled:opacity-50"
+                        style={PRIMARY_BTN}
+                      >
+                        {assignEmployeesMutation.isPending ? "Назначение..." : `Назначить (${selectedEmployees.length})`}
+                      </button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="space-y-3">
+              {assignedEmployees.map((employee: any) => (
+                <div key={employee.id} className="p-4" style={SECTION_STYLE}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-3)' }}
+                      >
+                        <User size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-[13px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>{employee.name}</h4>
+                        <p className="text-[11px]" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>@{employee.username}</p>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
+                    <button
+                      type="button"
                       onClick={() => removeEmployeeMutation.mutate(employee.id)}
                       disabled={removeEmployeeMutation.isPending}
-                      className="text-red-600 hover:text-red-700"
+                      className="inline-flex items-center gap-1 h-8 px-3 text-[11px] font-semibold disabled:opacity-50"
+                      style={DANGER_BTN}
                     >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      Отвязать
-                    </Button>
+                      <Trash2 size={12} /> Отвязать
+                    </button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-            
-            {(!assignedEmployees || assignedEmployees.length === 0) && (
-              <div className="text-center py-8">
-                <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Сотрудники не назначены</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+                </div>
+              ))}
+              {(!assignedEmployees || assignedEmployees.length === 0) && (
+                <div className="p-8 text-center" style={SECTION_STYLE}>
+                  <Users size={28} className="mx-auto mb-2" style={{ color: 'var(--corp-muted)' }} />
+                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Сотрудники не назначены</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* Edit Project Dialog */}
       <Dialog open={isEditProjectDialogOpen} onOpenChange={setIsEditProjectDialogOpen}>
@@ -1032,12 +983,12 @@ export default function ClientDetailPage() {
                   name="contractAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Сумма договора (د.إ)</FormLabel>
+                      <FormLabel>Сумма договора, AED</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
+                          type="number" step="0.01" placeholder="0.00"
+                          className="h-12 text-[18px] font-bold"
+                          style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-accent)' }}
                           {...field}
                           value={field.value || ""}
                           onChange={(e) => field.onChange(Number(e.target.value))}
@@ -1061,7 +1012,7 @@ export default function ClientDetailPage() {
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={editProjectForm.control}
                 name="contractDate"
@@ -1070,8 +1021,7 @@ export default function ClientDetailPage() {
                     <FormLabel>Дата договора</FormLabel>
                     <FormControl>
                       <Input
-                        type="date"
-                        {...field}
+                        type="date" {...field}
                         value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
                         onChange={(e) => field.onChange(new Date(e.target.value))}
                       />
@@ -1080,7 +1030,7 @@ export default function ClientDetailPage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editProjectForm.control}
                 name="description"
@@ -1103,9 +1053,7 @@ export default function ClientDetailPage() {
                     <FormLabel>Статус</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Выберите статус" />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Выберите статус" /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="active">Активный</SelectItem>
@@ -1118,13 +1066,13 @@ export default function ClientDetailPage() {
                 )}
               />
 
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditProjectDialogOpen(false)}>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setIsEditProjectDialogOpen(false)} className="flex-1 h-10 text-[13px] font-semibold" style={GHOST_BTN}>
                   Отмена
-                </Button>
-                <Button type="submit" disabled={updateProjectMutation.isPending}>
+                </button>
+                <button type="submit" disabled={updateProjectMutation.isPending} className="flex-1 h-10 text-[13px] font-semibold disabled:opacity-50" style={PRIMARY_BTN}>
                   {updateProjectMutation.isPending ? "Сохранение..." : "Сохранить"}
-                </Button>
+                </button>
               </div>
             </form>
           </Form>

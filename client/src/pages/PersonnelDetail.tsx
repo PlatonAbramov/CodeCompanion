@@ -1,18 +1,14 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRoute, Link, useLocation } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  ArrowLeft, Edit, Trash2, Plus, User, Phone, Mail, 
-  Calendar, Briefcase, FileText, AlertTriangle, Download,
-  Upload, DollarSign, MapPin, Eye, X
+import {
+  Edit, Trash2, Plus, User, Phone, Mail,
+  Calendar, FileText, AlertTriangle, Download,
+  Upload, DollarSign, Eye, X
 } from "lucide-react";
 import { format, differenceInDays, differenceInYears, differenceInMonths } from "date-fns";
-import { useLanguage } from "@/components/LanguageProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { PersonnelForm } from "@/components/PersonnelForm";
 import { PersonnelDocumentForm } from "@/components/PersonnelDocumentForm";
@@ -29,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CorpHeader, MoneyAED, fmtDateRu } from "@/components/corp-ui";
 
 interface Personnel {
   id: string;
@@ -78,14 +75,62 @@ interface PersonnelAdvance {
   cancellationReason?: string;
 }
 
+const SECTION_STYLE: React.CSSProperties = {
+  background: 'var(--corp-surface)',
+  border: '1px solid var(--corp-line)',
+  borderRadius: 'var(--corp-r-lg)',
+};
+const PRIMARY_BTN: React.CSSProperties = {
+  background: 'var(--corp-accent)',
+  color: '#fff',
+  borderRadius: 'var(--corp-r)',
+};
+const GHOST_BTN: React.CSSProperties = {
+  background: 'var(--corp-surface-2)',
+  color: 'var(--corp-ink-2)',
+  borderRadius: 'var(--corp-r)',
+};
+const DANGER_BTN: React.CSSProperties = {
+  background: 'var(--corp-neg)',
+  color: '#fff',
+  borderRadius: 'var(--corp-r)',
+};
+
+function StatusBadge({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'pos' | 'neg' | 'warn' | 'accent' | 'neutral' }) {
+  const cfg =
+    tone === 'pos' ? { bg: 'rgba(22,163,74,0.10)', color: 'var(--corp-pos)' } :
+    tone === 'neg' ? { bg: 'rgba(220,38,38,0.10)', color: 'var(--corp-neg)' } :
+    tone === 'warn' ? { bg: 'rgba(245,158,11,0.10)', color: '#f59e0b' } :
+    tone === 'accent' ? { bg: 'rgba(37,99,235,0.10)', color: 'var(--corp-accent)' } :
+    { bg: 'var(--corp-surface-2)', color: 'var(--corp-ink-3)' };
+  return (
+    <span
+      className="inline-flex items-center px-2 h-5 text-[10px] font-bold uppercase whitespace-nowrap"
+      style={{ background: cfg.bg, color: cfg.color, borderRadius: 'var(--corp-r-sm)', letterSpacing: '0.04em' }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function InfoField({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>{label}</p>
+      <p className="text-[13px] font-semibold" style={{ color: 'var(--corp-ink)', fontFamily: mono ? 'var(--corp-mono)' : undefined }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
 export function PersonnelDetail() {
-  const { t } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
   const [, params] = useRoute("/personnel/:id");
   const [, setLocation] = useLocation();
   const personnelId = params?.id;
-  
+
   const [showEditForm, setShowEditForm] = useState(false);
   const [showDocForm, setShowDocForm] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<PersonnelDocument | null>(null);
@@ -99,43 +144,37 @@ export function PersonnelDetail() {
   const [showAdvanceDeleteDialog, setShowAdvanceDeleteDialog] = useState(false);
   const [advanceToDelete, setAdvanceToDelete] = useState<string | null>(null);
 
-  // Handle Escape key to close modals
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (selectedPhoto) {
-          setSelectedPhoto(null);
-        } else if (selectedDocument) {
-          setSelectedDocument(null);
-        }
+        if (selectedPhoto) setSelectedPhoto(null);
+        else if (selectedDocument) setSelectedDocument(null);
       }
     };
-
     if (selectedPhoto || selectedDocument) {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
   }, [selectedPhoto, selectedDocument]);
-  
+
   const isAdmin = user?.role === 'admin';
   const canView = user?.role === 'admin' || user?.role === 'director';
-  
-  // Call all hooks before any conditional returns
+
   const { data: person, isLoading: isLoadingPerson } = useQuery<Personnel>({
     queryKey: [`/api/personnel/${personnelId}`],
     enabled: !!personnelId && canView,
   });
-  
+
   const { data: documents = [], isLoading: isLoadingDocs } = useQuery<PersonnelDocument[]>({
     queryKey: [`/api/personnel/${personnelId}/documents`],
     enabled: !!personnelId && canView,
   });
-  
+
   const { data: advances = [], isLoading: isLoadingAdvances } = useQuery<PersonnelAdvance[]>({
     queryKey: [`/api/personnel/${personnelId}/advances`],
     enabled: !!personnelId && canView,
   });
-  
+
   const { data: advancesSummary } = useQuery<{
     totalAdvances: number;
     salary: number;
@@ -145,54 +184,33 @@ export function PersonnelDetail() {
     queryKey: [`/api/personnel/${personnelId}/advances/summary`, selectedMonth.toISOString()],
     enabled: !!personnelId && canView,
   });
-  
-  // Delete person mutation
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest(`/api/personnel/${personnelId}`, {
-        method: "DELETE",
-      });
+      return await apiRequest(`/api/personnel/${personnelId}`, { method: "DELETE" });
     },
     onSuccess: () => {
-      toast({
-        title: "Успешно",
-        description: "Сотрудник удален",
-      });
+      toast({ title: "Успешно", description: "Сотрудник удален" });
       setLocation("/personnel");
     },
     onError: (error) => {
-      toast({
-        title: "Ошибка",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     },
   });
-  
-  // Delete document mutation
+
   const deleteDocMutation = useMutation({
     mutationFn: async (docId: string) => {
-      return await apiRequest(`/api/personnel/documents/${docId}`, {
-        method: "DELETE",
-      });
+      return await apiRequest(`/api/personnel/documents/${docId}`, { method: "DELETE" });
     },
     onSuccess: () => {
-      toast({
-        title: "Успешно",
-        description: "Документ удален",
-      });
+      toast({ title: "Успешно", description: "Документ удален" });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/documents`] });
     },
     onError: (error) => {
-      toast({
-        title: "Ошибка",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     },
   });
-  
-  // Cancel advance mutation
+
   const cancelAdvanceMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       return await apiRequest(`/api/personnel/advances/${id}/cancel`, {
@@ -201,47 +219,29 @@ export function PersonnelDetail() {
       });
     },
     onSuccess: () => {
-      toast({
-        title: "Успешно",
-        description: "Аванс отменен",
-      });
+      toast({ title: "Успешно", description: "Аванс отменен" });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances`] });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances/summary`] });
     },
     onError: (error) => {
-      toast({
-        title: "Ошибка",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     },
   });
 
-  // Delete advance mutation
   const deleteAdvanceMutation = useMutation({
     mutationFn: async (advanceId: string) => {
-      return await apiRequest(`/api/personnel/advances/${advanceId}`, {
-        method: "DELETE",
-      });
+      return await apiRequest(`/api/personnel/advances/${advanceId}`, { method: "DELETE" });
     },
     onSuccess: () => {
-      toast({
-        title: "Успешно",
-        description: "Аванс удален",
-      });
+      toast({ title: "Успешно", description: "Аванс удален" });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances`] });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances/summary`] });
     },
     onError: (error) => {
-      toast({
-        title: "Ошибка",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     },
   });
-  
-  // Upload photo mutation
+
   const uploadPhotoMutation = useMutation({
     mutationFn: async (photoUrl: string) => {
       return await apiRequest(`/api/personnel/${personnelId}/photo`, {
@@ -250,57 +250,43 @@ export function PersonnelDetail() {
       });
     },
     onSuccess: () => {
-      toast({
-        title: "Успешно",
-        description: "Фото загружено",
-      });
+      toast({ title: "Успешно", description: "Фото загружено" });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}`] });
     },
     onError: (error) => {
-      toast({
-        title: "Ошибка",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     },
   });
-  
-  // Calculate work experience
+
   const calculateExperience = (startDate: string) => {
     const start = new Date(startDate);
     const now = new Date();
     const years = differenceInYears(now, start);
     const months = differenceInMonths(now, start) % 12;
-    
     if (years > 0) {
       return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'} ${months > 0 ? `${months} мес.` : ''}`;
     }
     return `${months} мес.`;
   };
-  
-  // Calculate age
+
   const calculateAge = (dateOfBirth: string) => {
     const birth = new Date(dateOfBirth);
     const now = new Date();
     const years = differenceInYears(now, birth);
     return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'}`;
   };
-  
-  // Get document status
+
   const getDocumentStatus = (expiryDate?: string) => {
     if (!expiryDate) return 'normal';
-    
     const now = new Date();
     const expiry = new Date(expiryDate);
     const days = differenceInDays(expiry, now);
-    
     if (days <= 0) return 'expired';
     if (days <= 14) return 'critical';
     if (days <= 30) return 'warning';
     return 'normal';
   };
-  
-  // Get document type display name
+
   const getDocumentTypeName = (type: string) => {
     const types: Record<string, string> = {
       'emirates_id': 'Emirates ID',
@@ -314,12 +300,12 @@ export function PersonnelDetail() {
     };
     return types[type] || type;
   };
-  
+
   const handleDeletePerson = () => {
     deleteMutation.mutate();
     setShowDeleteDialog(false);
   };
-  
+
   const handleDeleteDoc = () => {
     if (docToDelete) {
       deleteDocMutation.mutate(docToDelete);
@@ -327,7 +313,7 @@ export function PersonnelDetail() {
       setDocToDelete(null);
     }
   };
-  
+
   const handleCancelAdvance = (advanceId: string) => {
     const reason = prompt("Укажите причину отмены аванса:");
     if (reason) {
@@ -342,238 +328,186 @@ export function PersonnelDetail() {
       setAdvanceToDelete(null);
     }
   };
-  
+
   const handlePhotoUpload = async () => {
     try {
-      // Get presigned URL
-      console.log("Getting photo upload URL...");
-      const response = await apiRequest("/api/objects/upload", {
-        method: "POST",
-      });
+      const response = await apiRequest("/api/objects/upload", { method: "POST" });
       const data = await response.json();
-      console.log("Photo upload response data:", data);
-      
-      if (!data || !data.uploadURL) {
-        console.error("Invalid response data:", data);
-        throw new Error("No upload URL received from server");
-      }
-      
-      const uploadURL = data.uploadURL;
-      console.log("Extracted uploadURL:", uploadURL);
-      
-      return {
-        method: "PUT" as const,
-        url: uploadURL,
-      };
+      if (!data || !data.uploadURL) throw new Error("No upload URL received from server");
+      return { method: "PUT" as const, url: data.uploadURL };
     } catch (error) {
-      console.error("Photo upload error:", error);
-      toast({
-        title: "Ошибка",
-        description: "Не удалось получить URL для загрузки",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось получить URL для загрузки", variant: "destructive" });
       throw error;
     }
   };
-  
+
   const handlePhotoComplete = async (result: any) => {
     if (result.successful && result.successful.length > 0) {
       const file = result.successful[0];
       const uploadURL = file.uploadURL;
-      console.log("Photo complete - file data:", file);
-      console.log("Photo complete - uploadURL:", uploadURL);
-      
       try {
         await uploadPhotoMutation.mutateAsync(uploadURL);
-        toast({
-          title: "Успешно",
-          description: "Фото загружено",
-        });
       } catch (error) {
-        console.error("Photo upload mutation error:", error);
-        toast({
-          title: "Ошибка",
-          description: "Не удалось сохранить фото",
-          variant: "destructive",
-        });
+        toast({ title: "Ошибка", description: "Не удалось сохранить фото", variant: "destructive" });
       }
     } else {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить фото",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось загрузить фото", variant: "destructive" });
     }
   };
-  
-  // Check access after all hooks
+
   if (!canView) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Card className="max-w-md">
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">Нет доступа к разделу "Персонал"</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--corp-bg)' }}>
+        <div className="max-w-md p-6 text-center" style={SECTION_STYLE}>
+          <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Нет доступа к разделу «Персонал»</p>
+        </div>
       </div>
     );
   }
-  
+
   if (isLoadingPerson || isLoadingDocs) {
-    return (
-      <div className="h-full" />
-    );
+    return <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }} />;
   }
-  
+
   if (!person) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Card className="max-w-md">
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">Сотрудник не найден</p>
-            <div className="mt-4 text-center">
-              <Link href="/personnel">
-                <Button variant="outline">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Вернуться к списку
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--corp-bg)' }}>
+        <div className="max-w-md p-6 text-center" style={SECTION_STYLE}>
+          <p className="text-[13px] mb-3" style={{ color: 'var(--corp-muted)' }}>Сотрудник не найден</p>
+          <button
+            type="button"
+            onClick={() => setLocation('/personnel')}
+            className="inline-flex items-center gap-1 h-9 px-4 text-[12px] font-semibold"
+            style={GHOST_BTN}
+          >
+            Вернуться к списку
+          </button>
+        </div>
       </div>
     );
   }
-  
+
   const experience = calculateExperience(person.startDate);
   const age = person.dateOfBirth ? calculateAge(person.dateOfBirth) : null;
-  
+  const fullName = `${person.lastName} ${person.firstName}${person.middleName ? ' ' + person.middleName : ''}`;
+  const statusTone: 'pos' | 'neg' | 'warn' | 'neutral' =
+    person.status === 'active' ? 'pos' :
+    person.status === 'dismissed' ? 'neg' :
+    person.status === 'vacation' ? 'warn' : 'neutral';
+  const statusText =
+    person.status === 'active' ? 'Активен' :
+    person.status === 'dismissed' ? 'Уволен' :
+    person.status === 'vacation' ? 'Отпуск' : (person.status || '—');
+
   return (
-    <div className="p-4 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/personnel">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-          </Link>
-          <h1 className="text-2xl font-bold">
-            {person.lastName} {person.firstName}
-            {person.middleName && ` ${person.middleName}`}
-          </h1>
-        </div>
-        
-        {isAdmin && (
-          <div className="flex gap-2">
-            <Button onClick={() => setShowEditForm(true)}>
-              <Edit className="w-4 h-4 mr-2" />
-              Редактировать
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => setShowDeleteDialog(true)}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Удалить
-            </Button>
-          </div>
-        )}
-      </div>
-      
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left Column - Photo and Basic Info */}
+    <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }} data-page-header>
+      <CorpHeader
+        title={fullName}
+        subtitle={person.specialization}
+        onBack={() => setLocation('/personnel')}
+        action={
+          isAdmin ? (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setShowEditForm(true)}
+                className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
+                style={PRIMARY_BTN}
+              >
+                <Edit size={13} /> Редактировать
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDeleteDialog(true)}
+                className="w-9 h-9 flex items-center justify-center"
+                style={DANGER_BTN}
+                title="Удалить"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ) : undefined
+        }
+      />
+
+      <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Left column */}
         <div className="space-y-4">
-          {/* Photo Card */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center">
-                <div className="relative group">
-                  {person.photoUrl ? (
-                    <div className="relative">
-                      <img 
-                        src={`/objects/${person.photoUrl.split('/').slice(-2).join('/')}`}
-                        alt={`${person.lastName} ${person.firstName}`}
-                        className="w-32 h-32 rounded-full object-cover mb-4 cursor-pointer"
-                        onClick={() => setSelectedPhoto(person.photoUrl || null)}
-                        onError={(e) => {
-                          console.error("Photo load error for:", person.photoUrl);
-                          // Hide image on error
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                      <div 
-                        className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer mb-4"
-                        onClick={() => setSelectedPhoto(person.photoUrl || null)}
-                      >
-                        <Plus className="w-8 h-8 text-white" />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center mb-4">
-                      <User className="w-16 h-16 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-                
-                {isAdmin && (
-                  <ObjectUploader
-                    maxNumberOfFiles={1}
-                    maxFileSize={5242880} // 5MB
-                    onGetUploadParameters={handlePhotoUpload}
-                    onComplete={handlePhotoComplete}
+          {/* Photo card */}
+          <div className="p-6 flex flex-col items-center" style={SECTION_STYLE}>
+            <div className="relative group mb-4">
+              {person.photoUrl ? (
+                <div className="relative">
+                  <img
+                    src={`/objects/${person.photoUrl.split('/').slice(-2).join('/')}`}
+                    alt={fullName}
+                    className="w-32 h-32 rounded-full object-cover cursor-pointer"
+                    style={{ border: '2px solid var(--corp-line)' }}
+                    onClick={() => setSelectedPhoto(person.photoUrl || null)}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                  <div
+                    className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    onClick={() => setSelectedPhoto(person.photoUrl || null)}
                   >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Загрузить фото
-                  </ObjectUploader>
-                )}
-                
-                <div className="text-center mt-4">
-                  <p className="font-medium text-lg">{person.specialization}</p>
-                  <Badge 
-                    variant={person.status === 'active' ? 'default' : 
-                            person.status === 'dismissed' ? 'destructive' : 'secondary'}
-                    className="mt-2"
-                  >
-                    {person.status === 'active' ? 'Активен' :
-                     person.status === 'dismissed' ? 'Уволен' :
-                     person.status === 'vacation' ? 'Отпуск' : person.status}
-                  </Badge>
+                    <Eye className="w-7 h-7 text-white" />
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Contact Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Контактная информация</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+              ) : (
+                <div
+                  className="w-32 h-32 rounded-full flex items-center justify-center"
+                  style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-3)' }}
+                >
+                  <User className="w-16 h-16" />
+                </div>
+              )}
+            </div>
+
+            {isAdmin && (
+              <ObjectUploader
+                maxNumberOfFiles={1}
+                maxFileSize={5242880}
+                onGetUploadParameters={handlePhotoUpload}
+                onComplete={handlePhotoComplete}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Загрузить фото
+              </ObjectUploader>
+            )}
+
+            <div className="text-center mt-4">
+              <p className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{person.specialization}</p>
+              <div className="mt-2"><StatusBadge tone={statusTone}>{statusText}</StatusBadge></div>
+            </div>
+          </div>
+
+          {/* Contact info */}
+          <div className="p-4" style={SECTION_STYLE}>
+            <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Контактная информация</h3>
+            <div className="space-y-2 text-[13px]">
               {person.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{person.phone}</span>
+                <div className="flex items-center gap-2" style={{ color: 'var(--corp-ink-2)' }}>
+                  <Phone size={14} style={{ color: 'var(--corp-ink-3)' }} />
+                  <span style={{ fontFamily: 'var(--corp-mono)' }}>{person.phone}</span>
                 </div>
               )}
               {person.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{person.email}</span>
+                <div className="flex items-center gap-2" style={{ color: 'var(--corp-ink-2)' }}>
+                  <Mail size={14} style={{ color: 'var(--corp-ink-3)' }} />
+                  <span style={{ fontFamily: 'var(--corp-mono)' }}>{person.email}</span>
                 </div>
               )}
               {age && (
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">Возраст: {age}</span>
+                <div className="flex items-center gap-2" style={{ color: 'var(--corp-ink-2)' }}>
+                  <Calendar size={14} style={{ color: 'var(--corp-ink-3)' }} />
+                  <span>Возраст: {age}</span>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
-        
-        {/* Right Column - Detailed Info */}
+
+        {/* Right column */}
         <div className="lg:col-span-2">
           <Tabs defaultValue="info">
             <TabsList className="grid w-full grid-cols-3">
@@ -581,7 +515,7 @@ export function PersonnelDetail() {
               <TabsTrigger value="documents">
                 Документы
                 {documents.some(d => getDocumentStatus(d.expiryDate) !== 'normal') && (
-                  <AlertTriangle className="w-3 h-3 ml-1 text-destructive" />
+                  <AlertTriangle className="w-3 h-3 ml-1" style={{ color: 'var(--corp-neg)' }} />
                 )}
               </TabsTrigger>
               <TabsTrigger value="advances">
@@ -589,371 +523,318 @@ export function PersonnelDetail() {
                 <DollarSign className="w-3 h-3 ml-1" />
               </TabsTrigger>
             </TabsList>
-            
-            <TabsContent value="info" className="space-y-4">
-              {/* Personal Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Личные данные</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">ФИО</p>
-                    <p className="font-medium">
-                      {person.lastName} {person.firstName}
-                      {person.middleName && ` ${person.middleName}`}
-                    </p>
-                  </div>
+
+            {/* Info tab */}
+            <TabsContent value="info" className="space-y-4 mt-4">
+              <div className="p-4" style={SECTION_STYLE}>
+                <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Личные данные</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InfoField label="ФИО" value={fullName} />
                   {person.dateOfBirth && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Дата рождения</p>
-                      <p className="font-medium">
-                        {format(new Date(person.dateOfBirth), 'dd.MM.yyyy')}
-                      </p>
-                    </div>
+                    <InfoField label="Дата рождения" value={fmtDateRu(person.dateOfBirth)} mono />
                   )}
-                </CardContent>
-              </Card>
-              
-              {/* Emirates ID */}
+                </div>
+              </div>
+
               {person.emiratesId && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Emirates ID</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Номер</p>
-                      <p className="font-medium">{person.emiratesId}</p>
-                    </div>
+                <div className="p-4" style={SECTION_STYLE}>
+                  <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Emirates ID</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InfoField label="Номер" value={person.emiratesId} mono />
                     {person.emiratesIdIssueDate && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Дата выдачи</p>
-                        <p className="font-medium">
-                          {format(new Date(person.emiratesIdIssueDate), 'dd.MM.yyyy')}
-                        </p>
-                      </div>
+                      <InfoField label="Дата выдачи" value={fmtDateRu(person.emiratesIdIssueDate)} mono />
                     )}
                     {person.emiratesIdExpiryDate && (
                       <div>
-                        <p className="text-sm text-muted-foreground">Дата окончания</p>
-                        <p className="font-medium">
-                          {format(new Date(person.emiratesIdExpiryDate), 'dd.MM.yyyy')}
+                        <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Дата окончания</p>
+                        <p className="text-[13px] font-semibold mb-1" style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}>
+                          {fmtDateRu(person.emiratesIdExpiryDate)}
                         </p>
-                        {getDocumentStatus(person.emiratesIdExpiryDate) !== 'normal' && (
-                          <Badge 
-                            variant={getDocumentStatus(person.emiratesIdExpiryDate) === 'expired' ? 'destructive' : 'default'}
-                            className={getDocumentStatus(person.emiratesIdExpiryDate) === 'warning' ? 'bg-yellow-500' : ''}
-                          >
-                            {getDocumentStatus(person.emiratesIdExpiryDate) === 'expired' ? 'Истёк' :
-                             getDocumentStatus(person.emiratesIdExpiryDate) === 'critical' ? '≤14 дней' : '≤30 дней'}
-                          </Badge>
-                        )}
+                        {(() => {
+                          const status = getDocumentStatus(person.emiratesIdExpiryDate);
+                          if (status === 'normal') return null;
+                          const tone: 'neg' | 'warn' = status === 'expired' || status === 'critical' ? 'neg' : 'warn';
+                          const text =
+                            status === 'expired' ? 'Истёк' :
+                            status === 'critical' ? '≤14 дней' : '≤30 дней';
+                          return <StatusBadge tone={tone}>{text}</StatusBadge>;
+                        })()}
                       </div>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               )}
-              
-              {/* Work Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Рабочая информация</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Специализация</p>
-                    <p className="font-medium">{person.specialization}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Дата начала работы</p>
-                    <p className="font-medium">
-                      {format(new Date(person.startDate), 'dd.MM.yyyy')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Стаж работы</p>
-                    <p className="font-medium">{experience}</p>
-                  </div>
+
+              <div className="p-4" style={SECTION_STYLE}>
+                <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Рабочая информация</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InfoField label="Специализация" value={person.specialization} />
+                  <InfoField label="Дата начала работы" value={fmtDateRu(person.startDate)} mono />
+                  <InfoField label="Стаж работы" value={experience} />
                   {person.salary && (
                     <div>
-                      <p className="text-sm text-muted-foreground">Зарплата</p>
-                      <p className="font-medium">
-                        AED {parseFloat(person.salary).toLocaleString()}
-                      </p>
+                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Зарплата</p>
+                      <MoneyAED amount={person.salary} size={14} weight={700} tone="ink" />
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </TabsContent>
-            
-            <TabsContent value="documents" className="space-y-4">
-              {/* Documents Header */}
+
+            {/* Documents tab */}
+            <TabsContent value="documents" className="space-y-3 mt-4">
               <div className="flex justify-between items-center">
-                <h3 className="font-medium">Документы сотрудника</h3>
+                <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Документы сотрудника</h3>
                 {isAdmin && (
-                  <Button onClick={() => setShowDocForm(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Добавить документ
-                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDocForm(true)}
+                    className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
+                    style={PRIMARY_BTN}
+                  >
+                    <Plus size={14} /> Добавить документ
+                  </button>
                 )}
               </div>
-              
-              {/* Documents List */}
+
               {documents.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-3">
                   {documents.map(doc => {
                     const status = getDocumentStatus(doc.expiryDate);
-                    
                     return (
-                      <Card key={doc.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <FileText className="w-5 h-5 text-muted-foreground" />
-                              <div>
-                                <p className="font-medium">{getDocumentTypeName(doc.documentType)}</p>
-                                {doc.documentNumber && (
-                                  <p className="text-sm text-muted-foreground">№ {doc.documentNumber}</p>
+                      <div key={doc.id} className="p-4" style={SECTION_STYLE}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                            <div
+                              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                              style={{ background: 'rgba(37,99,235,0.10)', color: 'var(--corp-accent)' }}
+                            >
+                              <FileText size={16} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[13px] font-semibold" style={{ color: 'var(--corp-ink)' }}>{getDocumentTypeName(doc.documentType)}</p>
+                              {doc.documentNumber && (
+                                <p className="text-[11px]" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                                  № {doc.documentNumber}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-3 mt-1 text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                                {doc.issueDate && (
+                                  <span>Выдан: <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(doc.issueDate)}</span></span>
                                 )}
-                                <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                                  {doc.issueDate && (
-                                    <span>Выдан: {format(new Date(doc.issueDate), 'dd.MM.yyyy')}</span>
-                                  )}
-                                  {doc.expiryDate && (
-                                    <span>Истекает: {format(new Date(doc.expiryDate), 'dd.MM.yyyy')}</span>
-                                  )}
-                                </div>
+                                {doc.expiryDate && (
+                                  <span>Истекает: <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(doc.expiryDate)}</span></span>
+                                )}
                               </div>
                             </div>
-                            
-                            <div className="flex items-center gap-2">
-                              {status !== 'normal' && (
-                                <Badge 
-                                  variant={status === 'expired' ? 'destructive' : 'default'}
-                                  className={status === 'warning' ? 'bg-yellow-500' : ''}
-                                >
-                                  {status === 'expired' ? 'Истёк' :
-                                   status === 'critical' ? '≤14 дней' : '≤30 дней'}
-                                </Badge>
-                              )}
-                              
-                              {doc.fileUrl && (
-                                <>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => setSelectedDocument(doc.fileUrl || null)}
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </Button>
-                                  <a 
-                                    href={`/objects/${doc.fileUrl.split('/').slice(-2).join('/')}`}
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                  >
-                                    <Button variant="ghost" size="sm">
-                                      <Download className="w-4 h-4" />
-                                    </Button>
-                                  </a>
-                                </>
-                              )}
-                              
-                              {isAdmin && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedDoc(doc);
-                                      setShowDocForm(true);
-                                    }}
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setDocToDelete(doc.id);
-                                      setShowDocDeleteDialog(true);
-                                    }}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
                           </div>
-                        </CardContent>
-                      </Card>
+
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {status !== 'normal' && (
+                              <StatusBadge tone={status === 'expired' || status === 'critical' ? 'neg' : 'warn'}>
+                                {status === 'expired' ? 'Истёк' : status === 'critical' ? '≤14 дней' : '≤30 дней'}
+                              </StatusBadge>
+                            )}
+                            {doc.fileUrl && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedDocument(doc.fileUrl || null)}
+                                  className="w-8 h-8 flex items-center justify-center rounded"
+                                  style={{ color: 'var(--corp-accent)' }}
+                                  title="Просмотр"
+                                >
+                                  <Eye size={15} />
+                                </button>
+                                <a
+                                  href={`/objects/${doc.fileUrl.split('/').slice(-2).join('/')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="w-8 h-8 flex items-center justify-center rounded"
+                                  style={{ color: 'var(--corp-pos)' }}
+                                  title="Скачать"
+                                >
+                                  <Download size={15} />
+                                </a>
+                              </>
+                            )}
+                            {isAdmin && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => { setSelectedDoc(doc); setShowDocForm(true); }}
+                                  className="w-8 h-8 flex items-center justify-center rounded"
+                                  style={{ color: 'var(--corp-ink-3)' }}
+                                  title="Редактировать"
+                                >
+                                  <Edit size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setDocToDelete(doc.id); setShowDocDeleteDialog(true); }}
+                                  className="w-8 h-8 flex items-center justify-center rounded"
+                                  style={{ color: 'var(--corp-neg)' }}
+                                  title="Удалить"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
               ) : (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <p className="text-muted-foreground">Документы не добавлены</p>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="advances" className="space-y-4">
-              {/* Advances Summary */}
-              {advancesSummary && person.salary && (
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">Расчет зарплаты</CardTitle>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="month"
-                          value={selectedMonth.toISOString().slice(0, 7)}
-                          onChange={(e) => setSelectedMonth(new Date(e.target.value))}
-                          className="px-2 py-1 border rounded"
-                        />
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Зарплата</p>
-                        <p className="text-lg font-medium">{advancesSummary.salary.toFixed(2)} AED</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Взято авансов</p>
-                        <p className="text-lg font-medium text-red-600">
-                          {advancesSummary.totalAdvances.toFixed(2)} AED
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Долг с прошлого месяца</p>
-                        <p className="text-lg font-medium text-orange-600">
-                          {advancesSummary.carryOver.toFixed(2)} AED
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">К выплате</p>
-                        <p className="text-lg font-medium text-green-600">
-                          {advancesSummary.toPay.toFixed(2)} AED
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {/* Add Advance Button */}
-              {(isAdmin || user?.role === 'director') && (
-                <div className="flex justify-end gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances`] });
-                    }}
-                  >
-                    Обновить
-                  </Button>
-                  <Button onClick={() => setShowAdvanceForm(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Добавить аванс
-                  </Button>
+                <div className="p-8 text-center" style={SECTION_STYLE}>
+                  <FileText size={28} className="mx-auto mb-2" style={{ color: 'var(--corp-muted)' }} />
+                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Документы не добавлены</p>
                 </div>
               )}
-              
-              {/* Advances List */}
+            </TabsContent>
+
+            {/* Advances tab */}
+            <TabsContent value="advances" className="space-y-3 mt-4">
+              {/* Salary calc summary */}
+              {advancesSummary && person.salary && (
+                <div className="p-4" style={SECTION_STYLE}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Расчёт зарплаты</h3>
+                    <input
+                      type="month"
+                      value={selectedMonth.toISOString().slice(0, 7)}
+                      onChange={(e) => setSelectedMonth(new Date(e.target.value))}
+                      className="px-2 py-1 text-[12px]"
+                      style={{
+                        background: 'var(--corp-surface-2)',
+                        border: '1px solid var(--corp-line)',
+                        borderRadius: 'var(--corp-r-sm)',
+                        color: 'var(--corp-ink-2)',
+                        fontFamily: 'var(--corp-mono)',
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="p-3" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
+                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Зарплата</p>
+                      <MoneyAED amount={advancesSummary.salary.toFixed(2)} size={16} weight={700} tone="ink" />
+                    </div>
+                    <div className="p-3" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
+                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Взято авансов</p>
+                      <MoneyAED amount={advancesSummary.totalAdvances.toFixed(2)} size={16} weight={700} tone="neg" />
+                    </div>
+                    <div className="p-3" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
+                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Долг с пр. месяца</p>
+                      <MoneyAED amount={advancesSummary.carryOver.toFixed(2)} size={16} weight={700} tone={advancesSummary.carryOver > 0 ? 'warn' : 'ink'} />
+                    </div>
+                    <div className="p-3" style={{ background: 'rgba(22,163,74,0.10)', borderRadius: 'var(--corp-r)' }}>
+                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-pos)', letterSpacing: '0.04em' }}>К выплате</p>
+                      <MoneyAED amount={advancesSummary.toPay.toFixed(2)} size={16} weight={700} tone="pos" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Add advance buttons */}
+              {(isAdmin || user?.role === 'director') && (
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances`] })}
+                    className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
+                    style={GHOST_BTN}
+                  >
+                    Обновить
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanceForm(true)}
+                    className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
+                    style={PRIMARY_BTN}
+                  >
+                    <Plus size={14} /> Добавить аванс
+                  </button>
+                </div>
+              )}
+
               {isLoadingAdvances ? (
-                <Card>
-                  <CardContent className="p-8 text-center" />
-                </Card>
+                <div className="p-8" style={SECTION_STYLE} />
               ) : advances.length > 0 ? (
                 <div className="space-y-2">
                   {advances.map((advance) => (
-                    <Card key={advance.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-lg">
-                                {parseFloat(advance.amount).toFixed(2)} AED
-                              </p>
-                              {advance.status === 'cancelled' && (
-                                <Badge variant="destructive">Отменен</Badge>
-                              )}
-                            </div>
-                            
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {format(new Date(advance.date), 'dd.MM.yyyy')}
-                            </p>
-                            
-                            {advance.description && (
-                              <p className="text-sm mt-2">{advance.description}</p>
-                            )}
-                            
-                            {advance.cancellationReason && (
-                              <p className="text-sm text-red-600 mt-2">
-                                Причина отмены: {advance.cancellationReason}
-                              </p>
-                            )}
-                            
-                            {advance.fileUrl && (
-                              <a 
-                                href={`/objects/${advance.fileUrl.split('/').slice(-2).join('/')}`}
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mt-2"
-                              >
-                                <FileText className="w-3 h-3" />
-                                Документ
-                              </a>
+                    <div key={advance.id} className="p-4" style={SECTION_STYLE}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <MoneyAED amount={advance.amount} size={16} weight={700} tone={advance.status === 'cancelled' ? 'ink' : 'neg'} />
+                            {advance.status === 'cancelled' && (
+                              <StatusBadge tone="neg">Отменён</StatusBadge>
                             )}
                           </div>
-                          
-                          {isAdmin && advance.status === 'active' && (
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleCancelAdvance(advance.id)}
-                                className="text-orange-600 hover:text-orange-700"
-                                title="Отменить аванс"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setAdvanceToDelete(advance.id);
-                                  setShowAdvanceDeleteDialog(true);
-                                }}
-                                className="text-red-600 hover:text-red-700"
-                                title="Удалить аванс"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
+                          <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                            {fmtDateRu(advance.date)}
+                          </p>
+                          {advance.description && (
+                            <p className="text-[12px] mt-2" style={{ color: 'var(--corp-ink-2)' }}>{advance.description}</p>
+                          )}
+                          {advance.cancellationReason && (
+                            <p className="text-[12px] mt-2" style={{ color: 'var(--corp-neg)' }}>
+                              Причина отмены: {advance.cancellationReason}
+                            </p>
+                          )}
+                          {advance.fileUrl && (
+                            <a
+                              href={`/objects/${advance.fileUrl.split('/').slice(-2).join('/')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[12px] mt-2 hover:underline"
+                              style={{ color: 'var(--corp-accent)' }}
+                            >
+                              <FileText size={11} />
+                              Документ
+                            </a>
                           )}
                         </div>
-                      </CardContent>
-                    </Card>
+
+                        {isAdmin && advance.status === 'active' && (
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleCancelAdvance(advance.id)}
+                              className="w-8 h-8 flex items-center justify-center rounded"
+                              style={{ color: '#f59e0b' }}
+                              title="Отменить аванс"
+                            >
+                              <X size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setAdvanceToDelete(advance.id); setShowAdvanceDeleteDialog(true); }}
+                              className="w-8 h-8 flex items-center justify-center rounded"
+                              style={{ color: 'var(--corp-neg)' }}
+                              title="Удалить аванс"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <p className="text-muted-foreground">Авансы не найдены</p>
-                  </CardContent>
-                </Card>
+                <div className="p-8 text-center" style={SECTION_STYLE}>
+                  <DollarSign size={28} className="mx-auto mb-2" style={{ color: 'var(--corp-muted)' }} />
+                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Авансы не найдены</p>
+                </div>
               )}
             </TabsContent>
           </Tabs>
         </div>
       </div>
-      
-      {/* Forms and Dialogs */}
+
+      {/* Forms and dialogs */}
       {showEditForm && (
         <PersonnelForm
           person={person}
@@ -965,16 +846,13 @@ export function PersonnelDetail() {
           }}
         />
       )}
-      
+
       {showDocForm && (
         <PersonnelDocumentForm
           personnelId={personnelId!}
           document={selectedDoc}
           open={showDocForm}
-          onClose={() => {
-            setShowDocForm(false);
-            setSelectedDoc(null);
-          }}
+          onClose={() => { setShowDocForm(false); setSelectedDoc(null); }}
           onSuccess={() => {
             setShowDocForm(false);
             setSelectedDoc(null);
@@ -982,7 +860,7 @@ export function PersonnelDetail() {
           }}
         />
       )}
-      
+
       {showAdvanceForm && (
         <PersonnelAdvanceForm
           personnelId={personnelId!}
@@ -995,7 +873,7 @@ export function PersonnelDetail() {
           }}
         />
       )}
-      
+
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1006,73 +884,67 @@ export function PersonnelDetail() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletePerson}>
-              Удалить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
-      <AlertDialog open={showDocDeleteDialog} onOpenChange={setShowDocDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Удалить документ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Это действие необратимо. Документ будет удален.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteDoc}>
-              Удалить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
-      <AlertDialog open={showAdvanceDeleteDialog} onOpenChange={setShowAdvanceDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Удалить аванс?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Это действие необратимо. Аванс будет полностью удален из системы.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteAdvance}>
+            <AlertDialogAction onClick={handleDeletePerson} style={{ background: 'var(--corp-neg)', color: '#fff' }}>
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Photo Viewer Modal */}
+      <AlertDialog open={showDocDeleteDialog} onOpenChange={setShowDocDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить документ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие необратимо. Документ будет удалён.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteDoc} style={{ background: 'var(--corp-neg)', color: '#fff' }}>
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showAdvanceDeleteDialog} onOpenChange={setShowAdvanceDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить аванс?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие необратимо. Аванс будет полностью удалён из системы.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAdvance} style={{ background: 'var(--corp-neg)', color: '#fff' }}>
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Photo viewer */}
       {selectedPhoto && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
           onClick={() => setSelectedPhoto(null)}
         >
           <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <Button
-              className="absolute top-4 right-4 bg-black bg-opacity-50 hover:bg-opacity-75 z-10"
-              variant="ghost"
-              size="icon"
+            <button
+              type="button"
+              className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full bg-black bg-opacity-50 hover:bg-opacity-75 z-10"
               onClick={() => setSelectedPhoto(null)}
             >
-              <X className="w-6 h-6 text-white" />
-            </Button>
+              <X className="w-5 h-5 text-white" />
+            </button>
             <img
               src={`/objects/${selectedPhoto.split('/').slice(-2).join('/')}`}
               alt="Фото сотрудника"
               className="max-w-full max-h-full object-contain"
-              onError={(e) => {
-                console.error("Full photo load error for:", selectedPhoto);
-                toast({
-                  title: "Ошибка",
-                  description: "Не удалось загрузить фото",
-                  variant: "destructive",
-                });
+              onError={() => {
+                toast({ title: "Ошибка", description: "Не удалось загрузить фото", variant: "destructive" });
                 setSelectedPhoto(null);
               }}
             />
@@ -1080,32 +952,26 @@ export function PersonnelDetail() {
         </div>
       )}
 
-      {/* Document Viewer Modal */}
+      {/* Document viewer */}
       {selectedDocument && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedDocument(null)}
         >
           <div className="relative w-full h-full max-w-6xl" onClick={(e) => e.stopPropagation()}>
-            <Button
-              className="absolute top-2 right-2 bg-black bg-opacity-50 hover:bg-opacity-75 z-10"
-              variant="ghost"
-              size="icon"
+            <button
+              type="button"
+              className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full bg-black bg-opacity-50 hover:bg-opacity-75 z-10"
               onClick={() => setSelectedDocument(null)}
             >
-              <X className="w-6 h-6 text-white" />
-            </Button>
+              <X className="w-5 h-5 text-white" />
+            </button>
             <iframe
               src={`/objects/${selectedDocument.split('/').slice(-2).join('/')}`}
               className="w-full h-full border-none rounded"
               title="Документ"
               onError={() => {
-                console.error("Document load error for:", selectedDocument);
-                toast({
-                  title: "Ошибка",
-                  description: "Не удалось загрузить документ",
-                  variant: "destructive",
-                });
+                toast({ title: "Ошибка", description: "Не удалось загрузить документ", variant: "destructive" });
                 setSelectedDocument(null);
               }}
             />
