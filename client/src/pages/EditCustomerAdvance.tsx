@@ -4,27 +4,41 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft } from "lucide-react";
+import { CorpHeader } from "@/components/corp-ui";
+
+const SECTION_STYLE: React.CSSProperties = {
+  background: 'var(--corp-surface)',
+  border: '1px solid var(--corp-line)',
+  borderRadius: 'var(--corp-r-lg)',
+};
+
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <Label
+      className="block text-[10px] font-bold uppercase mb-1.5"
+      style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+    >
+      {children}
+      {required && <span style={{ color: 'var(--corp-neg)', marginLeft: 2 }}>*</span>}
+    </Label>
+  );
+}
 
 export default function EditCustomerAdvance() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Restrict access to admin and director only
   if (user && user.role !== 'admin' && user.role !== 'director') {
     setLocation('/master');
     return null;
   }
 
-  // Extract advanceId and projectId from URL
   const pathParts = location.split('/');
   const advanceId = pathParts[pathParts.length - 1];
   const projectId = pathParts[pathParts.length - 2];
@@ -32,13 +46,12 @@ export default function EditCustomerAdvance() {
   const [formData, setFormData] = useState({
     amount: '',
     description: '',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
   });
 
-  // Fetch customer advance details
   const { data: customerAdvances, isLoading } = useQuery({
     queryKey: ['/api/projects', projectId, 'customer-advances'],
-    enabled: !!projectId
+    enabled: !!projectId,
   });
 
   useEffect(() => {
@@ -48,7 +61,7 @@ export default function EditCustomerAdvance() {
         setFormData({
           amount: advance.amount,
           description: advance.description || '',
-          date: new Date(advance.date).toISOString().split('T')[0]
+          date: new Date(advance.date).toISOString().split('T')[0],
         });
       }
     }
@@ -58,21 +71,14 @@ export default function EditCustomerAdvance() {
     mutationFn: async (data: any) => {
       const response = await fetch(`/api/customer-advances/${advanceId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!response.ok) {
-        throw new Error('Failed to update customer advance');
-      }
+      if (!response.ok) throw new Error('Failed to update customer advance');
       return response.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Аванс от заказчика обновлен",
-        description: "Аванс от заказчика успешно обновлен",
-      });
+      toast({ title: "Аванс от заказчика обновлён", description: "Изменения сохранены" });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'customer-advances'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
@@ -87,22 +93,14 @@ export default function EditCustomerAdvance() {
     },
   });
 
-  const goBack = () => {
-    setLocation(`/customer-advances/${projectId}`);
-  };
+  const goBack = () => setLocation(`/customer-advances/${projectId}`);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!formData.amount || !formData.date) {
-      toast({
-        title: "Ошибка",
-        description: "Пожалуйста, заполните все обязательные поля",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Пожалуйста, заполните все обязательные поля", variant: "destructive" });
       return;
     }
-
     updateCustomerAdvance({
       amount: parseFloat(formData.amount),
       description: formData.description,
@@ -110,103 +108,108 @@ export default function EditCustomerAdvance() {
     });
   };
 
-  const formatCurrency = (amount: string) => {
-    if (!amount) return '';
-    const num = parseFloat(amount || "0");
-    return `${num.toLocaleString("ru-RU")} AED`;
-  };
+  const formatNum = (s: string) => s ? parseFloat(s || "0").toLocaleString("ru-RU") : '';
 
   if (isLoading) {
-    return <div className="p-4" />;
+    return <div style={{ background: 'var(--corp-bg)' }} className="min-h-screen p-4" />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={goBack}
-              className="mr-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <h2 className="font-semibold text-slate-900">Редактировать аванс от заказчика</h2>
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      <CorpHeader
+        title="Редактирование аванса"
+        subtitle="От заказчика"
+        onBack={goBack}
+      />
+
+      <main className="px-4 pt-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>Сумма</FieldLabel>
+            <div className="relative">
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                placeholder="0"
+                value={formData.amount}
+                onChange={(e) => setFormData(p => ({ ...p, amount: e.target.value }))}
+                required
+                className="pr-14 h-12 text-[20px] font-bold"
+                style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-pos)' }}
+                data-testid="input-amount"
+              />
+              <span
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold uppercase"
+                style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+              >
+                AED
+              </span>
+            </div>
+            {formData.amount && (
+              <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                {formatNum(formData.amount)}{'\u00A0'}AED
+              </p>
+            )}
           </div>
-        </div>
-      </header>
 
-      <div className="p-4 pb-20">
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Редактирование аванса от заказчика</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="amount">Сумма *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="Введите сумму"
-                  value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                  required
-                />
-                {formData.amount && (
-                  <p className="text-sm text-slate-500 mt-1">
-                    {formatCurrency(formData.amount)}
-                  </p>
-                )}
-              </div>
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>Дата</FieldLabel>
+            <Input
+              id="date"
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData(p => ({ ...p, date: e.target.value }))}
+              required
+              className="h-10 text-[13px]"
+              style={{ fontFamily: 'var(--corp-mono)' }}
+              data-testid="input-date"
+            />
+          </div>
 
-              <div>
-                <Label htmlFor="date">Дата *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                  required
-                />
-              </div>
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel>Описание</FieldLabel>
+            <Textarea
+              id="description"
+              placeholder="Дополнительная информация об авансе от заказчика"
+              value={formData.description}
+              onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
+              rows={3}
+              className="text-[13px] resize-none"
+              data-testid="input-description"
+            />
+          </div>
 
-              <div>
-                <Label htmlFor="description">Описание</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Дополнительная информация об авансе от заказчика"
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={goBack}
-                  className="flex-1"
-                >
-                  Отмена
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="flex-1 bg-primary text-white"
-                  disabled={isPending}
-                >
-                  {isPending ? 'Сохранение...' : 'Сохранить изменения'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={goBack}
+              className="flex-1 h-12 text-[14px] font-semibold transition-colors"
+              style={{
+                background: 'var(--corp-surface)',
+                border: '1px solid var(--corp-line)',
+                color: 'var(--corp-ink-2)',
+                borderRadius: 'var(--corp-r)',
+              }}
+              data-testid="button-cancel"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="flex-1 h-12 text-[14px] font-semibold transition-colors disabled:opacity-50"
+              style={{ background: 'var(--corp-pos)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+              data-testid="button-save"
+            >
+              {isPending ? 'Сохранение…' : 'Сохранить'}
+            </button>
+          </div>
+        </form>
+      </main>
     </div>
   );
 }

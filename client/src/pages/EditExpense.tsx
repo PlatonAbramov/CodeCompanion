@@ -4,49 +4,60 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { ExternalLink } from "lucide-react";
+import { CorpHeader } from "@/components/corp-ui";
+
+const SECTION_STYLE: React.CSSProperties = {
+  background: 'var(--corp-surface)',
+  border: '1px solid var(--corp-line)',
+  borderRadius: 'var(--corp-r-lg)',
+};
+
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <Label
+      className="block text-[10px] font-bold uppercase mb-1.5"
+      style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+    >
+      {children}
+      {required && <span style={{ color: 'var(--corp-neg)', marginLeft: 2 }}>*</span>}
+    </Label>
+  );
+}
 
 export default function EditExpense() {
   const [location, setLocation] = useLocation();
-  const { user } = useAuth();
-  const { t } = useLanguage();
+  useAuth();
+  useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Extract expenseId and projectId from URL
   const pathParts = location.split('/');
   const expenseId = pathParts[pathParts.length - 1];
   const projectId = pathParts[pathParts.length - 2];
-
-  // Check permission to edit expense
-  const canEdit = (expense: any) => {
-    return user?.role === 'admin' || user?.role === 'director' || expense?.user?.id === user?.id;
-  };
 
   const [formData, setFormData] = useState({
     amount: '',
     category: '',
     description: '',
     receiptUrl: '',
-    contractorId: ''
+    contractorId: '',
   });
 
-  // Fetch expense details
   const { data: expenses, isLoading } = useQuery({
     queryKey: ['/api/projects', projectId, 'expenses'],
-    enabled: !!projectId
+    enabled: !!projectId,
   });
 
-  // Fetch contractors for contractor payment category
   const { data: contractors } = useQuery({
     queryKey: ['/api/contractors'],
-    enabled: !!projectId
+    enabled: !!projectId,
   });
 
   useEffect(() => {
@@ -58,7 +69,7 @@ export default function EditExpense() {
           category: expense.category || '',
           description: expense.description || '',
           receiptUrl: expense.receiptUrl || '',
-          contractorId: expense.contractorId || ''
+          contractorId: expense.contractorId || '',
         });
       }
     }
@@ -68,21 +79,14 @@ export default function EditExpense() {
     mutationFn: async (data: any) => {
       const response = await fetch(`/api/expenses/${expenseId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!response.ok) {
-        throw new Error('Failed to update expense');
-      }
+      if (!response.ok) throw new Error('Failed to update expense');
       return response.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Расход обновлен",
-        description: "Расход успешно обновлен",
-      });
+      toast({ title: "Расход обновлён", description: "Изменения сохранены" });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
@@ -97,51 +101,31 @@ export default function EditExpense() {
     },
   });
 
-  const goBack = () => {
-    setLocation(`/expenses/${projectId}`);
-  };
+  const goBack = () => setLocation(`/expenses/${projectId}`);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!formData.amount || !formData.category || !formData.description) {
-      toast({
-        title: "Ошибка",
-        description: "Пожалуйста, заполните все обязательные поля",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Пожалуйста, заполните все обязательные поля", variant: "destructive" });
       return;
     }
-
     if (formData.category === 'contractor_payments' && !formData.contractorId) {
-      toast({
-        title: "Ошибка",
-        description: "Для категории 'Оплата подрядчикам' необходимо выбрать подрядчика",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Для категории «Оплата подрядчикам» необходимо выбрать подрядчика", variant: "destructive" });
       return;
     }
-
     const updateData: any = {
       amount: parseFloat(formData.amount),
       category: formData.category,
       description: formData.description,
       receiptUrl: formData.receiptUrl,
     };
-
-    // Include contractorId if category is contractor_payments
     if (formData.category === 'contractor_payments' && formData.contractorId) {
       updateData.contractorId = formData.contractorId;
     }
-
     updateExpense(updateData);
   };
 
-  const formatCurrency = (amount: string) => {
-    if (!amount) return '';
-    const num = parseFloat(amount || "0");
-    return `${num.toLocaleString("ru-RU")} AED`;
-  };
+  const formatNum = (s: string) => s ? parseFloat(s || "0").toLocaleString("ru-RU") : '';
 
   const categories = [
     { value: 'materials', label: 'Материалы' },
@@ -151,146 +135,154 @@ export default function EditExpense() {
     { value: 'salary_employees', label: 'Зарплата действующим сотрудникам' },
     { value: 'salary_daily', label: 'Зарплата поднёвщикам' },
     { value: 'contractor_payments', label: 'Оплата подрядчикам' },
-    { value: 'other', label: 'Прочее' }
+    { value: 'other', label: 'Прочее' },
   ];
 
   if (isLoading) {
-    return <div className="p-4" />;
+    return <div style={{ background: 'var(--corp-bg)' }} className="min-h-screen p-4" />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={goBack}
-              className="mr-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <h2 className="font-semibold text-slate-900">Редактировать расход</h2>
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      <CorpHeader title="Редактирование расхода" subtitle="Изменение записи" onBack={goBack} />
+
+      <main className="px-4 pt-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>Сумма</FieldLabel>
+            <div className="relative">
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                placeholder="0"
+                value={formData.amount}
+                onChange={(e) => setFormData(p => ({ ...p, amount: e.target.value }))}
+                required
+                className="pr-14 h-12 text-[20px] font-bold"
+                style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-neg)' }}
+                data-testid="input-amount"
+              />
+              <span
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold uppercase"
+                style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+              >
+                AED
+              </span>
+            </div>
+            {formData.amount && (
+              <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                {formatNum(formData.amount)}{'\u00A0'}AED
+              </p>
+            )}
           </div>
-        </div>
-      </header>
 
-      <div className="p-4 pb-20">
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Редактирование расхода</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="amount">Сумма *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="Введите сумму"
-                  value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                  required
-                />
-                {formData.amount && (
-                  <p className="text-sm text-slate-500 mt-1">
-                    {formatCurrency(formData.amount)}
-                  </p>
-                )}
-              </div>
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>Категория</FieldLabel>
+            <Select
+              value={formData.category}
+              onValueChange={(v) => setFormData(p => ({ ...p, category: v }))}
+            >
+              <SelectTrigger className="h-10 text-[13px]" data-testid="select-category">
+                <SelectValue placeholder="Выберите категорию" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map(c => (
+                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-              <div>
-                <Label htmlFor="category">Категория *</Label>
-                <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите категорию" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
-                        {category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          {formData.category === 'contractor_payments' && (
+            <div className="p-4" style={SECTION_STYLE}>
+              <FieldLabel required>Подрядчик</FieldLabel>
+              <Select
+                value={formData.contractorId}
+                onValueChange={(v) => setFormData(p => ({ ...p, contractorId: v }))}
+              >
+                <SelectTrigger className="h-10 text-[13px]" data-testid="select-contractor">
+                  <SelectValue placeholder="Выберите подрядчика" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(contractors as any[])?.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.company ? `${c.company} (${c.name})` : c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] mt-1.5" style={{ color: 'var(--corp-muted)' }}>
+                Изменить подрядчика для данного расхода
+              </p>
+            </div>
+          )}
 
-              {/* Contractor selection - only show for contractor payments */}
-              {formData.category === 'contractor_payments' && (
-                <div>
-                  <Label htmlFor="contractor">Подрядчик *</Label>
-                  <Select 
-                    value={formData.contractorId} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, contractorId: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите подрядчика" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(contractors as any[])?.map((contractor: any) => (
-                        <SelectItem key={contractor.id} value={contractor.id}>
-                          {contractor.company ? `${contractor.company} (${contractor.name})` : contractor.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Изменить подрядчика для данного расхода
-                  </p>
-                </div>
-              )}
+          <div className="p-4" style={SECTION_STYLE}>
+            <FieldLabel required>Описание</FieldLabel>
+            <Textarea
+              id="description"
+              placeholder="Опишите расход"
+              value={formData.description}
+              onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
+              rows={3}
+              required
+              className="text-[13px] resize-none"
+              data-testid="input-description"
+            />
+          </div>
 
-              <div>
-                <Label htmlFor="description">Описание *</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Опишите расход"
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={3}
-                  required
-                />
-              </div>
+          {formData.receiptUrl && (
+            <div className="p-4" style={SECTION_STYLE}>
+              <FieldLabel>Текущий чек</FieldLabel>
+              <button
+                type="button"
+                onClick={() => window.open(formData.receiptUrl, '_blank')}
+                className="inline-flex items-center gap-2 h-10 px-4 text-[13px] font-semibold transition-colors"
+                style={{
+                  background: 'var(--corp-surface-2)',
+                  border: '1px solid var(--corp-line)',
+                  color: 'var(--corp-ink)',
+                  borderRadius: 'var(--corp-r)',
+                }}
+                data-testid="button-view-receipt"
+              >
+                <ExternalLink size={14} />
+                Посмотреть чек
+              </button>
+            </div>
+          )}
 
-              {formData.receiptUrl && (
-                <div>
-                  <Label>Текущий чек</Label>
-                  <div className="mt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => window.open(formData.receiptUrl, '_blank')}
-                    >
-                      Посмотреть текущий чек
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={goBack}
-                  className="flex-1"
-                >
-                  Отмена
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="flex-1 bg-primary text-white"
-                  disabled={isPending}
-                >
-                  {isPending ? 'Сохранение...' : 'Сохранить изменения'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={goBack}
+              className="flex-1 h-12 text-[14px] font-semibold transition-colors"
+              style={{
+                background: 'var(--corp-surface)',
+                border: '1px solid var(--corp-line)',
+                color: 'var(--corp-ink-2)',
+                borderRadius: 'var(--corp-r)',
+              }}
+              data-testid="button-cancel"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="flex-1 h-12 text-[14px] font-semibold transition-colors disabled:opacity-50"
+              style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+              data-testid="button-save"
+            >
+              {isPending ? 'Сохранение…' : 'Сохранить'}
+            </button>
+          </div>
+        </form>
+      </main>
     </div>
   );
 }
