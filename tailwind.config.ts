@@ -10,6 +10,11 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontFamily: {
+        sans: ["Inter", "SF Pro Text", "system-ui", "-apple-system", "sans-serif"],
+        display: ["Inter", "SF Pro Display", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["JetBrains Mono", "ui-monospace", "SF Mono", "monospace"],
+      },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
