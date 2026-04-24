@@ -320,7 +320,7 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen flex" style={{ background: 'var(--corp-bg)' }}>
       {/* Боковая панель — десктоп (md+) */}
       <aside
-        className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-60 z-40"
+        className="hidden lg:flex flex-col fixed top-0 left-0 bottom-0 w-60 z-40"
         style={{
           background: 'var(--corp-surface)',
           borderRight: '1px solid var(--corp-line)',
@@ -389,8 +389,8 @@ export function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Основной контент */}
-      <div className="flex-1 min-w-0 md:pl-60">
-        <div className="pb-24 md:pb-6" data-app-content>
+      <div className="flex-1 min-w-0 lg:pl-60">
+        <div className="pb-24 lg:pb-6" data-app-content>
           {children}
         </div>
       </div>
