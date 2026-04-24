@@ -14,9 +14,9 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Bell, LogOut, Plus, Archive, Settings, BarChart3,
   ChevronRight, Edit2, Search, MoreHorizontal,
+  Home as HomeIcon, Building2, DollarSign, User as UserIcon, Users as UsersIcon,
 } from "lucide-react";
 import { AssignClientModal } from '@/components/AssignClientModal';
-import { BottomNavigation } from "@/components/BottomNavigation";
 
 interface Project {
   id: string;
@@ -191,6 +191,220 @@ function PeriodSegment({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// === Mobile Hero (чёрная карточка прибыли с мини-графиком) ==================
+function MobileHero({
+  totalProfit, activeCount, awaitingPayment, growthPct,
+}: {
+  totalProfit: number;
+  activeCount: number;
+  awaitingPayment: number;
+  growthPct: number;
+}) {
+  const positive = totalProfit >= 0;
+  const heights = [16, 22, 18, 26, 24, 30, 36, 42];
+  return (
+    <div
+      className="lg:hidden"
+      style={{
+        background: 'var(--corp-ink)',
+        borderRadius: 'var(--corp-r-lg)',
+        padding: 18,
+        color: '#fff',
+      }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p
+            className="text-[11px] font-bold uppercase"
+            style={{ letterSpacing: '0.06em', color: 'rgba(255,255,255,0.55)' }}
+          >
+            Общая прибыль
+          </p>
+          <div
+            className="mt-2"
+            style={{
+              fontFamily: 'var(--corp-mono)', fontSize: 32, fontWeight: 700,
+              lineHeight: 1.05, letterSpacing: '-0.6px',
+            }}
+          >
+            {fmtNum(totalProfit)}
+            <span
+              style={{
+                marginLeft: 8, fontSize: '0.42em', opacity: 0.55,
+                fontWeight: 500, verticalAlign: 'middle',
+              }}
+            >
+              AED
+            </span>
+          </div>
+        </div>
+        <svg width="84" height="46" viewBox="0 0 84 46" className="flex-shrink-0">
+          <defs>
+            <linearGradient id="heroBars" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stopColor="#5b58eb" />
+              <stop offset="100%" stopColor="#a78bfa" />
+            </linearGradient>
+          </defs>
+          {heights.map((h, i) => (
+            <rect
+              key={i}
+              x={i * 10 + 2}
+              y={46 - h}
+              width="6"
+              height={h}
+              rx="1.5"
+              fill="url(#heroBars)"
+            />
+          ))}
+        </svg>
+      </div>
+
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.10)', margin: '14px 0' }} />
+
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em' }}>
+            Активные
+          </p>
+          <div className="mt-1.5" style={{ fontFamily: 'var(--corp-mono)', fontSize: 20, fontWeight: 700 }}>
+            {activeCount}
+          </div>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em' }}>
+            Ожидает
+          </p>
+          <div className="mt-1.5" style={{ fontFamily: 'var(--corp-mono)', fontSize: 20, fontWeight: 700 }}>
+            {fmtShort(awaitingPayment)}
+          </div>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em' }}>
+            Маржа
+          </p>
+          <div
+            className="mt-1.5"
+            style={{
+              fontFamily: 'var(--corp-mono)', fontSize: 20, fontWeight: 700,
+              color: positive ? '#86efac' : '#fca5a5',
+            }}
+          >
+            {positive ? '+' : ''}{growthPct.toFixed(1)}%
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// === Mobile Quick Actions (4 квадрата) ======================================
+function MobileQuickActionTile({
+  icon: Icon, label, onClick, testId,
+}: {
+  icon: any;
+  label: string;
+  onClick: () => void;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-2 px-1 py-3 transition-colors"
+      style={{
+        background: 'var(--corp-surface)',
+        border: '1px solid var(--corp-line)',
+        borderRadius: 'var(--corp-r-lg)',
+      }}
+      data-testid={testId}
+    >
+      <span
+        className="w-10 h-10 rounded-xl flex items-center justify-center"
+        style={{ background: 'rgba(91,88,235,0.10)', color: '#5b58eb' }}
+      >
+        <Icon size={18} />
+      </span>
+      <span className="text-[12px] font-semibold" style={{ color: 'var(--corp-ink)' }}>
+        {label}
+      </span>
+    </button>
+  );
+}
+
+// === Mobile Project Card (новый дизайн с аватаром-инициалами) ===============
+function MobileProjectCardNew({
+  project, onClick, clientsById,
+}: {
+  project: Project;
+  onClick: () => void;
+  clientsById: Map<string, Client>;
+}) {
+  const { fin, totalCost, usedRatio, currentProfit, profitable } = useProjectRowData(project);
+  const clientName = (project as any).clientId
+    ? clientsById.get((project as any).clientId)?.name || ''
+    : '';
+  const initials = (() => {
+    const parts = project.name.trim().split(/\s+/).filter(Boolean);
+    const letters = parts.length >= 2
+      ? (parts[0][0] || '') + (parts[1][0] || '')
+      : project.name.replace(/\s/g, '').slice(0, 2);
+    return letters.toUpperCase();
+  })();
+  const endDate = project.endDate ? fmtDateRu(project.endDate) : '';
+
+  return (
+    <div
+      onClick={onClick}
+      className="cursor-pointer p-3.5"
+      style={{
+        background: 'var(--corp-surface)',
+        border: '1px solid var(--corp-line)',
+        borderRadius: 'var(--corp-r-lg)',
+      }}
+      data-testid={`mobile-project-card-${project.id}`}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(91,88,235,0.12)', color: '#5b58eb' }}
+        >
+          <span className="text-[12px] font-bold" style={{ fontFamily: 'var(--corp-mono)' }}>
+            {initials}
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div
+            className="text-[15px] font-bold leading-tight"
+            style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
+          >
+            {project.name}
+          </div>
+          <div className="text-[12px] mt-1" style={{ color: 'var(--corp-muted)' }}>
+            {clientName && <>{clientName} · </>}
+            {endDate && (
+              <>до <span style={{ fontFamily: 'var(--corp-mono)' }}>{endDate}</span></>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--corp-surface-3)' }}>
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${usedRatio}%`, background: profitable ? 'var(--corp-pos)' : 'var(--corp-neg)' }}
+          />
+        </div>
+        <span
+          className="text-[12px] font-semibold"
+          style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-muted)', minWidth: 36, textAlign: 'right' }}
+        >
+          {Math.round(usedRatio)}%
+        </span>
+      </div>
     </div>
   );
 }
@@ -494,9 +708,58 @@ export default function DirectorDashboard() {
         color: 'var(--corp-ink)',
       }}
     >
-      {/* === Top bar ============================================ */}
+      {/* === Мобильная шапка (домик + приветствие + bell + gear) ====== */}
       <header
-        className="sticky top-0 z-40"
+        className="lg:hidden sticky top-0 z-40"
+        style={{
+          background: 'var(--corp-bg)',
+        }}
+      >
+        <div className="px-4 pt-3 pb-2 flex items-center gap-3">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--corp-ink)', color: '#fff' }}
+          >
+            <HomeIcon size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+              Добрый день,
+            </p>
+            <p
+              className="text-[16px] font-bold leading-tight truncate"
+              style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
+            >
+              {user?.name || 'Пользователь'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--corp-surface)', border: '1px solid var(--corp-line)', color: 'var(--corp-ink-2)' }}
+            data-testid="button-notifications-mobile"
+            aria-label="Уведомления"
+          >
+            <Bell size={17} />
+          </button>
+          {(user?.role === 'admin' || user?.role === 'director') && (
+            <button
+              type="button"
+              onClick={() => setLocation(user?.role === 'admin' ? '/admin' : '/analytics')}
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'var(--corp-surface)', border: '1px solid var(--corp-line)', color: 'var(--corp-ink-2)' }}
+              data-testid="button-settings-mobile"
+              aria-label="Настройки"
+            >
+              <Settings size={17} />
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* === Десктопная шапка ========================================= */}
+      <header
+        className="hidden lg:block sticky top-0 z-40"
         style={{
           background: 'var(--corp-surface)',
           borderBottom: '1px solid var(--corp-line)',
@@ -571,9 +834,80 @@ export default function DirectorDashboard() {
         </div>
       </header>
 
-      <main className="px-4 lg:px-6 pt-5 lg:pt-6">
-        {/* === Greeting ========================================= */}
-        <div className="flex items-end justify-between gap-3 flex-wrap mb-5 lg:mb-6">
+      <main className="px-4 lg:px-6 pt-3 lg:pt-6">
+        {/* === Мобильный hero + быстрые действия (lg:hidden) ===== */}
+        <div className="lg:hidden mb-5">
+          <MobileHero
+            totalProfit={totalProfit}
+            activeCount={activeProjectsCount}
+            awaitingPayment={awaitingPayment}
+            growthPct={totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0}
+          />
+        </div>
+
+        {!isMaster && (
+          <div className="lg:hidden grid grid-cols-4 gap-2 mb-5">
+            {canEdit ? (
+              <MobileQuickActionTile
+                icon={Building2}
+                label="Проект"
+                onClick={() => setIsCreateModalOpen(true)}
+                testId="mobile-action-project"
+              />
+            ) : (
+              <MobileQuickActionTile
+                icon={Building2}
+                label="Проекты"
+                onClick={() => setLocation('/director')}
+                testId="mobile-action-project"
+              />
+            )}
+            <MobileQuickActionTile
+              icon={DollarSign}
+              label="Расход"
+              onClick={() => setLocation('/add-expense')}
+              testId="mobile-action-expense"
+            />
+            <MobileQuickActionTile
+              icon={UserIcon}
+              label="Заказч."
+              onClick={() => setLocation('/clients')}
+              testId="mobile-action-clients"
+            />
+            <MobileQuickActionTile
+              icon={UsersIcon}
+              label="Подряд."
+              onClick={() => setLocation('/contractors')}
+              testId="mobile-action-contractors"
+            />
+          </div>
+        )}
+
+        {isMaster && (
+          <div className="lg:hidden grid grid-cols-3 gap-2 mb-5">
+            <MobileQuickActionTile
+              icon={Building2}
+              label="Проекты"
+              onClick={() => setLocation('/master')}
+              testId="mobile-action-project"
+            />
+            <MobileQuickActionTile
+              icon={DollarSign}
+              label="Расход"
+              onClick={() => setLocation('/add-expense')}
+              testId="mobile-action-expense"
+            />
+            <MobileQuickActionTile
+              icon={UsersIcon}
+              label="Подряд."
+              onClick={() => setLocation('/contractors')}
+              testId="mobile-action-contractors"
+            />
+          </div>
+        )}
+
+        {/* === Десктоп: приветствие + период (hidden lg:block) === */}
+        <div className="hidden lg:flex items-end justify-between gap-3 flex-wrap mb-5 lg:mb-6">
           <div>
             <p
               className="text-[10px] lg:text-[11px] font-bold uppercase"
@@ -597,8 +931,8 @@ export default function DirectorDashboard() {
           )}
         </div>
 
-        {/* === KPI row ========================================== */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-3.5 mb-5 lg:mb-6">
+        {/* === Десктоп: KPI row (hidden lg:grid) ================ */}
+        <div className="hidden lg:grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-3.5 mb-5 lg:mb-6">
           {!isMaster && (
             <KpiCard
               dark
@@ -687,8 +1021,28 @@ export default function DirectorDashboard() {
           </button>
         )}
 
-        {/* === Recent projects ================================ */}
-        <div className="flex items-center justify-between mb-3">
+        {/* === Заголовок секции (мобайл) ========================= */}
+        <div className="lg:hidden flex items-center justify-between mb-3">
+          <h3
+            className="text-[11px] font-bold uppercase"
+            style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+          >
+            Проекты
+          </h3>
+          <button
+            type="button"
+            onClick={() => setLocation('/archived-projects')}
+            className="inline-flex items-center gap-1 text-[13px] font-semibold"
+            style={{ color: 'var(--corp-accent)' }}
+            data-testid="button-all-projects-mobile"
+          >
+            Все <span style={{ fontFamily: 'var(--corp-mono)' }}>{activeProjectsCount}</span>
+            <ChevronRight size={14} />
+          </button>
+        </div>
+
+        {/* === Заголовок секции (десктоп) ======================== */}
+        <div className="hidden lg:flex items-center justify-between mb-3">
           <h3
             className="text-[14px] font-bold"
             style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
@@ -889,70 +1243,70 @@ export default function DirectorDashboard() {
             </p>
           </div>
         ) : (
-          <div
-            style={{
-              background: 'var(--corp-surface)',
-              border: '1px solid var(--corp-line)',
-              borderRadius: 'var(--corp-r-lg)',
-              overflow: 'hidden',
-            }}
-          >
+          <>
             {/* Десктопная таблица */}
-            <table className="hidden md:table w-full" style={{ borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: 'var(--corp-surface-2)' }}>
-                  {[
-                    { label: 'Проект', align: 'left' },
-                    { label: 'Заказчик', align: 'left' },
-                    { label: 'Прогресс', align: 'left' },
-                    { label: 'Бюджет', align: 'right' },
-                    { label: 'Прибыль', align: 'right' },
-                    { label: 'Срок', align: 'left' },
-                    { label: '', align: 'right' },
-                  ].map((h, i) => (
-                    <th
-                      key={i}
-                      className="px-4 py-2.5 text-[10px] font-bold uppercase"
-                      style={{
-                        textAlign: h.align as any,
-                        color: 'var(--corp-muted)',
-                        letterSpacing: '0.06em',
-                      }}
-                    >
-                      {h.label}
-                    </th>
+            <div
+              className="hidden lg:block"
+              style={{
+                background: 'var(--corp-surface)',
+                border: '1px solid var(--corp-line)',
+                borderRadius: 'var(--corp-r-lg)',
+                overflow: 'hidden',
+              }}
+            >
+              <table className="w-full" style={{ borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: 'var(--corp-surface-2)' }}>
+                    {[
+                      { label: 'Проект', align: 'left' },
+                      { label: 'Заказчик', align: 'left' },
+                      { label: 'Прогресс', align: 'left' },
+                      { label: 'Бюджет', align: 'right' },
+                      { label: 'Прибыль', align: 'right' },
+                      { label: 'Срок', align: 'left' },
+                      { label: '', align: 'right' },
+                    ].map((h, i) => (
+                      <th
+                        key={i}
+                        className="px-4 py-2.5 text-[10px] font-bold uppercase"
+                        style={{
+                          textAlign: h.align as any,
+                          color: 'var(--corp-muted)',
+                          letterSpacing: '0.06em',
+                        }}
+                      >
+                        {h.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentProjects.map((project) => (
+                    <ProjectsTableRow
+                      key={project.id}
+                      project={project}
+                      onClick={() => setLocation(`/projects/${project.id}`)}
+                      onEdit={openEditModal}
+                      showEdit={canEdit}
+                      clientsById={clientsById}
+                    />
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentProjects.map((project) => (
-                  <ProjectsTableRow
-                    key={project.id}
-                    project={project}
-                    onClick={() => setLocation(`/projects/${project.id}`)}
-                    onEdit={openEditModal}
-                    showEdit={canEdit}
-                    clientsById={clientsById}
-                  />
-                ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
 
-            {/* Мобильный список — отдельный компонент с валидным DOM */}
-            <div className="md:hidden">
-              {recentProjects.map((project, i) => (
-                <ProjectsMobileCard
+            {/* Мобильный список — отдельные карточки с аватарами */}
+            <div className="lg:hidden flex flex-col gap-2.5">
+              {recentProjects.map((project) => (
+                <MobileProjectCardNew
                   key={project.id}
                   project={project}
-                  isFirst={i === 0}
                   onClick={() => setLocation(`/projects/${project.id}`)}
-                  onEdit={openEditModal}
-                  showEdit={canEdit}
                   clientsById={clientsById}
                 />
               ))}
             </div>
-          </div>
+          </>
         )}
       </main>
 
