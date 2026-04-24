@@ -3,13 +3,19 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { 
-  ArrowLeft, Plus, Eye, Edit, MoreVertical, Trash2
-} from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuTrigger, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Plus, Eye, Edit, MoreVertical, Trash2, Briefcase } from "lucide-react";
+import {
+  CorpHeader, CorpEmpty, CorpHeroSummary, MoneyAED, fmtDateRu,
+} from "@/components/corp-ui";
 
 interface Expense {
   id: string;
@@ -18,19 +24,22 @@ interface Expense {
   description: string;
   receiptUrl: string;
   createdAt: string;
-  user: {
-    id: string;
-    name: string;
-  };
-  project: {
-    id: string;
-    name: string;
-  };
-  contractor?: {
-    name: string;
-    company?: string;
-  };
+  user: { id: string; name: string };
+  project: { id: string; name: string };
+  contractor?: { name: string; company?: string };
 }
+
+const CATEGORY_LABELS: Record<string, string> = {
+  materials: 'Материалы',
+  tools: 'Инструменты',
+  transport: 'Транспорт',
+  services: 'Услуги',
+  salary_employees: 'Зарплата сотрудникам',
+  salary_daily: 'Зарплата поднёвщикам',
+  contractor_payments: 'Оплата подрядчикам',
+  other: 'Прочее',
+  uncategorized: 'Без категории',
+};
 
 export default function CategoryExpenses() {
   const [location, setLocation] = useLocation();
@@ -38,33 +47,27 @@ export default function CategoryExpenses() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  // Extract projectId and category from URL path
+
   const pathParts = location.split('/');
   const projectId = pathParts[2];
   const category = pathParts[3];
 
-  // Get project expenses
   const { data: allExpenses = [], isLoading } = useQuery<Expense[]>({
     queryKey: ['/api/projects', projectId, 'expenses'],
   });
 
+  const { data: project } = useQuery<{ id: string; name: string }>({
+    queryKey: ['/api/projects', projectId],
+  });
+
   const { mutate: deleteExpense } = useMutation({
     mutationFn: async (expenseId: string) => {
-      const response = await fetch(`/api/expenses/${expenseId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete expense');
-      }
+      const response = await fetch(`/api/expenses/${expenseId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete expense');
       return response.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Расход удален",
-        description: "Расход успешно удален",
-      });
-      // Invalidate all related caches
+      toast({ title: "Расход удалён", description: "Расход успешно удалён" });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
@@ -72,207 +75,118 @@ export default function CategoryExpenses() {
       queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
     },
     onError: (error: any) => {
-      toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось удалить расход",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: error.message || "Не удалось удалить расход", variant: "destructive" });
     },
   });
 
-  // Get project details
-  const { data: project } = useQuery<{id: string, name: string}>({
-    queryKey: ['/api/projects', projectId],
-  });
-
-  // Filter expenses by category (handle "uncategorized" pseudo-category for empty/null values)
   const expenses = category === 'uncategorized'
-    ? allExpenses.filter(expense => !expense.category || expense.category.trim() === '')
-    : allExpenses.filter(expense => expense.category === category);
+    ? allExpenses.filter((e) => !e.category || e.category.trim() === '')
+    : allExpenses.filter((e) => e.category === category);
 
-  const goBack = () => {
-    setLocation(`/expenses/${projectId}`);
-  };
-
-  const formatCurrency = (amount: string) => {
-    const num = parseFloat(amount || "0");
-    return `${num.toLocaleString("ru-RU")} AED`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ru-RU');
-  };
-
-  const getCategoryLabel = (category: string) => {
-    const categoryMap: { [key: string]: string } = {
-      'materials': 'Материалы',
-      'tools': 'Инструменты', 
-      'transport': 'Транспорт',
-      'services': 'Услуги',
-      'salary_employees': 'Зарплата действующим сотрудникам',
-      'salary_daily': 'Зарплата поднёвщикам',
-      'contractor_payments': 'Оплата подрядчикам',
-      'other': 'Прочее',
-      'uncategorized': 'Без категории'
-    };
-    return categoryMap[category] || category;
-  };
+  const total = expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+  const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
+  const categoryLabel = CATEGORY_LABELS[category] || category;
 
   const openReceipt = (receiptUrl: string) => {
-    // For local files, just open the URL directly
     if (receiptUrl.startsWith('/api/files/')) {
       window.open(receiptUrl, '_blank');
     } else {
-      // Handle legacy URLs or show error
-      toast({
-        title: "Ошибка",
-        description: "Файл не найден или поврежден",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Файл не найден или повреждён", variant: "destructive" });
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50" />
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={goBack}
-                className="mr-2"
-              >
-                <ArrowLeft size={20} />
-              </Button>
-              <div>
-                <h2 className="font-semibold text-slate-900">{getCategoryLabel(category)}</h2>
-                {project?.name && (
-                  <p className="text-sm text-slate-500">{project.name}</p>
-                )}
-              </div>
-            </div>
-            <Button 
-              className="bg-primary text-white"
-              onClick={() => setLocation('/add-expense')}
-            >
-              <Plus size={16} className="mr-1" />
-              {t('addExpense')}
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      <CorpHeader
+        title={categoryLabel}
+        subtitle={project?.name}
+        onBack={() => setLocation(`/expenses/${projectId}`)}
+        action={
+          <button
+            type="button"
+            onClick={() => setLocation('/add-expense')}
+            className="inline-flex items-center gap-1.5 h-9 px-3 text-[13px] font-semibold transition-colors"
+            style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+            data-testid="button-add-expense"
+          >
+            <Plus size={14} /> <span className="hidden sm:inline">{t('addExpense') || 'Расход'}</span>
+          </button>
+        }
+      />
 
-      <div className="p-4 pb-20">
-        {expenses.length === 0 ? (
-          <Card className="shadow-sm">
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <div className="w-6 h-6 bg-primary rounded-full"></div>
-              </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Нет расходов</h3>
-              <p className="text-slate-500 mb-4">В категории "{getCategoryLabel(category)}" пока нет расходов</p>
-              {(user?.role === 'admin' || user?.role === 'director') && (
-                <Button 
-                  className="bg-primary text-white"
-                  onClick={() => setLocation('/add-expense')}
-                >
-                  <Plus size={16} className="mr-1" />
-                  {t('addExpense')}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+      <main className="px-4 pt-4">
+        {!isLoading && expenses.length === 0 ? (
+          <CorpEmpty
+            icon={<Briefcase size={28} />}
+            title="Нет расходов"
+            description={`В категории «${categoryLabel}» пока нет расходов`}
+            actionLabel={isAdminOrDirector ? "Добавить расход" : undefined}
+            onAction={isAdminOrDirector ? () => setLocation('/add-expense') : undefined}
+          />
         ) : (
-          <div className="space-y-4">
-            {/* Category Summary */}
-            <Card className="shadow-sm bg-primary/5">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{getCategoryLabel(category)}</h3>
-                    <p className="text-sm text-slate-500">
-                      {expenses.length} {expenses.length === 1 ? 'запись' : 'записей'}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-primary">
-                      {formatCurrency(
-                        expenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0).toString()
-                      )}
-                    </p>
-                    <p className="text-sm text-slate-500">Всего потрачено</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <>
+            <CorpHeroSummary
+              label={categoryLabel}
+              amount={total}
+              subtext={`${expenses.length} ${expenses.length === 1 ? 'запись' : 'записей'}`}
+            />
 
-            {/* Expenses List */}
-            <div className="space-y-3">
-              {expenses.map((expense) => (
-                <Card key={expense.id} className="shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="font-semibold text-lg text-slate-900">
-                            {formatCurrency(expense.amount)}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {formatDate(expense.createdAt)}
-                          </p>
-                        </div>
-                        
-                        {expense.description && (
-                          <p className="text-sm text-slate-600 mb-2">
-                            {expense.description}
-                          </p>
-                        )}
-                        
-                        <div className="space-y-1">
-                          {expense.contractor && (
-                            <p className="text-xs text-blue-600 font-medium">
-                              Подрядчик: {expense.contractor.company || expense.contractor.name}
-                            </p>
-                          )}
-                          <p className="text-xs text-slate-400">
-                            Добавил: {expense.user?.name || 'Неизвестно'}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="ml-4 flex items-center">
-                        {(user?.role === 'admin' || user?.role === 'director' || expense.user.id === user?.id) && (
+            <h3
+              className="text-[10px] font-bold uppercase mb-2"
+              style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
+            >
+              Все расходы
+            </h3>
+            <div className="flex flex-col gap-2">
+              {expenses.map((expense) => {
+                const canEdit = isAdminOrDirector || expense.user.id === user?.id;
+                return (
+                  <div
+                    key={expense.id}
+                    className="p-4"
+                    style={{
+                      background: 'var(--corp-surface)',
+                      border: '1px solid var(--corp-line)',
+                      borderRadius: 'var(--corp-r-lg)',
+                    }}
+                    data-testid={`expense-card-${expense.id}`}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <MoneyAED amount={expense.amount} size={18} weight={700} tone="neg" />
+                      <div className="flex items-center gap-1">
+                        <span
+                          className="text-[11px]"
+                          style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)', whiteSpace: 'nowrap' }}
+                        >
+                          {fmtDateRu(expense.createdAt)}
+                        </span>
+                        {canEdit && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreVertical size={16} />
-                              </Button>
+                              <button
+                                type="button"
+                                className="w-7 h-7 rounded flex items-center justify-center transition-colors"
+                                style={{ color: 'var(--corp-ink-3)' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                data-testid={`menu-trigger-${expense.id}`}
+                              >
+                                <MoreVertical size={15} />
+                              </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => setLocation(`/edit-expense/${projectId}/${expense.id}`)}
-                              >
-                                <Edit size={16} className="mr-2" />
-                                Редактировать
+                              <DropdownMenuItem onClick={() => setLocation(`/edit-expense/${projectId}/${expense.id}`)}>
+                                <Edit size={14} className="mr-2" /> Редактировать
                               </DropdownMenuItem>
                               {expense.receiptUrl && (
-                                <DropdownMenuItem
-                                  onClick={() => openReceipt(expense.receiptUrl)}
-                                >
-                                  <Eye size={16} className="mr-2" />
-                                  Просмотреть чек
+                                <DropdownMenuItem onClick={() => openReceipt(expense.receiptUrl)}>
+                                  <Eye size={14} className="mr-2" /> Просмотреть чек
                                 </DropdownMenuItem>
                               )}
-                              {(user?.role === 'admin' || user?.role === 'director') && (
+                              {isAdminOrDirector && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <AlertDialog>
@@ -281,15 +195,14 @@ export default function CategoryExpenses() {
                                         onSelect={(e) => e.preventDefault()}
                                         className="text-red-600 focus:text-red-600"
                                       >
-                                        <Trash2 size={16} className="mr-2" />
-                                        Удалить
+                                        <Trash2 size={14} className="mr-2" /> Удалить
                                       </DropdownMenuItem>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                       <AlertDialogHeader>
                                         <AlertDialogTitle>Удалить расход?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          Это действие нельзя отменить. Расход будет удален безвозвратно.
+                                          Это действие нельзя отменить. Расход будет удалён безвозвратно.
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
@@ -310,13 +223,32 @@ export default function CategoryExpenses() {
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+
+                    {expense.description && (
+                      <p className="text-[12px] mb-1.5" style={{ color: 'var(--corp-ink-3)' }}>
+                        {expense.description}
+                      </p>
+                    )}
+
+                    {expense.contractor && (
+                      <p className="text-[11px] mb-0.5">
+                        <span style={{ color: 'var(--corp-muted)' }}>Подрядчик: </span>
+                        <span style={{ color: 'var(--corp-accent)', fontWeight: 600 }}>
+                          {expense.contractor.company || expense.contractor.name}
+                        </span>
+                      </p>
+                    )}
+
+                    <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                      Добавил: {expense.user?.name || 'Неизвестно'}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          </>
         )}
-      </div>
+      </main>
     </div>
   );
 }

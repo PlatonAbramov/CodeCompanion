@@ -1,14 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Edit, Trash2, Plus } from "lucide-react";
-import { useState } from "react";
+import { Plus, Wallet } from "lucide-react";
+import {
+  CorpHeader, CorpHeroSummary, MoneyAED, fmtDateRu,
+} from "@/components/corp-ui";
+import { AdvanceMenu } from "./AdvancesList";
 
 interface OwnerInvestment {
   id: string;
@@ -22,187 +22,178 @@ interface OwnerInvestment {
 export default function OwnerInvestmentsList() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const { t } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  // Extract project ID from URL
-  const projectId = location.split('/')[2];
 
-  // Get owner investments data
+  const projectId = location.split('/')[2];
+  const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
+
   const { data: ownerInvestments = [], isLoading } = useQuery<OwnerInvestment[]>({
     queryKey: ['/api/projects', projectId, 'owner-investments'],
   });
 
   const deleteOwnerInvestmentMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest(`/api/owner-investments/${id}`, {
-        method: 'DELETE'
-      });
+      const res = await apiRequest(`/api/owner-investments/${id}`, { method: 'DELETE' });
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate all related caches
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'owner-investments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
-      toast({
-        title: "Успешно",
-        description: "Вложение удалено",
-      });
+      toast({ title: "Успешно", description: "Вложение удалено" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось удалить вложение",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось удалить вложение", variant: "destructive" });
     },
   });
 
-  const formatCurrency = (amount: string) => {
-    const num = parseFloat(amount || '0');
-    return `${num.toLocaleString('ru-RU')} AED`;
-  };
+  const vladInvestments = ownerInvestments.filter((inv) => inv.investor === 'vlad');
+  const platonInvestments = ownerInvestments.filter((inv) => inv.investor === 'platon');
+  const vladTotal = vladInvestments.reduce((s, inv) => s + parseFloat(inv.amount), 0);
+  const platonTotal = platonInvestments.reduce((s, inv) => s + parseFloat(inv.amount), 0);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ru-RU');
-  };
-
-  const vladInvestments = ownerInvestments.filter(inv => inv.investor === 'vlad');
-  const platonInvestments = ownerInvestments.filter(inv => inv.investor === 'platon');
-
-  const vladTotal = vladInvestments.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-  const platonTotal = platonInvestments.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-
-  const InvestmentsList = ({ investments, investorName }: { investments: OwnerInvestment[], investorName: string }) => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-slate-900">
-          Всего {investorName}: {formatCurrency((investments.reduce((sum, inv) => sum + parseFloat(inv.amount), 0)).toString())}
-        </h3>
-        {(user?.role === 'admin' || user?.role === 'director') && (
-          <Button 
-            onClick={() => setLocation(`/add-owner-investment/${projectId}?investor=${investorName.toLowerCase()}`)}
-            size="sm"
-            className="bg-primary text-white"
-          >
-            <Plus size={16} className="mr-1" />
-            Добавить
-          </Button>
-        )}
-      </div>
+  const renderList = (
+    investments: OwnerInvestment[],
+    investorKey: 'vlad' | 'platon',
+    investorName: string,
+  ) => (
+    <div className="flex flex-col gap-2">
+      {isAdminOrDirector && (
+        <button
+          type="button"
+          onClick={() => setLocation(`/add-owner-investment/${projectId}?investor=${investorKey}`)}
+          className="self-end inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-semibold transition-colors mb-1"
+          style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+          data-testid={`button-add-investment-${investorKey}`}
+        >
+          <Plus size={13} /> Добавить вложение
+        </button>
+      )}
 
       {investments.length === 0 ? (
-        <p className="text-slate-500 text-center py-4">Нет вложений</p>
+        <div
+          className="p-6 text-center"
+          style={{
+            background: 'var(--corp-surface)',
+            border: '1px dashed var(--corp-line)',
+            borderRadius: 'var(--corp-r-lg)',
+          }}
+        >
+          <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+            У {investorName} пока нет вложений
+          </p>
+        </div>
       ) : (
         investments.map((investment) => (
-          <Card key={investment.id} className="shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-red-600 text-lg">
-                      {formatCurrency(investment.amount)}
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      {(user?.role === 'admin' || user?.role === 'director') && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setLocation(`/edit-owner-investment/${investment.id}`)}
-                            className="text-slate-500 hover:text-slate-700"
-                          >
-                            <Edit size={16} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteOwnerInvestmentMutation.mutate(investment.id)}
-                            className="text-red-500 hover:text-red-700"
-                            disabled={deleteOwnerInvestmentMutation.isPending}
-                          >
-                            <Trash2 size={16} />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {investment.description && (
-                    <p className="text-slate-600 mb-2">{investment.description}</p>
-                  )}
-                  
-                  <p className="text-sm text-slate-500">
-                    {formatDate(investment.date)}
-                  </p>
-                </div>
+          <div
+            key={investment.id}
+            className="p-4"
+            style={{
+              background: 'var(--corp-surface)',
+              border: '1px solid var(--corp-line)',
+              borderRadius: 'var(--corp-r-lg)',
+            }}
+            data-testid={`owner-investment-card-${investment.id}`}
+          >
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <MoneyAED amount={investment.amount} size={18} weight={700} tone="neg" />
+              <div className="flex items-center gap-1">
+                <span
+                  className="text-[11px]"
+                  style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)', whiteSpace: 'nowrap' }}
+                >
+                  {fmtDateRu(investment.date)}
+                </span>
+                {isAdminOrDirector && (
+                  <AdvanceMenu
+                    onEdit={() => setLocation(`/edit-owner-investment/${investment.id}`)}
+                    onDelete={() => deleteOwnerInvestmentMutation.mutate(investment.id)}
+                    deleteTitle="Удалить вложение?"
+                    deleteDescription="Это действие нельзя отменить. Вложение будет удалено безвозвратно."
+                  />
+                )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            {investment.description && (
+              <p className="text-[12px]" style={{ color: 'var(--corp-ink-3)' }}>
+                {investment.description}
+              </p>
+            )}
+          </div>
         ))
       )}
     </div>
   );
 
-  if (isLoading) {
-    return <div className="min-h-screen bg-slate-50 p-4" />;
-  }
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setLocation(`/projects/${projectId}`)}
-              className="mr-3"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <h1 className="text-xl font-semibold text-slate-900">
-              Вложили из своих
-            </h1>
-          </div>
-        </div>
-      </header>
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      <CorpHeader
+        title="Вложили из своих"
+        subtitle="Личные вложения учредителей"
+        onBack={() => setLocation(`/projects/${projectId}`)}
+      />
 
-      {/* Content */}
-      <div className="p-4">
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Общая сумма: {formatCurrency((vladTotal + platonTotal).toString())}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="vlad" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="vlad">
-                  Влад ({formatCurrency(vladTotal.toString())})
-                </TabsTrigger>
-                <TabsTrigger value="platon">
-                  Платон ({formatCurrency(platonTotal.toString())})
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="vlad" className="mt-6">
-                <InvestmentsList investments={vladInvestments} investorName="Влад" />
-              </TabsContent>
-              
-              <TabsContent value="platon" className="mt-6">
-                <InvestmentsList investments={platonInvestments} investorName="Платон" />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      </div>
+      <main className="px-4 pt-4">
+        {!isLoading && (
+          <CorpHeroSummary
+            label="Общая сумма вложений"
+            amount={vladTotal + platonTotal}
+            subtext={`Влад: ${Math.round(vladTotal).toLocaleString('ru-RU').replace(/,/g, ' ')} · Платон: ${Math.round(platonTotal).toLocaleString('ru-RU').replace(/,/g, ' ')}`}
+            tone="dark"
+          />
+        )}
+
+        <Tabs defaultValue="vlad" className="w-full">
+          <TabsList
+            className="grid w-full grid-cols-2 p-1 h-auto"
+            style={{
+              background: 'var(--corp-surface-2)',
+              borderRadius: 'var(--corp-r)',
+            }}
+          >
+            <TabsTrigger
+              value="vlad"
+              className="text-[12px] font-semibold py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              style={{ borderRadius: 'calc(var(--corp-r) - 2px)' }}
+              data-testid="tab-vlad"
+            >
+              <span className="flex items-center gap-1.5">
+                <Wallet size={13} /> Влад
+                <span style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-muted)', fontWeight: 600 }}>
+                  {Math.round(vladTotal).toLocaleString('ru-RU').replace(/,/g, ' ')}
+                </span>
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="platon"
+              className="text-[12px] font-semibold py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              style={{ borderRadius: 'calc(var(--corp-r) - 2px)' }}
+              data-testid="tab-platon"
+            >
+              <span className="flex items-center gap-1.5">
+                <Wallet size={13} /> Платон
+                <span style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-muted)', fontWeight: 600 }}>
+                  {Math.round(platonTotal).toLocaleString('ru-RU').replace(/,/g, ' ')}
+                </span>
+              </span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="vlad" className="mt-4">
+            {renderList(vladInvestments, 'vlad', 'Влада')}
+          </TabsContent>
+          <TabsContent value="platon" className="mt-4">
+            {renderList(platonInvestments, 'platon', 'Платона')}
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 }
