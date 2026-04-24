@@ -98,6 +98,18 @@ export function Layout({ children }: LayoutProps) {
     };
   }, []);
 
+  // === Прокрутка наверх при смене страницы =================================
+  useEffect(() => {
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      if (document.scrollingElement) {
+        document.scrollingElement.scrollTop = 0;
+      }
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }, [location]);
+
   const showNav = user && location !== '/login';
 
   const go = (path: string) => {
@@ -388,6 +400,18 @@ export function Layout({ children }: LayoutProps) {
           </button>
         </div>
       </aside>
+
+      {/* Заслонка под "чёлкой" iOS, чтобы прокручиваемый контент
+          не просвечивал в зоне статус-бара */}
+      <div
+        aria-hidden
+        className="fixed top-0 left-0 right-0 pointer-events-none lg:hidden"
+        style={{
+          height: 'env(safe-area-inset-top, 0px)',
+          background: 'var(--corp-bg)',
+          zIndex: 60,
+        }}
+      />
 
       {/* Основной контент */}
       <div className="flex-1 min-w-0 lg:pl-60">
