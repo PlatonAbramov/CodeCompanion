@@ -2,12 +2,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/skeletons";
-import { 
-  HardHat, LogOut, Plus, Home, Receipt, PlusCircle,
-  Check, Calendar
+import {
+  HardHat, LogOut, Plus, Receipt, Bell, ClipboardList,
+  Building2, History, ChevronRight, Mic,
 } from "lucide-react";
 
 interface Project {
@@ -20,125 +18,362 @@ interface Project {
   createdAt: string;
 }
 
+interface ImplementationSheet {
+  id: string;
+  projectId: string;
+  status?: string;
+}
+
+// === Helpers ================================================================
+function fmtDateRu(s?: string) {
+  if (!s) return '—';
+  return new Date(s).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function fmtTodayRu() {
+  return new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+}
+
+// === Page ===================================================================
 export default function MasterDashboard() {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
   const [, setLocation] = useLocation();
 
-  // Get all projects for masters to view
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
   });
 
-  const formatCurrency = (amount: string) => {
-    const num = parseFloat(amount || "0");
-    return `${num.toLocaleString("ru-RU")} AED`;
-  };
+  const { data: sheets = [] } = useQuery<ImplementationSheet[]>({
+    queryKey: ['/api/implementation-sheets'],
+    retry: false,
+  });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ru-RU');
-  };
+  const activeProjects = projects.filter(p => p.status === 'active');
+  const archivedCount = projects.filter(p => p.status !== 'active').length;
+  const sheetsCount = Array.isArray(sheets) ? sheets.length : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center mr-3">
-                <HardHat className="text-white" size={20} />
-              </div>
-              <div>
-                <h2 className="font-semibold text-slate-900">{user?.name}</h2>
-                <p className="text-sm text-slate-500">{t('master')}</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => logout()}>
-              <LogOut size={20} />
-            </Button>
+    <div
+      className="min-h-screen pb-4"
+      style={{
+        background: 'var(--corp-bg)',
+        fontFamily: 'var(--corp-font)',
+        color: 'var(--corp-ink)',
+      }}
+    >
+      {/* === Top bar ============================================ */}
+      <header
+        className="sticky top-0 z-40"
+        style={{
+          background: 'var(--corp-surface)',
+          borderBottom: '1px solid var(--corp-line)',
+        }}
+      >
+        <div className="px-4 h-14 flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--corp-ink)', color: '#fff' }}
+          >
+            <HardHat size={18} />
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold" style={{ color: 'var(--corp-muted)' }}>
+              Добрый день,
+            </p>
+            <h2
+              className="text-[14px] font-bold truncate"
+              style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
+            >
+              {user?.name || 'Мастер'}
+            </h2>
+          </div>
+          <button
+            type="button"
+            title="Уведомления"
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+            style={{ color: 'var(--corp-ink-2)', background: 'transparent' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+            data-testid="button-notifications"
+          >
+            <Bell size={17} />
+          </button>
+          <button
+            type="button"
+            title="Выйти"
+            onClick={() => logout()}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+            style={{ color: 'var(--corp-ink-2)', background: 'transparent' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+            data-testid="button-logout"
+          >
+            <LogOut size={17} />
+          </button>
         </div>
       </header>
 
-      {/* Quick Actions */}
-      <div className="p-4">
-        <div className="bg-gradient-to-r from-accent to-orange-500 rounded-xl p-4 mb-6 text-white">
-          <h3 className="font-semibold mb-2">Рабочая область</h3>
-          <p className="text-white/80 text-sm">Просмотр проектов и работа с листами реализации</p>
+      <main className="px-4 pt-5">
+        {/* === Welcome label ==================================== */}
+        <div className="mb-4">
+          <p
+            className="text-[10px] font-bold uppercase"
+            style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
+          >
+            Рабочее пространство · {fmtTodayRu()}
+          </p>
+          <h1
+            className="mt-1 font-bold"
+            style={{
+              fontSize: 'clamp(20px, 5vw, 24px)',
+              letterSpacing: '-0.6px',
+              color: 'var(--corp-ink)',
+            }}
+          >
+            Готов к работе
+          </h1>
         </div>
-      </div>
 
-      {/* Projects */}
-      <div className="px-4 pb-20">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Проекты</h3>
-        
-        {isLoading && projects.length === 0 ? (
-          <ListSkeleton count={4} />
-        ) : projects.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Home size={48} className="mx-auto text-slate-300 mb-4" />
-              <p className="text-slate-500">Проекты не найдены</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {projects.map((project) => (
-              <Card 
-                key={project.id} 
-                className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => setLocation(`/projects/${project.id}`)}
+        {/* === Hero CTA: Add expense ============================ */}
+        <button
+          type="button"
+          onClick={() => setLocation('/expenses')}
+          className="w-full p-5 transition-all text-left mb-4"
+          style={{
+            background: 'var(--corp-brand)',
+            border: 'none',
+            borderRadius: 'var(--corp-r-lg)',
+            color: '#ffffff',
+            cursor: 'pointer',
+          }}
+          data-testid="button-add-expense-hero"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-[10px] font-bold uppercase"
+                style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em' }}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-slate-900">{project.name}</h4>
-                      {project.location && (
-                        <p className="text-sm text-slate-500">{project.location}</p>
-                      )}
-                    </div>
-                    <div className={`inline-block px-2 py-1 rounded-full text-xs ${
-                      project.status === 'active' 
-                        ? 'bg-green-100 text-green-700' 
-                        : project.status === 'completed'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {project.status === 'active' ? 'Активный' : 
-                       project.status === 'completed' ? 'Завершен' : 'Архивный'}
-                    </div>
+                Быстрое действие
+              </p>
+              <div
+                className="mt-2 font-bold flex items-center gap-2"
+                style={{
+                  fontSize: 'clamp(22px, 5vw, 28px)',
+                  letterSpacing: '-0.6px',
+                  lineHeight: 1.1,
+                }}
+              >
+                <Plus size={26} strokeWidth={2.5} />
+                Добавить расход
+              </div>
+              <p className="mt-2 text-[12px]" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Загрузите чек или используйте голосовой ввод
+              </p>
+            </div>
+            <div
+              className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.18)' }}
+            >
+              <Mic size={20} strokeWidth={2} />
+            </div>
+          </div>
+
+          {/* Stats strip */}
+          <div
+            className="mt-4 pt-4 grid grid-cols-3 gap-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}
+          >
+            {[
+              { label: 'Активных', value: activeProjects.length },
+              { label: 'Листов', value: sheetsCount },
+              { label: 'Архив', value: archivedCount },
+            ].map(s => (
+              <div key={s.label}>
+                <p
+                  className="text-[10px] font-bold uppercase"
+                  style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.05em' }}
+                >
+                  {s.label}
+                </p>
+                <p
+                  className="mt-1 font-bold"
+                  style={{
+                    fontSize: 18,
+                    letterSpacing: '-0.3px',
+                    fontFamily: 'var(--corp-mono)',
+                  }}
+                >
+                  {s.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </button>
+
+        {/* === Quick actions grid ============================= */}
+        <div className="grid grid-cols-4 gap-2 mb-5">
+          {[
+            {
+              label: 'Расход',
+              icon: Plus,
+              onClick: () => setLocation('/expenses'),
+              testId: 'quick-action-expense',
+            },
+            {
+              label: 'Листы',
+              icon: ClipboardList,
+              onClick: () => setLocation('/implementation-sheets'),
+              testId: 'quick-action-sheets',
+            },
+            {
+              label: 'Проекты',
+              icon: Building2,
+              onClick: () => {
+                if (activeProjects[0]) setLocation(`/projects/${activeProjects[0].id}`);
+              },
+              testId: 'quick-action-projects',
+            },
+            {
+              label: 'История',
+              icon: History,
+              onClick: () => setLocation('/history'),
+              testId: 'quick-action-history',
+            },
+          ].map(qa => {
+            const Icon = qa.icon;
+            return (
+              <button
+                key={qa.label}
+                type="button"
+                onClick={qa.onClick}
+                className="flex flex-col items-center gap-2 py-3 transition-all"
+                style={{
+                  background: 'var(--corp-surface)',
+                  border: '1px solid var(--corp-line)',
+                  borderRadius: 'var(--corp-r-lg)',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--corp-surface)'; }}
+                data-testid={qa.testId}
+              >
+                <span
+                  className="w-9 h-9 rounded-lg flex items-center justify-center"
+                  style={{
+                    background: 'var(--corp-accent-soft)',
+                    color: 'var(--corp-accent)',
+                  }}
+                >
+                  <Icon size={16} />
+                </span>
+                <span className="text-[11px] font-semibold" style={{ color: 'var(--corp-ink-2)' }}>
+                  {qa.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* === Projects list ================================== */}
+        <div className="flex items-center justify-between mb-3">
+          <h3
+            className="text-[14px] font-bold"
+            style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
+          >
+            Мои проекты
+          </h3>
+          <span
+            className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+            style={{
+              background: 'var(--corp-surface-2)',
+              color: 'var(--corp-muted)',
+              fontFamily: 'var(--corp-mono)',
+            }}
+          >
+            {activeProjects.length}
+          </span>
+        </div>
+
+        {isLoading && projects.length === 0 ? (
+          <ListSkeleton count={3} />
+        ) : activeProjects.length === 0 ? (
+          <div
+            className="p-8 text-center"
+            style={{
+              background: 'var(--corp-surface)',
+              border: '1px dashed var(--corp-line)',
+              borderRadius: 'var(--corp-r-lg)',
+            }}
+          >
+            <Receipt size={36} className="mx-auto mb-3" style={{ color: 'var(--corp-ink-3)' }} />
+            <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--corp-ink-2)' }}>
+              Проектов пока нет
+            </p>
+            <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+              Они появятся здесь, когда руководитель назначит вас на проект
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {activeProjects.map((project) => (
+              <button
+                key={project.id}
+                type="button"
+                onClick={() => setLocation(`/projects/${project.id}`)}
+                className="w-full p-3.5 text-left transition-all flex items-center gap-3"
+                style={{
+                  background: 'var(--corp-surface)',
+                  border: '1px solid var(--corp-line)',
+                  borderRadius: 'var(--corp-r-lg)',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--corp-surface)'; }}
+                data-testid={`project-card-${project.id}`}
+              >
+                <div
+                  className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: 'var(--corp-accent-soft)',
+                    color: 'var(--corp-accent)',
+                  }}
+                >
+                  <HardHat size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div
+                    className="font-semibold text-[14px] truncate"
+                    style={{ color: 'var(--corp-ink)', letterSpacing: '-0.1px' }}
+                  >
+                    {project.name}
                   </div>
-                  
-                  <div className="flex items-center justify-between text-sm text-slate-500">
-                    <span>Создан: {formatDate(project.createdAt)}</span>
-                    {project.startDate && (
-                      <span>Начало: {formatDate(project.startDate)}</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {project.location && (
+                      <span className="text-[11px] truncate" style={{ color: 'var(--corp-muted)' }}>
+                        {project.location}
+                      </span>
+                    )}
+                    {project.location && project.endDate && (
+                      <span className="text-[11px]" style={{ color: 'var(--corp-ink-3)' }}>·</span>
+                    )}
+                    {project.endDate && (
+                      <span
+                        className="text-[11px] font-medium whitespace-nowrap"
+                        style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}
+                      >
+                        до {fmtDateRu(project.endDate)}
+                      </span>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                <ChevronRight size={18} style={{ color: 'var(--corp-muted)' }} className="flex-shrink-0" />
+              </button>
             ))}
           </div>
         )}
-      </div>
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2">
-        <div className="flex items-center justify-around">
-          <button className="flex flex-col items-center py-2 text-primary">
-            <Home size={20} className="mb-1" />
-            <span className="text-xs">Главная</span>
-          </button>
-          <button 
-            className="flex flex-col items-center py-2 text-slate-400"
-            onClick={() => setLocation('/implementation-sheets')}
-          >
-            <Receipt size={20} className="mb-1" />
-            <span className="text-xs">Листы</span>
-          </button>
-        </div>
-      </nav>
+      </main>
     </div>
   );
 }
