@@ -1,505 +1,560 @@
-import { useState } from "react";
+import { useState, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, TrendingUp, TrendingDown, Users, Package, Wrench, DollarSign, FileText, BarChart } from "lucide-react";
+import {
+  CalendarIcon, TrendingUp, TrendingDown, Users, Package,
+  Wrench, DollarSign, FileText, BarChart, X,
+} from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
+import { fmtNum } from "@/components/corp-ui";
+
+type Tone = 'ink' | 'pos' | 'neg' | 'accent';
+
+const TONE_COLOR: Record<Tone, string> = {
+  ink: 'var(--corp-ink)',
+  pos: 'var(--corp-pos)',
+  neg: 'var(--corp-neg)',
+  accent: 'var(--corp-accent)',
+};
+
+interface MetricTileProps {
+  label: string;
+  value: ReactNode;
+  hint?: string;
+  icon: ReactNode;
+  tone?: Tone;
+  isCurrency?: boolean;
+}
+
+function MetricTile({ label, value, hint, icon, tone = 'ink', isCurrency }: MetricTileProps) {
+  const color = TONE_COLOR[tone];
+  return (
+    <div
+      className="p-4"
+      style={{
+        background: 'var(--corp-surface)',
+        border: '1px solid var(--corp-line)',
+        borderRadius: 'var(--corp-r-lg)',
+      }}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <p
+          className="text-[10px] uppercase font-bold"
+          style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
+        >
+          {label}
+        </p>
+        <span style={{ color: 'var(--corp-ink-3)' }}>{icon}</span>
+      </div>
+      <div
+        className="text-[22px] font-bold leading-none mb-1"
+        style={{ color, fontFamily: 'var(--corp-mono)', letterSpacing: '-0.02em' }}
+      >
+        {value}
+        {isCurrency && (
+          <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 4, color: 'var(--corp-muted)' }}>
+            {'\u00A0AED'}
+          </span>
+        )}
+      </div>
+      {hint && (
+        <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function Analytics() {
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
-    from: undefined,
-    to: undefined,
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined, to: undefined,
   });
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedContractor, setSelectedContractor] = useState<string>("");
   const [selectedClient, setSelectedClient] = useState<string>("");
 
-  // Fetch project analytics
-  const { data: projectAnalytics, isLoading: loadingProjects } = useQuery({
+  const { data: projectAnalytics } = useQuery({
     queryKey: ["/api/analytics/projects", statusFilter, dateRange],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
-      if (dateRange.from) params.append("startDate", dateRange.from.toISOString());
-      if (dateRange.to) params.append("endDate", dateRange.to.toISOString());
-      
-      const res = await apiRequest(`/api/analytics/projects?${params.toString()}`, {
-        method: "GET"
-      });
+      const p = new URLSearchParams();
+      if (statusFilter && statusFilter !== "all") p.append("status", statusFilter);
+      if (dateRange.from) p.append("startDate", dateRange.from.toISOString());
+      if (dateRange.to) p.append("endDate", dateRange.to.toISOString());
+      const res = await apiRequest(`/api/analytics/projects?${p.toString()}`, { method: "GET" });
       return res.json();
-    }
+    },
   });
 
-  // Fetch contractor analytics
-  const { data: contractorAnalytics, isLoading: loadingContractors } = useQuery({
+  const { data: contractorAnalytics } = useQuery({
     queryKey: ["/api/analytics/contractors", selectedContractor],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (selectedContractor) params.append("contractorId", selectedContractor);
-      
-      const res = await apiRequest(`/api/analytics/contractors?${params.toString()}`, {
-        method: "GET"
-      });
+      const p = new URLSearchParams();
+      if (selectedContractor) p.append("contractorId", selectedContractor);
+      const res = await apiRequest(`/api/analytics/contractors?${p.toString()}`, { method: "GET" });
       return res.json();
-    }
+    },
   });
 
-  // Fetch client analytics
-  const { data: clientAnalytics, isLoading: loadingClients } = useQuery({
+  const { data: clientAnalytics } = useQuery({
     queryKey: ["/api/analytics/clients", selectedClient],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (selectedClient) params.append("clientId", selectedClient);
-      
-      const res = await apiRequest(`/api/analytics/clients?${params.toString()}`, {
-        method: "GET"
-      });
+      const p = new URLSearchParams();
+      if (selectedClient) p.append("clientId", selectedClient);
+      const res = await apiRequest(`/api/analytics/clients?${p.toString()}`, { method: "GET" });
       return res.json();
-    }
+    },
   });
 
-  // Fetch tools analytics
-  const { data: toolsAnalytics, isLoading: loadingTools } = useQuery({
+  const { data: toolsAnalytics } = useQuery({
     queryKey: ["/api/analytics/tools"],
     queryFn: async () => {
-      const res = await apiRequest("/api/analytics/tools", {
-        method: "GET"
-      });
+      const res = await apiRequest("/api/analytics/tools", { method: "GET" });
       return res.json();
-    }
+    },
   });
 
-  // Fetch all contractors for filter
   const { data: contractors } = useQuery({
     queryKey: ["/api/contractors"],
     queryFn: async () => {
       const res = await apiRequest("/api/contractors", { method: "GET" });
       return res.json();
-    }
+    },
   });
 
-  // Fetch all clients for filter
   const { data: clients } = useQuery({
     queryKey: ["/api/clients"],
     queryFn: async () => {
       const res = await apiRequest("/api/clients", { method: "GET" });
       return res.json();
-    }
+    },
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("ru-RU", {
-      style: "currency",
-      currency: "AED",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 
-  const formatPercent = (value: number) => {
-    return `${value.toFixed(1)}%`;
-  };
+  const tabClass = "text-[12px] font-semibold py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm";
 
   return (
-    <div className="container mx-auto p-4 space-y-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Аналитика и отчеты</h1>
-        
-        {/* Date Range Filter */}
-        <div className="flex gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "justify-start text-left font-normal",
-                  !dateRange.from && "text-muted-foreground"
-                )}
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      {/* Header */}
+      <header
+        className="sticky top-0 z-40"
+        style={{ background: 'var(--corp-surface)', borderBottom: '1px solid var(--corp-line)' }}
+      >
+        <div className="px-4 h-14 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
+              style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)' }}
+            >
+              <BarChart size={15} />
+            </div>
+            <div className="min-w-0">
+              <h1
+                className="text-[16px] font-bold leading-tight truncate"
+                style={{ color: 'var(--corp-ink)', letterSpacing: '-0.3px' }}
               >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "d MMM yyyy", { locale: ru })} -{" "}
-                      {format(dateRange.to, "d MMM yyyy", { locale: ru })}
-                    </>
-                  ) : (
-                    format(dateRange.from, "d MMM yyyy", { locale: ru })
-                  )
-                ) : (
-                  <span>Выберите период</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                selected={{ from: dateRange.from, to: dateRange.to }}
-                onSelect={(range: any) => setDateRange(range || { from: undefined, to: undefined })}
-                locale={ru}
-              />
-            </PopoverContent>
-          </Popover>
-          
-          <Button
-            variant="outline"
-            onClick={() => setDateRange({ from: undefined, to: undefined })}
-          >
-            Сбросить
-          </Button>
-        </div>
-      </div>
-
-      <Tabs defaultValue="projects" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="projects">Проекты</TabsTrigger>
-          <TabsTrigger value="contractors">Подрядчики</TabsTrigger>
-          <TabsTrigger value="clients">Заказчики</TabsTrigger>
-          <TabsTrigger value="tools">Инструменты</TabsTrigger>
-        </TabsList>
-
-        {/* Projects Analytics */}
-        <TabsContent value="projects" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Активные проекты</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {projectAnalytics?.activeCount || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Проекты в работе
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Архивные проекты</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {projectAnalytics?.archivedCount || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Завершенные проекты
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Средний прогресс</CardTitle>
-                <BarChart className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatPercent(projectAnalytics?.averageProgress || 0)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  По всем проектам
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Общая стоимость</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(projectAnalytics?.totalContractValue || 0)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Сумма всех контрактов
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Расходы</CardTitle>
-                <TrendingDown className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  {formatCurrency(projectAnalytics?.totalExpenses || 0)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Общие расходы
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Платежи</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {formatCurrency(projectAnalytics?.totalPayments || 0)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Полученные платежи
-                </p>
-              </CardContent>
-            </Card>
+                Аналитика
+              </h1>
+              <p
+                className="text-[10px] uppercase font-bold leading-tight"
+                style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)', letterSpacing: '0.06em' }}
+              >
+                Отчёты по бизнесу
+              </p>
+            </div>
           </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "h-9 text-[12px] font-semibold",
+                    !dateRange.from && "text-muted-foreground"
+                  )}
+                  data-testid="button-date-range"
+                >
+                  <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                  {dateRange.from ? (
+                    dateRange.to ? (
+                      <span style={{ fontFamily: 'var(--corp-mono)' }}>
+                        {format(dateRange.from, "d MMM", { locale: ru })}–{format(dateRange.to, "d MMM", { locale: ru })}
+                      </span>
+                    ) : (
+                      <span style={{ fontFamily: 'var(--corp-mono)' }}>
+                        {format(dateRange.from, "d MMM", { locale: ru })}
+                      </span>
+                    )
+                  ) : (
+                    <span className="hidden sm:inline">Период</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="range"
+                  selected={{ from: dateRange.from, to: dateRange.to }}
+                  onSelect={(range: any) => setDateRange(range || { from: undefined, to: undefined })}
+                  locale={ru}
+                />
+              </PopoverContent>
+            </Popover>
+            {dateRange.from && (
+              <button
+                type="button"
+                onClick={() => setDateRange({ from: undefined, to: undefined })}
+                className="w-9 h-9 rounded flex items-center justify-center transition-colors"
+                style={{ color: 'var(--corp-ink-3)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                data-testid="button-reset-date"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
 
-          {/* Status Filter */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Фильтр по статусу</CardTitle>
-            </CardHeader>
-            <CardContent>
+      <main className="px-4 pt-4">
+        <Tabs defaultValue="projects" className="space-y-4">
+          <TabsList
+            className="grid w-full grid-cols-4 p-1 h-auto"
+            style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}
+          >
+            <TabsTrigger value="projects" className={tabClass} style={{ borderRadius: 'calc(var(--corp-r) - 2px)' }} data-testid="tab-projects">
+              Проекты
+            </TabsTrigger>
+            <TabsTrigger value="contractors" className={tabClass} style={{ borderRadius: 'calc(var(--corp-r) - 2px)' }} data-testid="tab-contractors">
+              Подрядчики
+            </TabsTrigger>
+            <TabsTrigger value="clients" className={tabClass} style={{ borderRadius: 'calc(var(--corp-r) - 2px)' }} data-testid="tab-clients">
+              Заказчики
+            </TabsTrigger>
+            <TabsTrigger value="tools" className={tabClass} style={{ borderRadius: 'calc(var(--corp-r) - 2px)' }} data-testid="tab-tools">
+              Инструменты
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Projects */}
+          <TabsContent value="projects" className="space-y-3">
+            <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
+              <MetricTile
+                label="Активные проекты"
+                value={projectAnalytics?.activeCount || 0}
+                hint="Проекты в работе"
+                icon={<Package size={14} />}
+              />
+              <MetricTile
+                label="Архивные"
+                value={projectAnalytics?.archivedCount || 0}
+                hint="Завершённые"
+                icon={<FileText size={14} />}
+              />
+              <MetricTile
+                label="Средний прогресс"
+                value={formatPercent(projectAnalytics?.averageProgress || 0)}
+                hint="По всем проектам"
+                icon={<BarChart size={14} />}
+                tone="accent"
+              />
+              <MetricTile
+                label="Стоимость"
+                value={fmtNum(projectAnalytics?.totalContractValue || 0)}
+                hint="Сумма всех контрактов"
+                icon={<DollarSign size={14} />}
+                isCurrency
+              />
+              <MetricTile
+                label="Расходы"
+                value={fmtNum(projectAnalytics?.totalExpenses || 0)}
+                hint="Общие расходы"
+                icon={<TrendingDown size={14} />}
+                tone="neg"
+                isCurrency
+              />
+              <MetricTile
+                label="Платежи"
+                value={fmtNum(projectAnalytics?.totalPayments || 0)}
+                hint="Полученные платежи"
+                icon={<TrendingUp size={14} />}
+                tone="pos"
+                isCurrency
+              />
+            </div>
+
+            <div
+              className="p-3"
+              style={{
+                background: 'var(--corp-surface)',
+                border: '1px solid var(--corp-line)',
+                borderRadius: 'var(--corp-r-lg)',
+              }}
+            >
+              <p
+                className="text-[10px] uppercase font-bold mb-1.5"
+                style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
+              >
+                Фильтр по статусу
+              </p>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="h-9 text-[13px] max-w-xs" data-testid="filter-project-status">
                   <SelectValue placeholder="Все статусы" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Все статусы</SelectItem>
                   <SelectItem value="active">Активные</SelectItem>
-                  <SelectItem value="completed">Завершенные</SelectItem>
+                  <SelectItem value="completed">Завершённые</SelectItem>
                   <SelectItem value="paused">Приостановленные</SelectItem>
                   <SelectItem value="archived">Архивные</SelectItem>
                 </SelectContent>
               </Select>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </TabsContent>
 
-        {/* Contractors Analytics */}
-        <TabsContent value="contractors" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Аналитика по подрядчикам</CardTitle>
-              <CardDescription>
-                Выберите подрядчика для детальной информации
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          {/* Contractors */}
+          <TabsContent value="contractors" className="space-y-3">
+            <div
+              className="p-3"
+              style={{
+                background: 'var(--corp-surface)',
+                border: '1px solid var(--corp-line)',
+                borderRadius: 'var(--corp-r-lg)',
+              }}
+            >
+              <p
+                className="text-[10px] uppercase font-bold mb-1.5"
+                style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
+              >
+                Выбрать подрядчика
+              </p>
               <Select value={selectedContractor} onValueChange={setSelectedContractor}>
-                <SelectTrigger className="w-full max-w-sm mb-4">
+                <SelectTrigger className="h-9 text-[13px]" data-testid="filter-contractor">
                   <SelectValue placeholder="Выберите подрядчика" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Все подрядчики</SelectItem>
-                  {contractors?.map((contractor: any) => (
-                    <SelectItem key={contractor.id} value={contractor.id}>
-                      {contractor.name}
-                    </SelectItem>
+                  {contractors?.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
 
-              {contractorAnalytics && contractorAnalytics.length > 0 && (
-                <div className="space-y-4">
-                  {contractorAnalytics.map((contractor: any) => (
-                    <Card key={contractor.contractorId}>
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle>{contractor.contractorName}</CardTitle>
-                            <CardDescription>{contractor.specialization}</CardDescription>
-                          </div>
-                          <Badge>{contractor.totalProjects} проектов</Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Бюджет</p>
-                            <p className="text-lg font-semibold">
-                              {formatCurrency(Number(contractor.totalBudget))}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Расходы</p>
-                            <p className="text-lg font-semibold text-red-600">
-                              {formatCurrency(Number(contractor.totalExpenses))}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            {contractorAnalytics && contractorAnalytics.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {contractorAnalytics.map((c: any) => (
+                  <div
+                    key={c.contractorId}
+                    className="p-4"
+                    style={{
+                      background: 'var(--corp-surface)',
+                      border: '1px solid var(--corp-line)',
+                      borderRadius: 'var(--corp-r-lg)',
+                    }}
+                    data-testid={`contractor-stats-${c.contractorId}`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0">
+                        <h4
+                          className="text-[14px] font-semibold truncate"
+                          style={{ color: 'var(--corp-ink)', letterSpacing: '-0.1px' }}
+                        >
+                          {c.contractorName}
+                        </h4>
+                        <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                          {c.specialization}
+                        </p>
+                      </div>
+                      <span
+                        className="text-[10px] font-bold uppercase px-2 py-0.5 rounded flex-shrink-0"
+                        style={{
+                          background: 'var(--corp-accent-soft)',
+                          color: 'var(--corp-accent)',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        {c.totalProjects} проектов
+                      </span>
+                    </div>
+                    <div
+                      className="grid grid-cols-2 gap-3 pt-3"
+                      style={{ borderTop: '1px solid var(--corp-line)' }}
+                    >
+                      <div>
+                        <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+                          Бюджет
+                        </p>
+                        <p className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}>
+                          {fmtNum(Number(c.totalBudget))}
+                          <span style={{ fontSize: 9, marginLeft: 2, color: 'var(--corp-muted)' }}>{'\u00A0AED'}</span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+                          Расходы
+                        </p>
+                        <p className="text-[14px] font-bold" style={{ color: 'var(--corp-neg)', fontFamily: 'var(--corp-mono)' }}>
+                          {fmtNum(Number(c.totalExpenses))}
+                          <span style={{ fontSize: 9, marginLeft: 2, color: 'var(--corp-muted)' }}>{'\u00A0AED'}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
-        {/* Clients Analytics */}
-        <TabsContent value="clients" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Аналитика по заказчикам</CardTitle>
-              <CardDescription>
-                Выберите заказчика для детальной информации
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          {/* Clients */}
+          <TabsContent value="clients" className="space-y-3">
+            <div
+              className="p-3"
+              style={{
+                background: 'var(--corp-surface)',
+                border: '1px solid var(--corp-line)',
+                borderRadius: 'var(--corp-r-lg)',
+              }}
+            >
+              <p
+                className="text-[10px] uppercase font-bold mb-1.5"
+                style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
+              >
+                Выбрать заказчика
+              </p>
               <Select value={selectedClient} onValueChange={setSelectedClient}>
-                <SelectTrigger className="w-full max-w-sm mb-4">
+                <SelectTrigger className="h-9 text-[13px]" data-testid="filter-client">
                   <SelectValue placeholder="Выберите заказчика" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Все заказчики</SelectItem>
-                  {clients?.map((client: any) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
+                  {clients?.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
 
-              {clientAnalytics && clientAnalytics.length > 0 && (
-                <div className="space-y-4">
-                  {clientAnalytics.map((client: any) => (
-                    <Card key={client.clientId}>
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <CardTitle>{client.clientName}</CardTitle>
-                          <Badge>{client.totalProjects} проектов</Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Сумма контрактов</p>
-                            <p className="text-lg font-semibold">
-                              {formatCurrency(Number(client.totalContractValue))}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Оплачено</p>
-                            <p className="text-lg font-semibold text-green-600">
-                              {formatCurrency(Number(client.totalPayments))}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            {clientAnalytics && clientAnalytics.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {clientAnalytics.map((c: any) => (
+                  <div
+                    key={c.clientId}
+                    className="p-4"
+                    style={{
+                      background: 'var(--corp-surface)',
+                      border: '1px solid var(--corp-line)',
+                      borderRadius: 'var(--corp-r-lg)',
+                    }}
+                    data-testid={`client-stats-${c.clientId}`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h4
+                        className="text-[14px] font-semibold truncate"
+                        style={{ color: 'var(--corp-ink)', letterSpacing: '-0.1px' }}
+                      >
+                        {c.clientName}
+                      </h4>
+                      <span
+                        className="text-[10px] font-bold uppercase px-2 py-0.5 rounded flex-shrink-0"
+                        style={{
+                          background: 'var(--corp-accent-soft)',
+                          color: 'var(--corp-accent)',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        {c.totalProjects} проектов
+                      </span>
+                    </div>
+                    <div
+                      className="grid grid-cols-2 gap-3 pt-3"
+                      style={{ borderTop: '1px solid var(--corp-line)' }}
+                    >
+                      <div>
+                        <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+                          Сумма контрактов
+                        </p>
+                        <p className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}>
+                          {fmtNum(Number(c.totalContractValue))}
+                          <span style={{ fontSize: 9, marginLeft: 2, color: 'var(--corp-muted)' }}>{'\u00A0AED'}</span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+                          Оплачено
+                        </p>
+                        <p className="text-[14px] font-bold" style={{ color: 'var(--corp-pos)', fontFamily: 'var(--corp-mono)' }}>
+                          {fmtNum(Number(c.totalPayments))}
+                          <span style={{ fontSize: 9, marginLeft: 2, color: 'var(--corp-muted)' }}>{'\u00A0AED'}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
-        {/* Tools Analytics */}
-        <TabsContent value="tools" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Всего инструментов</CardTitle>
-                <Wrench className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {toolsAnalytics?.totalTools || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  В базе данных
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Доступно</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {toolsAnalytics?.availableTools || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  На складе
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Выдано</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-orange-600">
-                  {toolsAnalytics?.outTools || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  В работе
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Списано</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  {toolsAnalytics?.writtenOffTools || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Выведено из эксплуатации
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Общая стоимость</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(Number(toolsAnalytics?.totalValue || 0))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Стоимость всех инструментов
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Всего операций</CardTitle>
-                <BarChart className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {toolsAnalytics?.totalMovements || 0}
-                </div>
-                <div className="text-xs text-muted-foreground space-y-1 mt-2">
-                  <p>Выдач: {toolsAnalytics?.totalIssues || 0}</p>
-                  <p>Возвратов: {toolsAnalytics?.totalReturns || 0}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+          {/* Tools */}
+          <TabsContent value="tools" className="space-y-3">
+            <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
+              <MetricTile
+                label="Всего инструментов"
+                value={toolsAnalytics?.totalTools || 0}
+                hint="В базе данных"
+                icon={<Wrench size={14} />}
+              />
+              <MetricTile
+                label="Доступно"
+                value={toolsAnalytics?.availableTools || 0}
+                hint="На складе"
+                icon={<Package size={14} />}
+                tone="pos"
+              />
+              <MetricTile
+                label="Выдано"
+                value={toolsAnalytics?.outTools || 0}
+                hint="В работе"
+                icon={<Users size={14} />}
+                tone="accent"
+              />
+              <MetricTile
+                label="Списано"
+                value={toolsAnalytics?.writtenOffTools || 0}
+                hint="Выведено"
+                icon={<FileText size={14} />}
+                tone="neg"
+              />
+              <MetricTile
+                label="Стоимость"
+                value={fmtNum(Number(toolsAnalytics?.totalValue || 0))}
+                hint="Общая"
+                icon={<DollarSign size={14} />}
+                isCurrency
+              />
+              <MetricTile
+                label="Операций"
+                value={toolsAnalytics?.totalMovements || 0}
+                hint={`Выдач: ${toolsAnalytics?.totalIssues || 0} · Возвр.: ${toolsAnalytics?.totalReturns || 0}`}
+                icon={<BarChart size={14} />}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 }

@@ -1,18 +1,26 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRoute, Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { queryClient } from "@/lib/queryClient";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, User, Calendar, Phone, Mail, Briefcase, AlertTriangle } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Plus, Search, User as UserIcon, Calendar, Briefcase,
+  AlertTriangle, Users,
+} from "lucide-react";
 import { format, differenceInDays, differenceInYears, differenceInMonths } from "date-fns";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { PersonnelForm } from "@/components/PersonnelForm";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { CorpEmpty } from "@/components/corp-ui";
+
+interface PersonnelDocument {
+  id: string;
+  documentType: string;
+  expiryDate?: string;
+}
 
 interface Personnel {
   id: string;
@@ -33,161 +41,196 @@ interface Personnel {
   documents?: PersonnelDocument[];
 }
 
-interface PersonnelDocument {
-  id: string;
-  documentType: string;
-  expiryDate?: string;
+function formatPhotoUrl(photoUrl: string) {
+  return `/objects/${photoUrl.split('/').slice(-2).join('/')}`;
 }
 
 export function Personnel() {
-  const { t } = useLanguage();
+  useLanguage();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [specializationFilter, setSpecializationFilter] = useState<string>("all");
   const [showForm, setShowForm] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Personnel | null>(null);
-  
+
   const isAdmin = user?.role === 'admin';
   const canView = user?.role === 'admin' || user?.role === 'director';
-  
-  // Call all hooks before any conditional returns
+
   const { data: personnel = [], isLoading } = useQuery<Personnel[]>({
     queryKey: ["/api/personnel"],
     enabled: canView,
   });
-  
-  // Calculate work experience
+
   const calculateExperience = (startDate: string) => {
     const start = new Date(startDate);
     const now = new Date();
     const years = differenceInYears(now, start);
     const months = differenceInMonths(now, start) % 12;
-    
     if (years > 0) {
-      return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'} ${months > 0 ? `${months} мес.` : ''}`;
+      return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'}${months > 0 ? ` ${months} мес.` : ''}`;
     }
     return `${months} мес.`;
   };
-  
-  // Calculate document status
-  const getDocumentStatus = (person: Personnel) => {
-    if (!person.documents || person.documents.length === 0) {
-      return 'normal';
-    }
-    
+
+  const getDocumentStatus = (person: Personnel): 'normal' | 'warning' | 'critical' | 'expired' => {
     const criticalDocs = ['emirates_id', 'passport', 'visa', 'contract'];
     const now = new Date();
     let minDays = Infinity;
-    
-    // Check Emirates ID expiry from person data
+
     if (person.emiratesIdExpiryDate) {
       const days = differenceInDays(new Date(person.emiratesIdExpiryDate), now);
       if (days < minDays) minDays = days;
     }
-    
-    // Check documents
-    person.documents.forEach(doc => {
+
+    person.documents?.forEach(doc => {
       if (criticalDocs.includes(doc.documentType) && doc.expiryDate) {
         const days = differenceInDays(new Date(doc.expiryDate), now);
         if (days < minDays) minDays = days;
       }
     });
-    
+
+    if (minDays === Infinity) return 'normal';
     if (minDays <= 0) return 'expired';
     if (minDays <= 14) return 'critical';
     if (minDays <= 30) return 'warning';
     return 'normal';
   };
-  
-  // Filter personnel
+
   const filteredPersonnel = useMemo(() => {
     return personnel.filter(person => {
-      // Search filter
       const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = !searchQuery || 
+      const matchesSearch = !searchQuery ||
         person.firstName.toLowerCase().includes(searchLower) ||
         person.lastName.toLowerCase().includes(searchLower) ||
         (person.middleName && person.middleName.toLowerCase().includes(searchLower)) ||
         (person.emiratesId && person.emiratesId.toLowerCase().includes(searchLower));
-      
-      // Status filter
+
       const matchesStatus = statusFilter === 'all' || person.status === statusFilter;
-      
-      // Specialization filter
-      const matchesSpecialization = specializationFilter === 'all' || 
+      const matchesSpecialization = specializationFilter === 'all' ||
         person.specialization === specializationFilter;
-      
+
       return matchesSearch && matchesStatus && matchesSpecialization;
     });
   }, [personnel, searchQuery, statusFilter, specializationFilter]);
-  
-  // Get unique specializations
+
   const specializations = useMemo(() => {
     const specs = new Set(personnel.map(p => p.specialization));
     return Array.from(specs).sort();
   }, [personnel]);
-  
-  const handleEdit = (person: Personnel) => {
-    // TODO: Implement personnel edit form
-    console.log('Edit personnel form not yet implemented for:', person);
-  };
-  
+
   const handleCreate = () => {
     setSelectedPerson(null);
     setShowForm(true);
   };
-  
-  // Check access after all hooks
+
   if (!canView) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Card className="max-w-md">
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">Нет доступа к разделу "Персонал"</p>
-          </CardContent>
-        </Card>
+      <div
+        className="min-h-screen flex items-center justify-center px-6"
+        style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)' }}
+      >
+        <div
+          className="max-w-md w-full p-6 text-center"
+          style={{
+            background: 'var(--corp-surface)',
+            border: '1px solid var(--corp-line)',
+            borderRadius: 'var(--corp-r-lg)',
+          }}
+        >
+          <p className="text-[14px]" style={{ color: 'var(--corp-muted)' }}>
+            Нет доступа к разделу «Персонал»
+          </p>
+        </div>
       </div>
     );
   }
-  
-  if (isLoading) {
-    return (
-      <div className="h-full" />
-    );
-  }
-  
+
+  const getDocBadge = (status: 'warning' | 'critical' | 'expired') => {
+    if (status === 'expired') {
+      return { label: 'Истёк', bg: 'var(--corp-neg-soft)', fg: 'var(--corp-neg)' };
+    }
+    if (status === 'critical') {
+      return { label: '≤14 дней', bg: 'rgba(249, 115, 22, 0.12)', fg: '#c2410c' };
+    }
+    return { label: '≤30 дней', bg: 'rgba(245, 158, 11, 0.12)', fg: '#b45309' };
+  };
+
   return (
-    <div className="p-4 space-y-4" data-page-header>
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+      data-page-header
+    >
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Персонал</h1>
-        {isAdmin && (
-          <Button onClick={handleCreate}>
-            <Plus className="w-4 h-4 mr-2" />
-            Добавить сотрудника
-          </Button>
-        )}
-      </div>
-      
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
+      <header
+        className="sticky top-0 z-40"
+        style={{ background: 'var(--corp-surface)', borderBottom: '1px solid var(--corp-line)' }}
+      >
+        <div className="px-4 h-14 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
+              style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)' }}
+            >
+              <Users size={15} />
+            </div>
+            <div className="min-w-0">
+              <h1
+                className="text-[16px] font-bold leading-tight truncate"
+                style={{ color: 'var(--corp-ink)', letterSpacing: '-0.3px' }}
+              >
+                Персонал
+              </h1>
+              <p
+                className="text-[10px] uppercase font-bold leading-tight"
+                style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)', letterSpacing: '0.06em' }}
+              >
+                Всего: {filteredPersonnel.length}
+              </p>
+            </div>
+          </div>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={handleCreate}
+              className="inline-flex items-center gap-1.5 h-9 px-3 text-[13px] font-semibold transition-colors"
+              style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+              data-testid="button-add-personnel"
+            >
+              <Plus size={14} /> <span className="hidden sm:inline">Сотрудник</span>
+            </button>
+          )}
+        </div>
+      </header>
+
+      <main className="px-4 pt-4">
+        {/* Filters */}
+        <div
+          className="p-3 mb-4"
+          style={{
+            background: 'var(--corp-surface)',
+            border: '1px solid var(--corp-line)',
+            borderRadius: 'var(--corp-r-lg)',
+          }}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className="relative">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+                style={{ color: 'var(--corp-muted)' }}
+              />
               <Input
-                placeholder="Поиск по ФИО, Emirates ID..."
+                placeholder="Поиск ФИО, Emirates ID…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-8 h-9 text-[13px]"
+                data-testid="input-search-personnel"
               />
             </div>
-            
-            {/* Status filter */}
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="h-9 text-[13px]" data-testid="filter-status">
                 <SelectValue placeholder="Статус" />
               </SelectTrigger>
               <SelectContent>
@@ -197,10 +240,9 @@ export function Personnel() {
                 <SelectItem value="vacation">Отпуск</SelectItem>
               </SelectContent>
             </Select>
-            
-            {/* Specialization filter */}
+
             <Select value={specializationFilter} onValueChange={setSpecializationFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="h-9 text-[13px]" data-testid="filter-specialization">
                 <SelectValue placeholder="Специализация" />
               </SelectTrigger>
               <SelectContent>
@@ -210,130 +252,189 @@ export function Personnel() {
                 ))}
               </SelectContent>
             </Select>
-            
-            {/* Stats */}
-            <div className="flex items-center gap-4 text-sm">
-              <span className="text-muted-foreground">Всего:</span>
-              <span className="font-medium">{filteredPersonnel.length}</span>
-            </div>
           </div>
-        </CardContent>
-      </Card>
-      
-      {/* Personnel Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredPersonnel.map(person => {
-          const docStatus = getDocumentStatus(person);
-          const experience = calculateExperience(person.startDate);
-          
-          return (
-            <Link key={person.id} href={`/personnel/${person.id}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
+        </div>
+
+        {/* Grid */}
+        {isLoading ? null : filteredPersonnel.length === 0 ? (
+          <CorpEmpty
+            icon={<Users size={28} />}
+            title={searchQuery || statusFilter !== 'all' || specializationFilter !== 'all'
+              ? 'Сотрудники не найдены'
+              : 'Нет сотрудников'}
+            description={searchQuery || statusFilter !== 'all' || specializationFilter !== 'all'
+              ? 'Попробуйте изменить фильтры'
+              : 'Добавьте первого сотрудника'}
+            actionLabel={isAdmin ? 'Добавить сотрудника' : undefined}
+            onAction={isAdmin ? handleCreate : undefined}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {filteredPersonnel.map(person => {
+              const docStatus = getDocumentStatus(person);
+              const experience = calculateExperience(person.startDate);
+              const fullName = `${person.lastName} ${person.firstName}${person.middleName ? ' ' + person.middleName : ''}`;
+              const isInactive = person.status && person.status !== 'active';
+
+              return (
+                <Link key={person.id} href={`/personnel/${person.id}`}>
+                  <div
+                    className="p-4 transition-all cursor-pointer"
+                    style={{
+                      background: 'var(--corp-surface)',
+                      border: '1px solid var(--corp-line)',
+                      borderRadius: 'var(--corp-r-lg)',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--corp-surface)'; }}
+                    data-testid={`personnel-card-${person.id}`}
+                  >
+                    <div className="flex items-start gap-3 mb-2">
                       {person.photoUrl ? (
-                        <img 
-                          src={`/objects/${person.photoUrl.split('/').slice(-2).join('/')}`}
-                          alt={`${person.lastName} ${person.firstName}`}
-                          className="w-12 h-12 rounded-full object-cover"
+                        <img
+                          src={formatPhotoUrl(person.photoUrl)}
+                          alt={fullName}
+                          className="w-11 h-11 rounded-full object-cover flex-shrink-0"
+                          style={{ border: '1px solid var(--corp-line)' }}
                           onError={(e) => {
-                            // Hide image and show placeholder on error
                             const target = e.currentTarget as HTMLImageElement;
                             target.style.display = 'none';
-                            const nextElement = target.nextElementSibling as HTMLElement;
-                            if (nextElement) {
-                              nextElement.style.display = 'flex';
-                            }
+                            const next = target.nextElementSibling as HTMLElement | null;
+                            if (next) next.style.display = 'flex';
                           }}
                         />
                       ) : null}
-                      <div className={`w-12 h-12 rounded-full bg-muted flex items-center justify-center ${person.photoUrl ? 'hidden' : ''}`}>
-                        <User className="w-6 h-6 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold">
-                          {person.lastName} {person.firstName}
-                          {person.middleName && ` ${person.middleName}`}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">{person.specialization}</p>
-                      </div>
-                    </div>
-                    {/* Document status indicator */}
-                    {docStatus !== 'normal' && (
-                      <Badge 
-                        variant={docStatus === 'expired' ? 'destructive' : 'default'}
-                        className={docStatus === 'warning' ? 'bg-yellow-500' : ''}
+                      <div
+                        className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${person.photoUrl ? 'hidden' : ''}`}
+                        style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-3)' }}
                       >
-                        {docStatus === 'expired' && <AlertTriangle className="w-3 h-3 mr-1" />}
-                        {docStatus === 'expired' ? 'Истёк' : 
-                         docStatus === 'critical' ? '≤14 дней' : '≤30 дней'}
-                      </Badge>
-                    )}
+                        <UserIcon size={18} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3
+                          className="text-[14px] font-semibold truncate"
+                          style={{ color: 'var(--corp-ink)', letterSpacing: '-0.1px' }}
+                        >
+                          {fullName}
+                        </h3>
+                        <p
+                          className="text-[11px] truncate"
+                          style={{ color: 'var(--corp-muted)' }}
+                        >
+                          {person.specialization}
+                        </p>
+                      </div>
+                      {docStatus !== 'normal' && (() => {
+                        const b = getDocBadge(docStatus);
+                        return (
+                          <span
+                            className="text-[10px] font-bold uppercase px-2 py-0.5 rounded flex items-center gap-1 flex-shrink-0"
+                            style={{
+                              background: b.bg,
+                              color: b.fg,
+                              letterSpacing: '0.04em',
+                            }}
+                          >
+                            {docStatus === 'expired' && <AlertTriangle size={10} />}
+                            {b.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    <div
+                      className="grid grid-cols-2 gap-2 pt-3"
+                      style={{ borderTop: '1px solid var(--corp-line)' }}
+                    >
+                      {person.emiratesId && (
+                        <div>
+                          <p
+                            className="text-[9px] uppercase font-bold"
+                            style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
+                          >
+                            Emirates ID
+                          </p>
+                          <p
+                            className="text-[12px] font-semibold truncate"
+                            style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}
+                          >
+                            {person.emiratesId}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <p
+                          className="text-[9px] uppercase font-bold flex items-center gap-1"
+                          style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
+                        >
+                          <Briefcase size={9} /> Стаж
+                        </p>
+                        <p
+                          className="text-[12px] font-semibold"
+                          style={{ color: 'var(--corp-ink-2)' }}
+                        >
+                          {experience}
+                        </p>
+                      </div>
+                      {person.emiratesIdExpiryDate && (
+                        <div className="col-span-2">
+                          <p
+                            className="text-[9px] uppercase font-bold flex items-center gap-1"
+                            style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
+                          >
+                            <Calendar size={9} /> Срок ID
+                          </p>
+                          <p
+                            className="text-[11px]"
+                            style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)' }}
+                          >
+                            {person.emiratesIdIssueDate &&
+                              `${format(new Date(person.emiratesIdIssueDate), 'dd.MM.yyyy')} — `}
+                            {format(new Date(person.emiratesIdExpiryDate), 'dd.MM.yyyy')}
+                          </p>
+                        </div>
+                      )}
+                      {person.salary && (
+                        <div>
+                          <p
+                            className="text-[9px] uppercase font-bold"
+                            style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
+                          >
+                            Оклад
+                          </p>
+                          <p
+                            className="text-[12px] font-bold"
+                            style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}
+                          >
+                            {parseFloat(person.salary).toLocaleString('ru-RU')}
+                            <span style={{ fontSize: 9, marginLeft: 2, color: 'var(--corp-muted)' }}>{'\u00A0AED'}</span>
+                          </p>
+                        </div>
+                      )}
+                      {isInactive && (
+                        <div>
+                          <span
+                            className="text-[10px] font-bold uppercase px-2 py-0.5 rounded inline-block"
+                            style={{
+                              background: person.status === 'dismissed' ? 'var(--corp-neg-soft)' : 'var(--corp-surface-2)',
+                              color: person.status === 'dismissed' ? 'var(--corp-neg)' : 'var(--corp-ink-3)',
+                              letterSpacing: '0.04em',
+                            }}
+                          >
+                            {person.status === 'dismissed' ? 'Уволен' :
+                             person.status === 'vacation' ? 'Отпуск' : person.status}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  {/* Emirates ID */}
-                  {person.emiratesId && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <span className="font-medium">Emirates ID:</span>
-                      <span>{person.emiratesId}</span>
-                    </div>
-                  )}
-                  
-                  {/* Emirates ID dates */}
-                  {person.emiratesIdExpiryDate && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      <span>
-                        {person.emiratesIdIssueDate && 
-                          `${format(new Date(person.emiratesIdIssueDate), 'dd.MM.yyyy')} - `}
-                        {format(new Date(person.emiratesIdExpiryDate), 'dd.MM.yyyy')}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* Experience */}
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Briefcase className="w-3 h-3" />
-                    <span>Стаж: {experience}</span>
-                  </div>
-                  
-                  {/* Salary */}
-                  {person.salary && (
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">AED {parseFloat(person.salary).toLocaleString()}</span>
-                    </div>
-                  )}
-                  
-                  {/* Status */}
-                  {person.status && person.status !== 'active' && (
-                    <Badge variant={person.status === 'dismissed' ? 'destructive' : 'secondary'}>
-                      {person.status === 'dismissed' ? 'Уволен' : 
-                       person.status === 'vacation' ? 'Отпуск' : person.status}
-                    </Badge>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
-      
-      {/* Empty state */}
-      {filteredPersonnel.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground">
-              {searchQuery || statusFilter !== 'all' || specializationFilter !== 'all' 
-                ? 'Сотрудники не найдены по заданным критериям'
-                : 'Нет добавленных сотрудников'}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-      
-      {/* Form Sheet */}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </main>
+
       {showForm && (
         <PersonnelForm
           person={selectedPerson}

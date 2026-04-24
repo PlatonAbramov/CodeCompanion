@@ -1,19 +1,19 @@
 import { useAuth } from "@/hooks/useAuth";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { 
-  Home, Users, Plus, Edit2, Trash2, FileText, Building2, Phone, Mail, Upload, File
+import {
+  Users, Plus, Edit2, Trash2, FileText, Phone, Mail, File, ChevronRight,
 } from "lucide-react";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import { CorpEmpty, fmtDateRu, fmtNum } from "@/components/corp-ui";
 
 interface Contractor {
   id: string;
@@ -34,38 +34,6 @@ interface ContractorStats {
   remainingBudget: number;
 }
 
-// Компонент для отображения статистики подрядчика
-function ContractorStatsCard({ contractorId }: { contractorId: string }) {
-  const { data: stats } = useQuery<ContractorStats>({
-    queryKey: ['/api/contractors', contractorId, 'stats'],
-  });
-
-  if (!stats) return null;
-
-  return (
-    <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
-      <div className="text-center">
-        <div className="text-lg font-semibold text-green-600">
-          {stats.totalExpenses.toLocaleString('ru-RU')} AED
-        </div>
-        <div className="text-xs text-slate-500">Всего выплат</div>
-      </div>
-      <div className="text-center">
-        <div className="text-lg font-semibold text-blue-600">
-          {stats.totalProjects}
-        </div>
-        <div className="text-xs text-slate-500">Проектов</div>
-      </div>
-      <div className="text-center">
-        <div className="text-lg font-semibold text-purple-600">
-          {stats.remainingBudget.toLocaleString('ru-RU')} AED
-        </div>
-        <div className="text-xs text-slate-500">Осталось выплатить</div>
-      </div>
-    </div>
-  );
-}
-
 interface ContractorForm {
   name: string;
   company: string;
@@ -74,136 +42,129 @@ interface ContractorForm {
   specialization: string;
 }
 
+function ContractorStatsRow({ contractorId }: { contractorId: string }) {
+  const { data: stats } = useQuery<ContractorStats>({
+    queryKey: ['/api/contractors', contractorId, 'stats'],
+  });
+  if (!stats) return null;
+
+  const tile = (label: string, value: string, color: string) => (
+    <div>
+      <p
+        className="text-[9px] uppercase font-bold"
+        style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
+      >
+        {label}
+      </p>
+      <p
+        className="text-[13px] font-bold"
+        style={{ color, fontFamily: 'var(--corp-mono)' }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+
+  return (
+    <div
+      className="grid grid-cols-3 gap-2 mt-3 pt-3"
+      style={{ borderTop: '1px solid var(--corp-line)' }}
+    >
+      {tile('Выплачено', `${fmtNum(stats.totalExpenses)}`, 'var(--corp-pos)')}
+      {tile('Проектов', String(stats.totalProjects), 'var(--corp-ink)')}
+      {tile('Осталось', `${fmtNum(stats.remainingBudget)}`, 'var(--corp-accent)')}
+    </div>
+  );
+}
+
 export default function Contractors() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
   const [contractorForm, setContractorForm] = useState<ContractorForm>({
-    name: '',
-    company: '',
-    phone: '',
-    email: '',
-    specialization: ''
+    name: '', company: '', phone: '', email: '', specialization: '',
   });
+
+  const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
 
   const { data: contractors, isLoading } = useQuery<Contractor[]>({
     queryKey: ['/api/contractors'],
-    enabled: user?.role === 'admin' || user?.role === 'director', // Доступ для админов и директоров
+    enabled: isAdminOrDirector,
   });
 
   const createContractorMutation = useMutation({
-    mutationFn: async (contractorData: ContractorForm) => {
-      const res = await apiRequest('/api/contractors', {
-        method: 'POST',
-        body: JSON.stringify(contractorData)
-      });
+    mutationFn: async (data: ContractorForm) => {
+      const res = await apiRequest('/api/contractors', { method: 'POST', body: JSON.stringify(data) });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
       setIsCreateModalOpen(false);
-      setContractorForm({
-        name: '',
-        company: '',
-        phone: '',
-        email: '',
-        specialization: ''
-      });
-      toast({
-        title: "Подрядчик добавлен",
-        description: "Новый подрядчик успешно добавлен в систему",
-      });
+      setContractorForm({ name: '', company: '', phone: '', email: '', specialization: '' });
+      toast({ title: "Подрядчик добавлен", description: "Новый подрядчик успешно добавлен" });
     },
-    onError: (error) => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось добавить подрядчика",
-        variant: "destructive",
-      });
-    }
+    onError: () => {
+      toast({ title: "Ошибка", description: "Не удалось добавить подрядчика", variant: "destructive" });
+    },
   });
 
   const updateContractorMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<ContractorForm> }) => {
-      const res = await apiRequest(`/api/contractors/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data)
-      });
+      const res = await apiRequest(`/api/contractors/${id}`, { method: 'PUT', body: JSON.stringify(data) });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
       setIsEditModalOpen(false);
       setSelectedContractor(null);
-      toast({
-        title: "Подрядчик обновлен",
-        description: "Данные подрядчика успешно обновлены",
-      });
+      toast({ title: "Подрядчик обновлён", description: "Данные подрядчика успешно обновлены" });
     },
-    onError: (error) => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось обновить данные подрядчика",
-        variant: "destructive",
-      });
-    }
+    onError: () => {
+      toast({ title: "Ошибка", description: "Не удалось обновить данные", variant: "destructive" });
+    },
   });
 
   const deleteContractorMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest(`/api/contractors/${id}`, {
-        method: 'DELETE'
-      });
+      const res = await apiRequest(`/api/contractors/${id}`, { method: 'DELETE' });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
-      toast({
-        title: "Подрядчик удален",
-        description: "Подрядчик успешно удален из системы",
-      });
+      toast({ title: "Подрядчик удалён", description: "Подрядчик успешно удалён" });
     },
-    onError: (error) => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось удалить подрядчика",
-        variant: "destructive",
-      });
-    }
+    onError: () => {
+      toast({ title: "Ошибка", description: "Не удалось удалить подрядчика", variant: "destructive" });
+    },
   });
 
-  // Проверка авторизации
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-slate-50" />
-    );
-  }
+  if (!user) return <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }} />;
 
-  if (user.role !== 'admin' && user.role !== 'director') {
+  if (!isAdminOrDirector) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p>Доступ запрещен</p>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)' }}
+      >
+        <p className="text-[14px]" style={{ color: 'var(--corp-muted)' }}>Доступ запрещён</p>
       </div>
     );
   }
 
-  const handleCreateContractor = async (e: React.FormEvent) => {
+  const handleCreateContractor = (e: React.FormEvent) => {
     e.preventDefault();
     createContractorMutation.mutate(contractorForm);
   };
 
-  const handleEditContractor = async (e: React.FormEvent) => {
+  const handleEditContractor = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedContractor) {
-      updateContractorMutation.mutate({ 
-        id: selectedContractor.id, 
-        data: contractorForm 
-      });
+      updateContractorMutation.mutate({ id: selectedContractor.id, data: contractorForm });
     }
   };
 
@@ -214,7 +175,7 @@ export default function Contractors() {
       company: contractor.company || '',
       phone: contractor.phone || '',
       email: contractor.email || '',
-      specialization: contractor.specialization
+      specialization: contractor.specialization,
     });
     setIsEditModalOpen(true);
   };
@@ -225,248 +186,251 @@ export default function Contractors() {
     }
   };
 
+  const renderForm = (mode: 'create' | 'edit') => (
+    <form onSubmit={mode === 'create' ? handleCreateContractor : handleEditContractor} className="space-y-4">
+      <div>
+        <Label htmlFor={`${mode}-name`}>Имя *</Label>
+        <Input
+          id={`${mode}-name`}
+          value={contractorForm.name}
+          onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })}
+          required
+          data-testid={`input-${mode}-contractor-name`}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${mode}-company`}>Компания</Label>
+        <Input
+          id={`${mode}-company`}
+          value={contractorForm.company}
+          onChange={(e) => setContractorForm({ ...contractorForm, company: e.target.value })}
+          data-testid={`input-${mode}-contractor-company`}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${mode}-spec`}>Специализация *</Label>
+        <Input
+          id={`${mode}-spec`}
+          value={contractorForm.specialization}
+          onChange={(e) => setContractorForm({ ...contractorForm, specialization: e.target.value })}
+          required
+          data-testid={`input-${mode}-contractor-spec`}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${mode}-phone`}>Телефон</Label>
+        <Input
+          id={`${mode}-phone`}
+          value={contractorForm.phone}
+          onChange={(e) => setContractorForm({ ...contractorForm, phone: e.target.value })}
+          data-testid={`input-${mode}-contractor-phone`}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${mode}-email`}>Email</Label>
+        <Input
+          id={`${mode}-email`}
+          type="email"
+          value={contractorForm.email}
+          onChange={(e) => setContractorForm({ ...contractorForm, email: e.target.value })}
+          data-testid={`input-${mode}-contractor-email`}
+        />
+      </div>
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={mode === 'create' ? createContractorMutation.isPending : updateContractorMutation.isPending}
+        data-testid={`button-submit-${mode}-contractor`}
+      >
+        {mode === 'create'
+          ? (createContractorMutation.isPending ? "Добавление…" : "Добавить подрядчика")
+          : (updateContractorMutation.isPending ? "Сохранение…" : "Сохранить изменения")}
+      </Button>
+    </form>
+  );
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Users size={24} className="text-primary" />
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">Подрядчики</h1>
-              <p className="text-sm text-slate-600">
+      <header
+        className="sticky top-0 z-40"
+        style={{ background: 'var(--corp-surface)', borderBottom: '1px solid var(--corp-line)' }}
+      >
+        <div className="px-4 h-14 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
+              style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)' }}
+            >
+              <Users size={15} />
+            </div>
+            <div className="min-w-0">
+              <h1
+                className="text-[16px] font-bold leading-tight truncate"
+                style={{ color: 'var(--corp-ink)', letterSpacing: '-0.3px' }}
+              >
+                Подрядчики
+              </h1>
+              <p
+                className="text-[10px] uppercase font-bold leading-tight"
+                style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)', letterSpacing: '0.06em' }}
+              >
                 Всего: {contractors?.length || 0}
               </p>
             </div>
           </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="p-4 space-y-6">
-        {/* Add Contractor Button */}
-        <div className="flex justify-end">
-          {(user?.role === 'admin' || user?.role === 'director') && (
+          {isAdminOrDirector && (
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-primary text-white">
-                  <Plus size={16} className="mr-2" />
-                  Добавить подрядчика
-                </Button>
-              </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Добавить нового подрядчика</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleCreateContractor} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Имя *</Label>
-                  <Input
-                    id="name"
-                    value={contractorForm.name}
-                    onChange={(e) => setContractorForm({...contractorForm, name: e.target.value})}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="company">Компания</Label>
-                  <Input
-                    id="company"
-                    value={contractorForm.company}
-                    onChange={(e) => setContractorForm({...contractorForm, company: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="specialization">Специализация *</Label>
-                  <Input
-                    id="specialization"
-                    value={contractorForm.specialization}
-                    onChange={(e) => setContractorForm({...contractorForm, specialization: e.target.value})}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Телефон</Label>
-                  <Input
-                    id="phone"
-                    value={contractorForm.phone}
-                    onChange={(e) => setContractorForm({...contractorForm, phone: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={contractorForm.email}
-                    onChange={(e) => setContractorForm({...contractorForm, email: e.target.value})}
-                  />
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full bg-primary text-white"
-                  disabled={createContractorMutation.isPending}
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 h-9 px-3 text-[13px] font-semibold transition-colors"
+                  style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+                  data-testid="button-add-contractor"
                 >
-                  {createContractorMutation.isPending ? "Добавление..." : "Добавить подрядчика"}
-                </Button>
-              </form>
-            </DialogContent>
+                  <Plus size={14} /> <span className="hidden sm:inline">Подрядчик</span>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Добавить нового подрядчика</DialogTitle>
+                </DialogHeader>
+                {renderForm('create')}
+              </DialogContent>
             </Dialog>
           )}
         </div>
+      </header>
 
-        {/* Edit Contractor Modal */}
-        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Редактировать подрядчика</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleEditContractor} className="space-y-4">
-              <div>
-                <Label htmlFor="edit-name">Имя *</Label>
-                <Input
-                  id="edit-name"
-                  value={contractorForm.name}
-                  onChange={(e) => setContractorForm({...contractorForm, name: e.target.value})}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-company">Компания</Label>
-                <Input
-                  id="edit-company"
-                  value={contractorForm.company}
-                  onChange={(e) => setContractorForm({...contractorForm, company: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-specialization">Специализация *</Label>
-                <Input
-                  id="edit-specialization"
-                  value={contractorForm.specialization}
-                  onChange={(e) => setContractorForm({...contractorForm, specialization: e.target.value})}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-phone">Телефон</Label>
-                <Input
-                  id="edit-phone"
-                  value={contractorForm.phone}
-                  onChange={(e) => setContractorForm({...contractorForm, phone: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-email">Email</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={contractorForm.email}
-                  onChange={(e) => setContractorForm({...contractorForm, email: e.target.value})}
-                />
-              </div>
-              
-              <Button 
-                type="submit" 
-                className="w-full bg-primary text-white"
-                disabled={updateContractorMutation.isPending}
-              >
-                {updateContractorMutation.isPending ? "Сохранение..." : "Сохранить изменения"}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+      {/* Edit modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Редактировать подрядчика</DialogTitle>
+          </DialogHeader>
+          {renderForm('edit')}
+        </DialogContent>
+      </Dialog>
 
-        {/* Contractors List */}
-        {isLoading ? (
-          <div className="py-8" />
+      {/* List */}
+      <main className="px-4 pt-4">
+        {isLoading ? null : !contractors || contractors.length === 0 ? (
+          <CorpEmpty
+            icon={<Users size={28} />}
+            title="Подрядчики не найдены"
+            description="Добавьте первого подрядчика, чтобы начать работу"
+            actionLabel={isAdminOrDirector ? "Добавить подрядчика" : undefined}
+            onAction={isAdminOrDirector ? () => setIsCreateModalOpen(true) : undefined}
+          />
         ) : (
-          <div className="space-y-3">
-            {contractors?.map((contractor) => (
-              <Card 
-                key={contractor.id} 
-                className="bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-0 rounded-lg cursor-pointer"
+          <div className="flex flex-col gap-2">
+            {contractors.map((contractor) => (
+              <div
+                key={contractor.id}
+                className="p-4 transition-all cursor-pointer"
+                style={{
+                  background: 'var(--corp-surface)',
+                  border: '1px solid var(--corp-line)',
+                  borderRadius: 'var(--corp-r-lg)',
+                }}
                 onClick={() => setLocation(`/contractor/${contractor.id}`)}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--corp-surface)'; }}
+                data-testid={`contractor-card-${contractor.id}`}
               >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg text-slate-900 font-bold">
-                        {contractor.company || contractor.name}
-                      </CardTitle>
-                      {contractor.company && (
-                        <p className="text-sm text-slate-600 mt-1">
-                          {contractor.name}
-                        </p>
-                      )}
-                    </div>
-                    {(user?.role === 'admin' || user?.role === 'director') && (
-                      <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditModal(contractor)}
-                        >
-                          <Edit2 size={16} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteContractor(contractor.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 size={16} />
-                        </Button>
-                      </div>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <h3
+                      className="text-[14px] font-semibold truncate"
+                      style={{ color: 'var(--corp-ink)', letterSpacing: '-0.1px' }}
+                    >
+                      {contractor.company || contractor.name}
+                    </h3>
+                    {contractor.company && (
+                      <p
+                        className="text-[11px] truncate"
+                        style={{ color: 'var(--corp-muted)' }}
+                      >
+                        {contractor.name}
+                      </p>
                     )}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm text-slate-600">
-                      <FileText size={14} className="mr-2" />
-                      <span>Специализация: {contractor.specialization}</span>
+                  {isAdminOrDirector ? (
+                    <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(contractor)}
+                        className="w-7 h-7 rounded flex items-center justify-center transition-colors"
+                        style={{ color: 'var(--corp-ink-3)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        data-testid={`button-edit-${contractor.id}`}
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteContractor(contractor.id)}
+                        className="w-7 h-7 rounded flex items-center justify-center transition-colors"
+                        style={{ color: 'var(--corp-neg)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-neg-soft)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        data-testid={`button-delete-${contractor.id}`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
-                    {contractor.phone && (
-                      <div className="flex items-center text-sm text-slate-600">
-                        <Phone size={14} className="mr-2" />
-                        <span>{contractor.phone}</span>
-                      </div>
-                    )}
-                    {contractor.email && (
-                      <div className="flex items-center text-sm text-slate-600">
-                        <Mail size={14} className="mr-2" />
-                        <span>{contractor.email}</span>
-                      </div>
-                    )}
-                    {contractor.licenseUrl && (
-                      <div className="flex items-center text-sm text-slate-600">
-                        <File size={14} className="mr-2" />
-                        <span>Лицензия загружена</span>
-                      </div>
-                    )}
-                    <div className="text-xs text-slate-400 pt-2">
-                      Добавлен: {new Date(contractor.createdAt).toLocaleDateString('ru-RU')}
-                    </div>
+                  ) : (
+                    <ChevronRight size={16} style={{ color: 'var(--corp-muted)' }} className="flex-shrink-0" />
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--corp-ink-3)' }}>
+                    <FileText size={11} style={{ color: 'var(--corp-muted)' }} />
+                    <span>{contractor.specialization}</span>
                   </div>
-                  <ContractorStatsCard contractorId={contractor.id} />
-                </CardContent>
-              </Card>
-            ))}
-            
-            {contractors?.length === 0 && (
-              <div className="text-center py-12">
-                <Users size={48} className="mx-auto text-slate-300 mb-4" />
-                <p className="text-slate-500 mb-2">Подрядчики не найдены</p>
-                <p className="text-sm text-slate-400">Добавьте первого подрядчика, чтобы начать работу</p>
+                  {contractor.phone && (
+                    <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--corp-ink-3)' }}>
+                      <Phone size={11} style={{ color: 'var(--corp-muted)' }} />
+                      <span style={{ fontFamily: 'var(--corp-mono)' }}>{contractor.phone}</span>
+                    </div>
+                  )}
+                  {contractor.email && (
+                    <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--corp-ink-3)' }}>
+                      <Mail size={11} style={{ color: 'var(--corp-muted)' }} />
+                      <span style={{ fontFamily: 'var(--corp-mono)' }}>{contractor.email}</span>
+                    </div>
+                  )}
+                  {contractor.licenseUrl && (
+                    <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--corp-pos)' }}>
+                      <File size={11} />
+                      <span>Лицензия загружена</span>
+                    </div>
+                  )}
+                </div>
+
+                <ContractorStatsRow contractorId={contractor.id} />
+
+                <div
+                  className="mt-3 pt-2 text-[10px] uppercase font-bold"
+                  style={{
+                    borderTop: '1px solid var(--corp-line)',
+                    color: 'var(--corp-muted)',
+                    fontFamily: 'var(--corp-mono)',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  Добавлен: {fmtDateRu(contractor.createdAt)}
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
-      </div>
-
-      <BottomNavigation currentPage="contractors" />
+      </main>
     </div>
   );
 }

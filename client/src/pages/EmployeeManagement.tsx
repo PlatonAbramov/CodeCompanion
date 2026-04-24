@@ -5,13 +5,15 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, HardHat, MoreVertical } from "lucide-react";
+import { Plus, HardHat, MoreVertical } from "lucide-react";
+import { CorpHeader, CorpEmpty, fmtDateRu } from "@/components/corp-ui";
 
 interface User {
   id: string;
@@ -34,49 +36,31 @@ export default function EmployeeManagement() {
     username: '',
     password: '',
     name: '',
-    role: 'master'
+    role: 'master',
   });
 
-  // Redirect if not director
   if (user?.role !== 'admin' && user?.role !== 'director') {
     setLocation('/director');
     return null;
   }
 
-  // Get all users
   const { data: employees = [], isLoading } = useQuery<User[]>({
     queryKey: ['/api/users'],
   });
 
-  // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest('/api/users', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      const res = await apiRequest('/api/users', { method: 'POST', body: JSON.stringify(data) });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       setIsCreateModalOpen(false);
-      setEmployeeForm({
-        username: '',
-        password: '',
-        name: '',
-        role: 'master'
-      });
-      toast({
-        title: "Успешно",
-        description: "Сотрудник добавлен",
-      });
+      setEmployeeForm({ username: '', password: '', name: '', role: 'master' });
+      toast({ title: "Успешно", description: "Сотрудник добавлен" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось добавить сотрудника",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось добавить сотрудника", variant: "destructive" });
     },
   });
 
@@ -85,179 +69,225 @@ export default function EmployeeManagement() {
     createUserMutation.mutate(employeeForm);
   };
 
-  const formatDate = (dateString?: string) => {
+  const formatLastLogin = (dateString?: string) => {
     if (!dateString) return 'Никогда';
-    return new Date(dateString).toLocaleString('ru-RU');
+    const d = new Date(dateString);
+    return `${fmtDateRu(dateString)} ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
   };
 
-  const goBack = () => {
-    setLocation('/director');
-  };
+  const filteredEmployees = employees.filter((emp) => emp.id !== user?.id);
 
-  // Filter out current user from employees list
-  const filteredEmployees = employees.filter(emp => emp.id !== user?.id);
+  const roleColor = (role: string) => {
+    switch (role) {
+      case 'admin': return { bg: 'var(--corp-neg-soft)', fg: 'var(--corp-neg)' };
+      case 'director': return { bg: 'var(--corp-accent-soft)', fg: 'var(--corp-accent)' };
+      case 'master': return { bg: 'var(--corp-pos-soft)', fg: 'var(--corp-pos)' };
+      case 'client': return { bg: 'var(--corp-surface-2)', fg: 'var(--corp-ink-3)' };
+      default: return { bg: 'var(--corp-surface-2)', fg: 'var(--corp-muted)' };
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={goBack}
-                className="mr-2"
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      <CorpHeader
+        title={t('employees') || 'Сотрудники'}
+        subtitle={`Всего: ${filteredEmployees.length}`}
+        onBack={() => setLocation('/director')}
+        action={
+          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+            <DialogTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 h-9 px-3 text-[13px] font-semibold transition-colors"
+                style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+                data-testid="button-add-employee"
               >
-                <ArrowLeft size={20} />
-              </Button>
-              <h2 className="font-semibold text-slate-900">{t('employees')}</h2>
-            </div>
-            <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-primary text-white">
-                  <Plus size={16} className="mr-1" />
-                  {t('addEmployee')}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="w-full max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>{t('addEmployee')}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleCreateEmployee} className="space-y-4">
-                  <div>
-                    <Label>{t('employeeName')} *</Label>
-                    <Input
-                      value={employeeForm.name}
-                      onChange={(e) => setEmployeeForm({...employeeForm, name: e.target.value})}
-                      placeholder="Введите полное имя"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label>{t('username')} *</Label>
-                    <Input
-                      value={employeeForm.username}
-                      onChange={(e) => setEmployeeForm({...employeeForm, username: e.target.value})}
-                      placeholder="Логин для входа"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label>{t('password')} *</Label>
-                    <Input
-                      type="password"
-                      value={employeeForm.password}
-                      onChange={(e) => setEmployeeForm({...employeeForm, password: e.target.value})}
-                      placeholder="Пароль"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label>{t('role')} *</Label>
-                    <Select 
-                      value={employeeForm.role} 
-                      onValueChange={(value) => setEmployeeForm({...employeeForm, role: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="master">{t('master')}</SelectItem>
-                        <SelectItem value="director">{t('director')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-primary text-white"
-                    disabled={createUserMutation.isPending}
+                <Plus size={14} /> <span className="hidden sm:inline">{t('addEmployee') || 'Сотрудник'}</span>
+              </button>
+            </DialogTrigger>
+            <DialogContent className="w-full max-w-lg">
+              <DialogHeader>
+                <DialogTitle>{t('addEmployee') || 'Добавить сотрудника'}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateEmployee} className="space-y-4">
+                <div>
+                  <Label>{t('employeeName') || 'Имя'} *</Label>
+                  <Input
+                    value={employeeForm.name}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, name: e.target.value })}
+                    placeholder="Введите полное имя"
+                    required
+                    data-testid="input-employee-name"
+                  />
+                </div>
+                <div>
+                  <Label>{t('username') || 'Логин'} *</Label>
+                  <Input
+                    value={employeeForm.username}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, username: e.target.value })}
+                    placeholder="Логин для входа"
+                    required
+                    data-testid="input-employee-username"
+                  />
+                </div>
+                <div>
+                  <Label>{t('password') || 'Пароль'} *</Label>
+                  <Input
+                    type="password"
+                    value={employeeForm.password}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, password: e.target.value })}
+                    placeholder="Пароль"
+                    required
+                    data-testid="input-employee-password"
+                  />
+                </div>
+                <div>
+                  <Label>{t('role') || 'Роль'} *</Label>
+                  <Select
+                    value={employeeForm.role}
+                    onValueChange={(v) => setEmployeeForm({ ...employeeForm, role: v })}
                   >
-                    {createUserMutation.isPending ? t('loading') : t('addEmployee')}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-      </header>
+                    <SelectTrigger data-testid="select-employee-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="master">{t('master') || 'Мастер'}</SelectItem>
+                      <SelectItem value="director">{t('director') || 'Директор'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={createUserMutation.isPending}
+                  data-testid="button-confirm-add-employee"
+                >
+                  {createUserMutation.isPending ? (t('loading') || 'Загрузка...') : (t('addEmployee') || 'Добавить')}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-      <div className="p-4 pb-20">
-        {isLoading ? (
-          <div />
-        ) : filteredEmployees.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <HardHat size={48} className="mx-auto text-slate-300 mb-4" />
-              <p className="text-slate-500">Пока нет сотрудников</p>
-              <Button 
-                onClick={() => setIsCreateModalOpen(true)}
-                className="mt-4 bg-primary text-white"
-              >
-                <Plus size={16} className="mr-2" />
-                {t('addEmployee')}
-              </Button>
-            </CardContent>
-          </Card>
+      <main className="px-4 pt-4">
+        {isLoading ? null : filteredEmployees.length === 0 ? (
+          <CorpEmpty
+            icon={<HardHat size={28} />}
+            title="Пока нет сотрудников"
+            description="Добавьте первого, чтобы начать работу"
+            actionLabel={t('addEmployee') || 'Добавить'}
+            onAction={() => setIsCreateModalOpen(true)}
+          />
         ) : (
-          <div className="space-y-3">
-            {filteredEmployees.map((employee) => (
-              <Card key={employee.id} className="shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center flex-1">
-                      <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center mr-3">
-                        <HardHat className="text-white" size={20} />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium text-slate-900">{employee.name}</h4>
-                        <p className="text-sm text-slate-500">{t(employee.role)}</p>
-                        <p className="text-xs text-slate-400 mt-1">
-                          Логин: <span className="font-mono">{employee.username}</span>
-                        </p>
+          <div className="flex flex-col gap-2">
+            {filteredEmployees.map((employee) => {
+              const rc = roleColor(employee.role);
+              return (
+                <div
+                  key={employee.id}
+                  className="p-4"
+                  style={{
+                    background: 'var(--corp-surface)',
+                    border: '1px solid var(--corp-line)',
+                    borderRadius: 'var(--corp-r-lg)',
+                  }}
+                  data-testid={`employee-card-${employee.id}`}
+                >
+                  <div className="flex items-start gap-3 mb-3">
+                    <div
+                      className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)' }}
+                    >
+                      <HardHat size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4
+                        className="text-[14px] font-semibold truncate"
+                        style={{ color: 'var(--corp-ink)', letterSpacing: '-0.1px' }}
+                      >
+                        {employee.name}
+                      </h4>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span
+                          className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded"
+                          style={{ background: rc.bg, color: rc.fg, letterSpacing: '0.04em' }}
+                        >
+                          {t(employee.role) || employee.role}
+                        </span>
+                        <span
+                          className="text-[11px]"
+                          style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}
+                        >
+                          @{employee.username}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        employee.isActive 
-                          ? 'bg-secondary/10 text-secondary' 
-                          : 'bg-red-100 text-red-600'
-                      }`}>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <span
+                        className="text-[10px] font-bold uppercase px-2 py-0.5 rounded"
+                        style={{
+                          background: employee.isActive ? 'var(--corp-pos-soft)' : 'var(--corp-neg-soft)',
+                          color: employee.isActive ? 'var(--corp-pos)' : 'var(--corp-neg)',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
                         {employee.isActive ? 'Активен' : 'Неактивен'}
                       </span>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical size={16} />
-                      </Button>
+                      <button
+                        type="button"
+                        className="w-7 h-7 rounded flex items-center justify-center transition-colors"
+                        style={{ color: 'var(--corp-ink-3)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <MoreVertical size={15} />
+                      </button>
                     </div>
                   </div>
-                  
-                  <div className="mt-3 pt-3 border-t border-slate-100">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-slate-500">{t('lastLogin')}</p>
-                        <p className="font-medium text-slate-900">
-                          {formatDate(employee.lastLogin)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-slate-500">Зарегистрирован</p>
-                        <p className="font-medium text-slate-900">
-                          {formatDate(employee.createdAt)}
-                        </p>
-                      </div>
+
+                  <div
+                    className="grid grid-cols-2 gap-3 pt-3"
+                    style={{ borderTop: '1px solid var(--corp-line)' }}
+                  >
+                    <div>
+                      <p
+                        className="text-[9px] uppercase font-bold"
+                        style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
+                      >
+                        {t('lastLogin') || 'Последний вход'}
+                      </p>
+                      <p
+                        className="text-[12px]"
+                        style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}
+                      >
+                        {formatLastLogin(employee.lastLogin)}
+                      </p>
+                    </div>
+                    <div>
+                      <p
+                        className="text-[9px] uppercase font-bold"
+                        style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
+                      >
+                        Зарегистрирован
+                      </p>
+                      <p
+                        className="text-[12px]"
+                        style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}
+                      >
+                        {fmtDateRu(employee.createdAt)}
+                      </p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
