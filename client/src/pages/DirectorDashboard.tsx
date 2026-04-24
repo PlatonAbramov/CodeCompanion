@@ -956,8 +956,6 @@ export default function DirectorDashboard() {
         )}
       </main>
 
-      <BottomNavigation currentPage="home" />
-
       <AssignClientModal
         isOpen={isAssignClientModalOpen}
         onClose={() => setIsAssignClientModalOpen(false)}
