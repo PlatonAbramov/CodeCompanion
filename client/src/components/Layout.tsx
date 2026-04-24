@@ -1,21 +1,41 @@
 import { useAuth } from "@/hooks/useAuth";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
-import { Home, Users, Receipt, Wrench, Users as StaffIcon, LogOut, UserCheck, Menu } from "lucide-react";
+import {
+  Home, Users, Building2, Wrench, UserCheck, Shield,
+  TrendingUp, MoreHorizontal, LogOut, ChevronRight, Receipt
+} from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
+type TabKey = 'overview' | 'projects' | 'finance' | 'more';
+
+interface TabItem {
+  key: TabKey;
+  label: string;
+  icon: any;
+  path: string;
+  matches: (loc: string) => boolean;
+  testId: string;
+}
+
+interface MenuItem {
+  label: string;
+  icon: any;
+  path: string;
+  count?: number;
+  testId: string;
+}
+
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  // Свайп-жесты:
-  // - влево/вправо — навигация назад/вперёд
-  // - вниз на 80px от верха страницы — обновление страницы (pull-to-refresh)
+  // Свайп-жесты (без изменений — поведение сохранено)
   useEffect(() => {
     let startX = 0;
     let startY = 0;
@@ -27,22 +47,12 @@ export function Layout({ children }: LayoutProps) {
       let el = target as HTMLElement | null;
       while (el) {
         const tag = el.tagName;
-        if (
-          tag === 'INPUT' ||
-          tag === 'TEXTAREA' ||
-          tag === 'SELECT' ||
-          tag === 'BUTTON' ||
-          el.isContentEditable
-        ) {
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || el.isContentEditable) {
           return true;
         }
-        // Горизонтально скроллящиеся контейнеры
         if (el.scrollWidth > el.clientWidth) {
           const style = window.getComputedStyle(el);
-          if (
-            style.overflowX === 'auto' ||
-            style.overflowX === 'scroll'
-          ) {
+          if (style.overflowX === 'auto' || style.overflowX === 'scroll') {
             return true;
           }
         }
@@ -52,14 +62,8 @@ export function Layout({ children }: LayoutProps) {
     };
 
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) {
-        tracking = false;
-        return;
-      }
-      if (isInteractive(e.target)) {
-        tracking = false;
-        return;
-      }
+      if (e.touches.length !== 1) { tracking = false; return; }
+      if (isInteractive(e.target)) { tracking = false; return; }
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       startTime = Date.now();
@@ -70,124 +74,160 @@ export function Layout({ children }: LayoutProps) {
     const onTouchEnd = (e: TouchEvent) => {
       if (!tracking) return;
       tracking = false;
-
       const touch = e.changedTouches[0];
       if (!touch) return;
-
       const dx = touch.clientX - startX;
       const dy = touch.clientY - startY;
       const dt = Date.now() - startTime;
-
       const absDx = Math.abs(dx);
       const absDy = Math.abs(dy);
       const maxDuration = 800;
-
       if (dt > maxDuration) return;
-
-      // Pull-to-refresh: свайп вниз от самого верха страницы на 80+ пикселей
       const pullThreshold = 80;
-      if (
-        startScrollTop <= 0 &&
-        dy >= pullThreshold &&
-        absDy > absDx * 1.5
-      ) {
+      if (startScrollTop <= 0 && dy >= pullThreshold && absDy > absDx * 1.5) {
         window.location.reload();
         return;
       }
-
-      // Горизонтальная навигация
       const minDistance = 40;
       if (absDx < minDistance || absDy > absDx * 0.6) return;
-
-      if (dx > 0) {
-        // Свайп слева направо — назад
-        window.history.back();
-      } else {
-        // Свайп справа налево — вперёд
-        window.history.forward();
-      }
+      if (dx > 0) window.history.back();
+      else window.history.forward();
     };
 
     window.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('touchend', onTouchEnd, { passive: true });
-
     return () => {
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchend', onTouchEnd);
     };
   }, []);
 
-  // Показываем нижнюю навигацию только для аутентифицированных пользователей
   const showBottomNav = user && location !== '/login';
 
-  const isActive = (prefix: string) => location.startsWith(prefix);
-
   const go = (path: string) => {
-    setMenuOpen(false);
+    setMoreOpen(false);
     setLocation(path);
   };
 
-  // Собираем список пунктов меню для текущей роли
-  const menuItems: { label: string; icon: any; path: string; active: boolean; testId: string }[] = [];
+  // === Нижние вкладки (4-tab nav из брендбука) ===
+  const homePath =
+    user?.role === 'client' ? '/client-projects' :
+    user?.role === 'master' ? '/master' :
+    '/director';
 
-  if (user?.role === 'client') {
-    menuItems.push({
-      label: 'Мои проекты',
-      icon: Receipt,
-      path: '/client-projects',
-      active: isActive('/client-projects'),
-      testId: 'menu-clients',
-    });
-  } else if (user) {
-    menuItems.push({
-      label: 'Главная',
-      icon: Home,
-      path: user.role === 'master' ? '/master' : '/director',
-      active: location === '/director' || location === '/master' || location === '/admin',
-      testId: 'menu-home',
-    });
-    menuItems.push({
-      label: 'Подрядчики',
-      icon: Users,
-      path: '/contractors',
-      active: isActive('/contractors'),
-      testId: 'menu-contractors',
-    });
-    if (user.role !== 'master') {
-      menuItems.push({
-        label: 'Заказчики',
-        icon: Receipt,
-        path: '/clients',
-        active: isActive('/clients'),
-        testId: 'menu-customers',
+  const tabs: TabItem[] = [];
+
+  if (user) {
+    if (user.role === 'client') {
+      tabs.push({
+        key: 'overview',
+        label: 'Обзор',
+        icon: Home,
+        path: '/client-projects',
+        matches: (l) => l === '/client-projects' || l.startsWith('/client-projects'),
+        testId: 'tab-overview',
       });
-    }
-    if (user.role === 'admin' || user.role === 'director' || user.role === 'master') {
-      menuItems.push({
-        label: 'Инструменты',
-        icon: Wrench,
-        path: '/tools',
-        active: isActive('/tools'),
-        testId: 'menu-tools',
+      tabs.push({
+        key: 'projects',
+        label: 'Проекты',
+        icon: Building2,
+        path: '/client-projects',
+        matches: (l) => l.startsWith('/projects/') || l.startsWith('/expenses/') || l.startsWith('/implementation-sheets/'),
+        testId: 'tab-projects',
       });
-    }
-    if (user.role === 'admin' || user.role === 'director') {
-      menuItems.push({
-        label: 'Персонал',
-        icon: UserCheck,
-        path: '/personnel',
-        active: isActive('/personnel'),
-        testId: 'menu-personnel',
+    } else {
+      tabs.push({
+        key: 'overview',
+        label: 'Обзор',
+        icon: Home,
+        path: homePath,
+        matches: (l) => l === '/' || l === '/director' || l === '/master' || l === '/admin',
+        testId: 'tab-overview',
       });
-      menuItems.push({
-        label: 'Сотрудники',
-        icon: StaffIcon,
-        path: '/admin',
-        active: isActive('/admin'),
-        testId: 'menu-staff',
+      tabs.push({
+        key: 'projects',
+        label: 'Проекты',
+        icon: Building2,
+        path: homePath,
+        matches: (l) =>
+          l.startsWith('/projects/') ||
+          l.startsWith('/expenses/') ||
+          l.startsWith('/implementation-sheets/') ||
+          l.startsWith('/archived-projects'),
+        testId: 'tab-projects',
       });
+      if (user.role === 'admin' || user.role === 'director') {
+        tabs.push({
+          key: 'finance',
+          label: 'Финансы',
+          icon: TrendingUp,
+          path: '/analytics',
+          matches: (l) =>
+            l.startsWith('/analytics') ||
+            l.startsWith('/add-expense') ||
+            l.startsWith('/add-revenue') ||
+            l.startsWith('/add-advance') ||
+            l.startsWith('/add-customer-advance') ||
+            l.startsWith('/add-owner-investment') ||
+            l.startsWith('/edit-expense') ||
+            l.startsWith('/edit-revenue') ||
+            l.startsWith('/edit-advance') ||
+            l.startsWith('/edit-customer-advance') ||
+            l.startsWith('/edit-owner-investment') ||
+            l.startsWith('/revenues/') ||
+            l.startsWith('/advances/') ||
+            l.startsWith('/customer-advances/') ||
+            l.startsWith('/owner-investments/'),
+          testId: 'tab-finance',
+        });
+      } else if (user.role === 'master') {
+        tabs.push({
+          key: 'finance',
+          label: 'Расходы',
+          icon: Receipt,
+          path: '/add-expense',
+          matches: (l) => l.startsWith('/add-expense') || l.startsWith('/edit-expense'),
+          testId: 'tab-finance',
+        });
+      }
     }
   }
+
+  // Вкладка «Ещё» добавляется всегда последней
+  tabs.push({
+    key: 'more',
+    label: 'Ещё',
+    icon: MoreHorizontal,
+    path: '#more',
+    matches: () => false,
+    testId: 'tab-more',
+  });
+
+  // === Содержимое sheet «Ещё» ===
+  const moreItems: MenuItem[] = [];
+
+  if (user?.role !== 'client' && user) {
+    if (user.role !== 'master') {
+      moreItems.push({ label: 'Заказчики', icon: Users, path: '/clients', testId: 'menu-customers' });
+    }
+    moreItems.push({ label: 'Подрядчики', icon: Users, path: '/contractors', testId: 'menu-contractors' });
+    if (user.role === 'admin' || user.role === 'director' || user.role === 'master') {
+      moreItems.push({ label: 'Инструменты', icon: Wrench, path: '/tools', testId: 'menu-tools' });
+    }
+    if (user.role === 'admin' || user.role === 'director') {
+      moreItems.push({ label: 'Персонал', icon: UserCheck, path: '/personnel', testId: 'menu-personnel' });
+      moreItems.push({ label: 'Архив проектов', icon: Building2, path: '/archived-projects', testId: 'menu-archive' });
+    }
+    if (user.role === 'admin') {
+      moreItems.push({ label: 'Сотрудники', icon: Shield, path: '/admin', testId: 'menu-staff' });
+    }
+  }
+
+  const roleLabel =
+    user?.role === 'admin' ? 'Администратор' :
+    user?.role === 'director' ? 'Директор' :
+    user?.role === 'master' ? 'Мастер' :
+    user?.role === 'client' ? 'Заказчик' : '';
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
@@ -196,9 +236,9 @@ export function Layout({ children }: LayoutProps) {
         {children}
       </div>
 
-      {/* Фиксированная нижняя навигация — корпоративный стиль */}
+      {/* Фиксированная нижняя навигация — 4 вкладки */}
       {showBottomNav && (
-        <div
+        <nav
           className="fixed bottom-0 left-0 right-0 z-50"
           style={{
             background: 'var(--corp-surface)',
@@ -206,109 +246,178 @@ export function Layout({ children }: LayoutProps) {
             paddingBottom: 'env(safe-area-inset-bottom)',
           }}
         >
-          <div className="flex justify-center items-center h-16 px-4">
-            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-              <SheetTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 h-11 px-5 transition-colors"
-                  style={{
-                    background: menuOpen ? 'var(--corp-accent)' : 'var(--corp-surface-2)',
-                    color: menuOpen ? '#fff' : 'var(--corp-ink-2)',
-                    borderRadius: 'var(--corp-r)',
-                    border: '1px solid var(--corp-line)',
-                  }}
-                  data-testid="nav-menu"
-                  aria-label="Меню"
-                >
-                  <Menu size={18} />
+          <div className="flex items-stretch h-16 max-w-3xl mx-auto">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isMore = tab.key === 'more';
+              const active = isMore ? moreOpen : tab.matches(location);
+
+              const inner = (
+                <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
+                  <Icon
+                    size={22}
+                    style={{ color: active ? 'var(--corp-ink)' : 'var(--corp-muted)' }}
+                    strokeWidth={active ? 2.25 : 1.75}
+                  />
                   <span
-                    className="text-[12px] font-bold uppercase"
-                    style={{ letterSpacing: '0.06em' }}
+                    className="text-[10px] uppercase"
+                    style={{
+                      color: active ? 'var(--corp-ink)' : 'var(--corp-muted)',
+                      fontWeight: active ? 700 : 500,
+                      letterSpacing: '0.06em',
+                    }}
                   >
-                    Меню
+                    {tab.label}
                   </span>
-                </button>
-              </SheetTrigger>
-              <SheetContent
-                side="bottom"
-                className="border-t p-0"
-                style={{
-                  background: 'var(--corp-surface)',
-                  borderColor: 'var(--corp-line)',
-                  borderTopLeftRadius: 'var(--corp-r-lg)',
-                  borderTopRightRadius: 'var(--corp-r-lg)',
-                }}
-              >
-                <div
-                  className="px-4 pt-4 pb-3"
-                  style={{ borderBottom: '1px solid var(--corp-line)' }}
-                >
-                  <SheetHeader>
-                    <SheetTitle
-                      className="text-[11px] font-bold uppercase text-left"
-                      style={{ color: 'var(--corp-muted)', letterSpacing: '0.08em' }}
-                    >
-                      {user?.name || 'Меню'}
-                    </SheetTitle>
-                  </SheetHeader>
                 </div>
-                <div className="px-2 pt-2 pb-4">
-                  <div className="flex flex-col">
-                    {menuItems.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <button
-                          key={item.path}
-                          type="button"
-                          onClick={() => go(item.path)}
-                          className="flex items-center gap-3 w-full px-3 h-12 text-left transition-colors"
-                          style={{
-                            background: item.active ? 'rgba(37,99,235,0.10)' : 'transparent',
-                            color: item.active ? 'var(--corp-accent)' : 'var(--corp-ink-2)',
-                            borderRadius: 'var(--corp-r)',
-                          }}
-                          data-testid={item.testId}
-                        >
-                          <Icon size={18} />
-                          <span className="text-[14px] font-semibold">{item.label}</span>
-                          {item.active && (
-                            <span
-                              className="ml-auto inline-block w-1.5 h-1.5 rounded-full"
-                              style={{ background: 'var(--corp-accent)' }}
-                            />
-                          )}
-                        </button>
-                      );
-                    })}
+              );
 
-                    <div
-                      className="my-2"
-                      style={{ borderTop: '1px solid var(--corp-line)' }}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        logout();
-                      }}
-                      className="flex items-center gap-3 w-full px-3 h-12 text-left transition-colors"
+              if (isMore) {
+                return (
+                  <Sheet key={tab.key} open={moreOpen} onOpenChange={setMoreOpen}>
+                    <SheetTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex-1 transition-colors"
+                        data-testid={tab.testId}
+                        aria-label={tab.label}
+                      >
+                        {inner}
+                      </button>
+                    </SheetTrigger>
+                    <SheetContent
+                      side="bottom"
+                      className="border-t p-0 max-h-[85vh] overflow-y-auto"
                       style={{
-                        color: 'var(--corp-neg)',
-                        borderRadius: 'var(--corp-r)',
+                        background: 'var(--corp-bg)',
+                        borderColor: 'var(--corp-line)',
+                        borderTopLeftRadius: 'var(--corp-r-lg)',
+                        borderTopRightRadius: 'var(--corp-r-lg)',
                       }}
-                      data-testid="nav-logout"
                     >
-                      <LogOut size={18} />
-                      <span className="text-[14px] font-semibold">Выход</span>
-                    </button>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+                      <SheetHeader className="sr-only">
+                        <SheetTitle>Меню</SheetTitle>
+                      </SheetHeader>
+
+                      {/* Шапка с пользователем */}
+                      <div
+                        className="px-4 pt-5 pb-4 flex items-center gap-3"
+                        style={{ borderBottom: '1px solid var(--corp-line)' }}
+                      >
+                        <div
+                          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'var(--corp-ink)', color: '#fff' }}
+                        >
+                          <Home size={20} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className="text-[15px] font-bold truncate"
+                            style={{ color: 'var(--corp-ink)' }}
+                          >
+                            {user?.name || 'Пользователь'}
+                          </div>
+                          {roleLabel && (
+                            <div
+                              className="text-[12px] truncate"
+                              style={{ color: 'var(--corp-muted)' }}
+                            >
+                              {roleLabel}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Список разделов */}
+                      {moreItems.length > 0 && (
+                        <div className="p-3">
+                          <div
+                            className="overflow-hidden"
+                            style={{
+                              background: 'var(--corp-surface)',
+                              border: '1px solid var(--corp-line)',
+                              borderRadius: 'var(--corp-r-lg)',
+                            }}
+                          >
+                            {moreItems.map((item, idx) => {
+                              const ItemIcon = item.icon;
+                              return (
+                                <button
+                                  key={item.path}
+                                  type="button"
+                                  onClick={() => go(item.path)}
+                                  className="flex items-center gap-3 w-full px-4 h-14 text-left transition-colors"
+                                  style={{
+                                    borderTop: idx === 0 ? 'none' : '1px solid var(--corp-line)',
+                                    color: 'var(--corp-ink)',
+                                  }}
+                                  data-testid={item.testId}
+                                >
+                                  <ItemIcon
+                                    size={18}
+                                    style={{ color: 'var(--corp-ink-2)' }}
+                                  />
+                                  <span className="flex-1 text-[14px] font-semibold">
+                                    {item.label}
+                                  </span>
+                                  {typeof item.count === 'number' && (
+                                    <span
+                                      className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-[11px] font-bold"
+                                      style={{
+                                        background: 'var(--corp-surface-2)',
+                                        color: 'var(--corp-ink-3)',
+                                        borderRadius: 'var(--corp-r-sm)',
+                                        fontFamily: 'var(--corp-mono)',
+                                      }}
+                                    >
+                                      {item.count}
+                                    </span>
+                                  )}
+                                  <ChevronRight
+                                    size={16}
+                                    style={{ color: 'var(--corp-muted)' }}
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Кнопка выхода */}
+                      <div className="px-3 pb-6">
+                        <button
+                          type="button"
+                          onClick={() => { setMoreOpen(false); logout(); }}
+                          className="flex items-center gap-3 w-full px-4 h-12 text-left"
+                          data-testid="nav-logout"
+                          style={{ color: 'var(--corp-neg)' }}
+                        >
+                          <LogOut size={18} />
+                          <span className="text-[14px] font-bold">Выйти</span>
+                        </button>
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                );
+              }
+
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => go(tab.path)}
+                  className="flex-1 transition-colors"
+                  data-testid={tab.testId}
+                  aria-label={tab.label}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {inner}
+                </button>
+              );
+            })}
           </div>
-        </div>
+        </nav>
       )}
     </div>
   );
