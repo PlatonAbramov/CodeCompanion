@@ -2,11 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { HardHat, Globe } from "lucide-react";
+import { Globe } from "lucide-react";
 import logoImage from "@assets/1 (1)_1756713794265.jpg";
 
 export default function Login() {
@@ -16,7 +12,6 @@ export default function Login() {
   const { language, setLanguage, t } = useLanguage();
   const [, setLocation] = useLocation();
 
-  // Redirect authenticated users to their dashboard
   useEffect(() => {
     if (!isLoading && user) {
       if (user.role === 'admin' || user.role === 'director') {
@@ -39,29 +34,60 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-900 to-stone-800 flex items-center justify-center p-4">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        background: 'var(--corp-bg)',
+        fontFamily: 'var(--corp-font)',
+        color: 'var(--corp-ink)',
+      }}
+    >
       <div className="w-full max-w-md">
-        <Card className="shadow-xl">
-          <CardContent className="p-8">
-            <div className="text-center mb-8">
-              <div className="w-80 h-32 mx-auto mb-4 rounded-xl overflow-hidden shadow-lg">
-                <img 
-                  src={logoImage} 
-                  alt="PLATON ABRAMOV GROUP" 
-                  className="w-full h-full object-cover"
+        <div
+          className="overflow-hidden"
+          style={{
+            background: 'var(--corp-surface)',
+            borderRadius: 'var(--corp-r-xl)',
+            border: '1px solid var(--corp-line)',
+            boxShadow: '0 1px 2px rgba(10,10,11,0.04), 0 8px 24px rgba(10,10,11,0.06)',
+          }}
+        >
+          <div className="px-7 pt-8 pb-7">
+            <div className="text-center mb-7">
+              <div
+                className="w-full max-w-[280px] mx-auto mb-5 overflow-hidden"
+                style={{ borderRadius: 'var(--corp-r-lg)' }}
+              >
+                <img
+                  src={logoImage}
+                  alt="PLATON ABRAMOV GROUP"
+                  className="w-full h-auto block"
                 />
               </div>
-              <p className="text-slate-600">
+              <p
+                className="text-[13px] leading-relaxed"
+                style={{ color: 'var(--corp-muted)' }}
+              >
                 {t('loginSubtitle')}
               </p>
             </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-6" autoComplete="on" method="post" action="/api/auth/login">
+
+            <form
+              onSubmit={handleSubmit}
+              className="space-y-5"
+              autoComplete="on"
+              method="post"
+              action="/api/auth/login"
+            >
               <div>
-                <Label htmlFor="login-username" className="block text-sm font-medium text-slate-700 mb-2">
+                <label
+                  htmlFor="login-username"
+                  className="block text-[12px] font-semibold mb-2 tracking-wide"
+                  style={{ color: 'var(--corp-ink-2)' }}
+                >
                   {t('username')}
-                </Label>
-                <Input
+                </label>
+                <input
                   id="login-username"
                   name="username"
                   type="text"
@@ -74,15 +100,34 @@ export default function Login() {
                   autoCorrect="off"
                   spellCheck={false}
                   inputMode="text"
-                  className="w-full px-4 py-3"
+                  className="w-full px-4 py-3 text-[15px] outline-none transition-colors min-h-[48px]"
+                  style={{
+                    background: 'var(--corp-surface)',
+                    border: '1px solid var(--corp-line)',
+                    borderRadius: 'var(--corp-r)',
+                    color: 'var(--corp-ink)',
+                    fontFamily: 'var(--corp-font)',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--corp-accent)';
+                    e.currentTarget.style.boxShadow = '0 0 0 3px var(--corp-accent-soft)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--corp-line)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 />
               </div>
-              
+
               <div>
-                <Label htmlFor="login-password" className="block text-sm font-medium text-slate-700 mb-2">
+                <label
+                  htmlFor="login-password"
+                  className="block text-[12px] font-semibold mb-2 tracking-wide"
+                  style={{ color: 'var(--corp-ink-2)' }}
+                >
                   {t('password')}
-                </Label>
-                <Input
+                </label>
+                <input
                   id="login-password"
                   name="password"
                   type="password"
@@ -94,31 +139,80 @@ export default function Login() {
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full px-4 py-3"
+                  className="w-full px-4 py-3 text-[15px] outline-none transition-colors min-h-[48px]"
+                  style={{
+                    background: 'var(--corp-surface)',
+                    border: '1px solid var(--corp-line)',
+                    borderRadius: 'var(--corp-r)',
+                    color: 'var(--corp-ink)',
+                    fontFamily: 'var(--corp-font)',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--corp-accent)';
+                    e.currentTarget.style.boxShadow = '0 0 0 3px var(--corp-accent-soft)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--corp-line)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 />
               </div>
-              
-              <Button
+
+              <button
                 type="submit"
                 disabled={isLoggingIn}
-                className="w-full bg-amber-900 text-white py-3 rounded-lg font-medium hover:bg-stone-900 transition-colors"
+                className="w-full py-3 text-[15px] font-semibold transition-all min-h-[48px] disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{
+                  background: 'var(--corp-ink)',
+                  color: 'var(--corp-brand-text)',
+                  borderRadius: 'var(--corp-r)',
+                  fontFamily: 'var(--corp-font)',
+                  letterSpacing: '-0.1px',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isLoggingIn) e.currentTarget.style.background = 'var(--corp-ink-2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--corp-ink)';
+                }}
               >
                 {isLoggingIn ? t('loading') : t('login')}
-              </Button>
+              </button>
             </form>
-            
+
             <div className="mt-6 text-center">
-              <Button
-                variant="ghost"
+              <button
+                type="button"
                 onClick={toggleLanguage}
-                className="text-sm text-slate-500 hover:text-slate-700"
+                className="inline-flex items-center gap-1.5 text-[13px] py-2 px-3 rounded-md transition-colors"
+                style={{ color: 'var(--corp-muted)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--corp-ink-2)';
+                  e.currentTarget.style.background = 'var(--corp-surface-2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--corp-muted)';
+                  e.currentTarget.style.background = 'transparent';
+                }}
+                data-testid="button-toggle-language"
               >
-                <Globe className="mr-1" size={16} />
+                <Globe size={14} />
                 {language === 'ru' ? 'English' : 'Русский'}
-              </Button>
+              </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        <p
+          className="text-center mt-5 text-[11px] tracking-wider uppercase"
+          style={{
+            color: 'var(--corp-muted)',
+            fontFamily: 'var(--corp-mono)',
+            letterSpacing: '0.08em',
+          }}
+        >
+          Pag CRM · Corporate v1
+        </p>
       </div>
     </div>
   );

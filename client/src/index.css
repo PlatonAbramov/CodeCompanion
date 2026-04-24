@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -25,6 +26,37 @@
   --destructive-foreground: hsl(210, 40%, 98%);
   --ring: hsl(207, 90%, 54%);
   --radius: 0.5rem;
+
+  /* === Pag CRM · Corporate v1 — дизайн-токены из брендбука ===
+     Используются только новыми/переделанными страницами. Старые продолжают
+     работать со shadcn-переменными выше до момента их редизайна. */
+  --corp-bg:          #f7f7f8;
+  --corp-surface:     #ffffff;
+  --corp-surface-2:   #f0f0f2;
+  --corp-surface-3:   #e7e7ea;
+  --corp-ink:         #0a0a0b;
+  --corp-ink-2:       #3a3a40;
+  --corp-ink-3:       #5a5a62;
+  --corp-muted:       #8a8a92;
+  --corp-line:        rgba(10, 10, 11, 0.08);
+  --corp-line-2:      rgba(10, 10, 11, 0.04);
+  --corp-brand:       #0a0a0b;
+  --corp-brand-text:  #ffffff;
+  --corp-accent:      #5b58eb;
+  --corp-accent-hover:#4946d4;
+  --corp-accent-soft: #ecebfe;
+  --corp-pos:         #1f8a4c;
+  --corp-pos-soft:    #e3f4ea;
+  --corp-neg:         #c4342e;
+  --corp-neg-soft:    #fbe5e3;
+  --corp-warn:        #b56914;
+  --corp-warn-soft:   #fbefd9;
+  --corp-r:    8px;
+  --corp-r-lg: 12px;
+  --corp-r-xl: 16px;
+  --corp-font:    'Inter', 'SF Pro Text', system-ui, -apple-system, sans-serif;
+  --corp-display: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  --corp-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 }
 
 .dark {
