@@ -1,15 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Phone, Mail, Building2, User, FileText, Calendar, DollarSign, Edit, Plus } from "lucide-react";
+import { Phone, Mail, Building2, User, FileText, Calendar, DollarSign, Edit, Plus, Briefcase } from "lucide-react";
 import { AssignContractorModal } from "@/components/AssignContractorModal";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import { CorpHeader, MoneyAED, fmtDateRu, CorpEmpty } from "@/components/corp-ui";
 
 interface Contractor {
   id: string;
@@ -50,362 +45,367 @@ interface ContractorProject {
   isActive: boolean;
 }
 
+const SECTION_STYLE: React.CSSProperties = {
+  background: 'var(--corp-surface)',
+  border: '1px solid var(--corp-line)',
+  borderRadius: 'var(--corp-r-lg)',
+};
+
+function StatCard({ icon, label, value, tone = 'ink', mono = true }: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  tone?: 'pos' | 'neg' | 'accent' | 'ink';
+  mono?: boolean;
+}) {
+  const iconBg =
+    tone === 'pos' ? 'rgba(22,163,74,0.10)' :
+    tone === 'neg' ? 'rgba(220,38,38,0.10)' :
+    tone === 'accent' ? 'rgba(37,99,235,0.10)' :
+    'var(--corp-surface-2)';
+  const iconColor =
+    tone === 'pos' ? 'var(--corp-pos)' :
+    tone === 'neg' ? 'var(--corp-neg)' :
+    tone === 'accent' ? 'var(--corp-accent)' :
+    'var(--corp-ink-2)';
+  return (
+    <div className="p-4" style={SECTION_STYLE}>
+      <div className="flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ background: iconBg, color: iconColor }}
+        >
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>{label}</p>
+          <div
+            className="font-bold mt-0.5"
+            style={{
+              color: 'var(--corp-ink)',
+              fontSize: 16,
+              fontFamily: mono ? 'var(--corp-mono)' : 'inherit',
+            }}
+          >
+            {value}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ active, labelOn = 'Активен', labelOff = 'Завершен' }: { active: boolean; labelOn?: string; labelOff?: string }) {
+  return (
+    <span
+      className="inline-flex items-center px-2 h-5 text-[10px] font-bold uppercase"
+      style={{
+        background: active ? 'rgba(22,163,74,0.10)' : 'var(--corp-surface-2)',
+        color: active ? 'var(--corp-pos)' : 'var(--corp-ink-3)',
+        borderRadius: 'var(--corp-r-sm)',
+        letterSpacing: '0.04em',
+      }}
+    >
+      {active ? labelOn : labelOff}
+    </span>
+  );
+}
+
 export default function ContractorDetail() {
   const params = useParams();
   const contractorId = params.id;
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
-  // Get contractor details
   const { data: contractor, isLoading: contractorLoading } = useQuery<Contractor>({
     queryKey: ['/api/contractors', contractorId],
     enabled: !!(contractorId && (user?.role === 'admin' || user?.role === 'director')),
   });
 
-  // Get contractor expenses
   const { data: expenses = [], isLoading: expensesLoading } = useQuery<ContractorExpense[]>({
     queryKey: ['/api/contractors', contractorId, 'expenses'],
     enabled: !!(contractorId && (user?.role === 'admin' || user?.role === 'director')),
   });
 
-  // Get contractor statistics
   const { data: stats } = useQuery<ContractorStats>({
     queryKey: ['/api/contractors', contractorId, 'stats'],
     enabled: !!(contractorId && (user?.role === 'admin' || user?.role === 'director')),
   });
 
-  // Get contractor projects
-  const { data: projects = [], isLoading: projectsLoading } = useQuery<ContractorProject[]>({
+  const { data: projects = [] } = useQuery<ContractorProject[]>({
     queryKey: ['/api/contractors', contractorId, 'projects'],
     enabled: !!(contractorId && (user?.role === 'admin' || user?.role === 'director')),
   });
 
-  // Проверка авторизации
   if (!user) {
-    return (
-      <div className="min-h-screen bg-slate-50" />
-    );
+    return <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }} />;
   }
 
   if (user.role !== 'admin' && user.role !== 'director') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p>Доступ запрещен</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--corp-bg)' }}>
+        <p style={{ color: 'var(--corp-ink-2)' }}>Доступ запрещен</p>
       </div>
     );
   }
 
-  const goBack = () => {
-    setLocation('/contractors');
-  };
+  const goBack = () => setLocation('/contractors');
 
   if (contractorLoading || expensesLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-        </div>
+      <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
+        <CorpHeader title="Подрядчик" onBack={goBack} />
       </div>
     );
   }
 
   if (!contractor) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Подрядчик не найден</h2>
-          <p className="text-slate-500 mb-4">Возможно, подрядчик был удален</p>
-          <Button onClick={goBack}>Вернуться к списку</Button>
+      <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
+        <CorpHeader title="Подрядчик" onBack={goBack} />
+        <div className="p-4">
+          <CorpEmpty
+            icon={<User size={28} />}
+            title="Подрядчик не найден"
+            description="Возможно, подрядчик был удален"
+            actionLabel="Вернуться к списку"
+            onAction={goBack}
+          />
         </div>
       </div>
     );
   }
 
-  const formatCurrency = (amount: number) => {
-    return `${amount.toLocaleString('ru-RU')} AED`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
+  function InfoRow({ icon, label, value }: { icon?: React.ReactNode; label: string; value: React.ReactNode }) {
+    return (
+      <div>
+        <p className="text-[10px] font-bold uppercase mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+          {label}
+        </p>
+        <div className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--corp-ink)' }}>
+          {icon && <span style={{ color: 'var(--corp-ink-3)' }}>{icon}</span>}
+          {value}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={goBack}
-              className="mr-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <h2 className="font-semibold text-slate-900">
-              Подрядчик: {contractor.company || contractor.name}
-            </h2>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }}>
+      <CorpHeader
+        title={`Подрядчик: ${contractor.company || contractor.name}`}
+        onBack={goBack}
+        action={<StatusPill active={contractor.isActive} labelOn="Активен" labelOff="Неактивен" />}
+      />
+
+      <div className="p-4 space-y-4">
+        {/* Contractor Information */}
+        <div className="p-4" style={SECTION_STYLE}>
+          <h3 className="text-[10px] font-bold uppercase mb-3 flex items-center gap-1.5" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+            <User size={12} /> Информация о подрядчике
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {contractor.company && (
+              <InfoRow icon={<Building2 size={14} />} label="Компания" value={contractor.company} />
+            )}
+            <InfoRow label="Имя" value={contractor.name} />
+            <InfoRow label="Специализация" value={contractor.specialization} />
+            {contractor.phone && (
+              <InfoRow
+                icon={<Phone size={14} />}
+                label="Телефон"
+                value={
+                  <a href={`tel:${contractor.phone}`} style={{ color: 'var(--corp-accent)' }}>
+                    {contractor.phone}
+                  </a>
+                }
+              />
+            )}
+            {contractor.email && (
+              <InfoRow
+                icon={<Mail size={14} />}
+                label="Email"
+                value={
+                  <a href={`mailto:${contractor.email}`} style={{ color: 'var(--corp-accent)' }}>
+                    {contractor.email}
+                  </a>
+                }
+              />
+            )}
+            <InfoRow
+              icon={<Calendar size={14} />}
+              label="Дата регистрации"
+              value={<span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(contractor.createdAt)}</span>}
+            />
           </div>
         </div>
-      </header>
-
-      <div className="p-4 space-y-6">
-        {/* Contractor Information */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <User size={20} />
-                Информация о подрядчике
-              </CardTitle>
-              <Badge variant={contractor.isActive ? "default" : "secondary"}>
-                {contractor.isActive ? "Активен" : "Неактивен"}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {contractor.company && (
-                <div>
-                  <label className="text-sm font-medium text-slate-500">Компания</label>
-                  <p className="text-slate-900 flex items-center gap-2">
-                    <Building2 size={16} />
-                    {contractor.company}
-                  </p>
-                </div>
-              )}
-              
-              <div>
-                <label className="text-sm font-medium text-slate-500">Имя</label>
-                <p className="text-slate-900">{contractor.name}</p>
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-slate-500">Специализация</label>
-                <p className="text-slate-900">{contractor.specialization}</p>
-              </div>
-              
-              {contractor.phone && (
-                <div>
-                  <label className="text-sm font-medium text-slate-500">Телефон</label>
-                  <p className="text-slate-900 flex items-center gap-2">
-                    <Phone size={16} />
-                    <a href={`tel:${contractor.phone}`} className="hover:text-blue-600">
-                      {contractor.phone}
-                    </a>
-                  </p>
-                </div>
-              )}
-              
-              {contractor.email && (
-                <div>
-                  <label className="text-sm font-medium text-slate-500">Email</label>
-                  <p className="text-slate-900 flex items-center gap-2">
-                    <Mail size={16} />
-                    <a href={`mailto:${contractor.email}`} className="hover:text-blue-600">
-                      {contractor.email}
-                    </a>
-                  </p>
-                </div>
-              )}
-              
-              <div>
-                <label className="text-sm font-medium text-slate-500">Дата регистрации</label>
-                <p className="text-slate-900 flex items-center gap-2">
-                  <Calendar size={16} />
-                  {formatDate(contractor.createdAt)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Statistics */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <DollarSign className="text-green-600" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Общая сумма выплат</p>
-                    <p className="text-xl font-semibold text-slate-900">
-                      {formatCurrency(stats.totalExpenses)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <FileText className="text-blue-600" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Количество проектов</p>
-                    <p className="text-xl font-semibold text-slate-900">{stats.totalProjects}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <DollarSign className="text-purple-600" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Осталось выплатить по активным проектам</p>
-                    <p className="text-xl font-semibold text-slate-900">
-                      {formatCurrency(stats.remainingBudget || 0)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <StatCard
+              icon={<DollarSign size={18} />}
+              label="Общая сумма выплат"
+              value={<MoneyAED amount={stats.totalExpenses} size={16} weight={700} tone="pos" />}
+              tone="pos"
+              mono={false}
+            />
+            <StatCard
+              icon={<FileText size={18} />}
+              label="Количество проектов"
+              value={stats.totalProjects}
+              tone="accent"
+            />
+            <StatCard
+              icon={<DollarSign size={18} />}
+              label="Осталось выплатить"
+              value={<MoneyAED amount={stats.remainingBudget || 0} size={16} weight={700} tone="ink" />}
+              tone="ink"
+              mono={false}
+            />
           </div>
         )}
 
         {/* Assigned Projects */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Привязанные проекты</CardTitle>
-              <Button 
-                onClick={() => setIsAssignModalOpen(true)}
-                size="sm"
-              >
-                <Plus size={16} className="mr-1" />
-                Назначить на проект
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {projects.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-slate-500">Подрядчик пока не привязан к проектам</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {projects.map((project) => {
-                  const projectExpenses = expenses.filter(e => e.projectId === project.projectId);
-                  const totalPaid = projectExpenses.reduce((sum, e) => sum + e.amount, 0);
-                  const remaining = project.budgetAllocation - totalPaid;
-                  
-                  return (
-                    <div key={project.id} className="p-4 border border-slate-200 rounded-lg">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium text-slate-900 mb-1">{project.projectName}</h3>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setLocation(`/contractor/${contractorId}/project/${project.id}`)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Edit size={14} />
-                            </Button>
-                          </div>
-                          <p className="text-sm text-slate-600">{project.workDescription}</p>
-                          <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                            <span>Начат: {formatDate(project.startDate)}</span>
-                            {project.endDate && <span>Завершен: {formatDate(project.endDate)}</span>}
-                          </div>
-                        </div>
-                        <Badge variant={project.isActive ? "default" : "secondary"}>
-                          {project.isActive ? "Активен" : "Завершен"}
-                        </Badge>
-                      </div>
-                      
-                      <Separator className="my-3" />
-                      
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <p className="text-sm text-slate-500">Бюджет</p>
-                          <p className="font-semibold text-slate-900">
-                            {formatCurrency(project.budgetAllocation)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-slate-500">Выплачено</p>
-                          <p className="font-semibold text-green-600">
-                            {formatCurrency(totalPaid)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-slate-500">Осталось</p>
-                          <p className={`font-semibold ${remaining > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                            {formatCurrency(remaining)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="p-4" style={SECTION_STYLE}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[10px] font-bold uppercase flex items-center gap-1.5" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+              <Briefcase size={12} /> Привязанные проекты
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsAssignModalOpen(true)}
+              className="inline-flex items-center gap-1 h-8 px-3 text-[12px] font-semibold transition-colors"
+              style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+              data-testid="button-assign-project"
+            >
+              <Plus size={14} /> Назначить
+            </button>
+          </div>
 
-        {/* Expenses History */}
-        <Card>
-          <CardHeader>
-            <CardTitle>История выплат</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {expenses.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-slate-500">Выплат этому подрядчику еще не было</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {expenses.map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-slate-700">
-                          {expense.projectName}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          {formatDate(expense.createdAt)}
-                        </span>
+          {projects.length === 0 ? (
+            <div className="text-center py-6 text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+              Подрядчик пока не привязан к проектам
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {projects.map((project) => {
+                const projectExpenses = expenses.filter(e => e.projectId === project.projectId);
+                const totalPaid = projectExpenses.reduce((sum, e) => sum + e.amount, 0);
+                const remaining = project.budgetAllocation - totalPaid;
+
+                return (
+                  <div
+                    key={project.id}
+                    className="p-3"
+                    style={{
+                      background: 'var(--corp-surface-2)',
+                      border: '1px solid var(--corp-line)',
+                      borderRadius: 'var(--corp-r)',
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <h4 className="text-[13px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>
+                            {project.projectName}
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => setLocation(`/contractor/${contractorId}/project/${project.id}`)}
+                            className="w-6 h-6 flex items-center justify-center rounded transition-colors flex-shrink-0"
+                            style={{ color: 'var(--corp-ink-3)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            data-testid={`button-edit-${project.id}`}
+                          >
+                            <Edit size={12} />
+                          </button>
+                        </div>
+                        {project.workDescription && (
+                          <p className="text-[12px] mb-1" style={{ color: 'var(--corp-ink-2)' }}>
+                            {project.workDescription}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                          <span>Начат: {fmtDateRu(project.startDate)}</span>
+                          {project.endDate && <span>Завершен: {fmtDateRu(project.endDate)}</span>}
+                        </div>
                       </div>
-                      {expense.description && (
-                        <p className="text-sm text-slate-600">{expense.description}</p>
-                      )}
+                      <StatusPill active={project.isActive} />
                     </div>
-                    <div className="text-right">
-                      <span className="text-lg font-semibold text-green-600">
-                        {formatCurrency(expense.amount)}
-                      </span>
+
+                    <div
+                      className="grid grid-cols-3 gap-2 pt-3 mt-2"
+                      style={{ borderTop: '1px solid var(--corp-line)' }}
+                    >
+                      <div className="text-center">
+                        <p className="text-[10px]" style={{ color: 'var(--corp-muted)' }}>Бюджет</p>
+                        <MoneyAED amount={project.budgetAllocation} size={12} weight={600} tone="ink" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px]" style={{ color: 'var(--corp-muted)' }}>Выплачено</p>
+                        <MoneyAED amount={totalPaid} size={12} weight={600} tone="pos" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px]" style={{ color: 'var(--corp-muted)' }}>Осталось</p>
+                        <MoneyAED amount={remaining} size={12} weight={600} tone={remaining > 0 ? 'neg' : 'pos'} />
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Expenses History */}
+        <div className="p-4" style={SECTION_STYLE}>
+          <h3 className="text-[10px] font-bold uppercase mb-3" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+            История выплат
+          </h3>
+          {expenses.length === 0 ? (
+            <div className="text-center py-6 text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+              Выплат этому подрядчику еще не было
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {expenses.map((expense) => (
+                <div
+                  key={expense.id}
+                  className="flex items-center justify-between gap-3 p-3"
+                  style={{
+                    background: 'var(--corp-surface-2)',
+                    borderRadius: 'var(--corp-r)',
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[12px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>
+                        {expense.projectName}
+                      </span>
+                      <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                        {fmtDateRu(expense.createdAt)}
+                      </span>
+                    </div>
+                    {expense.description && (
+                      <p className="text-[11px]" style={{ color: 'var(--corp-ink-3)' }}>{expense.description}</p>
+                    )}
+                  </div>
+                  <MoneyAED amount={expense.amount} size={14} weight={700} tone="pos" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      <AssignContractorModal 
+      <AssignContractorModal
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
         contractorId={contractorId}
       />
-
-      <BottomNavigation currentPage="contractors" />
     </div>
   );
 }

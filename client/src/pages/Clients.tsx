@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, Eye, ArrowLeft, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Plus, Edit2, Trash2, Building2, Phone, Mail, MapPin, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -14,11 +11,174 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientSchema, type Client, type InsertClient, type User } from "@shared/schema";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-
 import { useAuth } from "@/hooks/useAuth";
+import { CorpHeader, MoneyAED, CorpEmpty } from "@/components/corp-ui";
+
+const SECTION_STYLE: React.CSSProperties = {
+  background: 'var(--corp-surface)',
+  border: '1px solid var(--corp-line)',
+  borderRadius: 'var(--corp-r-lg)',
+};
+
+function StatusPill({ active, labelOn = 'Активный', labelOff = 'Неактивный' }: { active: boolean; labelOn?: string; labelOff?: string }) {
+  return (
+    <span
+      className="inline-flex items-center px-2 h-5 text-[10px] font-bold uppercase"
+      style={{
+        background: active ? 'rgba(22,163,74,0.10)' : 'var(--corp-surface-2)',
+        color: active ? 'var(--corp-pos)' : 'var(--corp-ink-3)',
+        borderRadius: 'var(--corp-r-sm)',
+        letterSpacing: '0.04em',
+      }}
+    >
+      {active ? labelOn : labelOff}
+    </span>
+  );
+}
+
+function DeletedPill() {
+  return (
+    <span
+      className="inline-flex items-center px-2 h-5 text-[10px] font-bold uppercase"
+      style={{
+        background: 'rgba(220,38,38,0.10)',
+        color: 'var(--corp-neg)',
+        borderRadius: 'var(--corp-r-sm)',
+        letterSpacing: '0.04em',
+      }}
+    >
+      Удален
+    </span>
+  );
+}
+
+function ClientCard({
+  client, role, clientUsers, onEdit, onDelete, onRestore, onClick, deleted = false,
+}: {
+  client: Client;
+  role?: string;
+  clientUsers: User[];
+  onEdit?: (c: Client) => void;
+  onDelete?: (c: Client) => void;
+  onRestore?: (c: Client) => void;
+  onClick: () => void;
+  deleted?: boolean;
+}) {
+  const canManage = role === 'admin' || role === 'director';
+  return (
+    <div
+      onClick={onClick}
+      className="p-4 cursor-pointer transition-all hover:shadow-md"
+      style={{
+        ...SECTION_STYLE,
+        opacity: deleted ? 0.7 : 1,
+      }}
+      data-testid={`card-client-${client.id}`}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Building2 size={14} style={{ color: 'var(--corp-ink-3)' }} />
+            <h3 className="text-[14px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>
+              {client.name}
+            </h3>
+          </div>
+          {client.company && (
+            <p className="text-[11px] truncate" style={{ color: 'var(--corp-muted)' }}>
+              {client.company}
+            </p>
+          )}
+        </div>
+        {deleted ? <DeletedPill /> : <StatusPill active={!!client.isActive} />}
+      </div>
+
+      <div className="space-y-1.5 mt-3">
+        {client.contactPerson && (
+          <div className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--corp-ink-2)' }}>
+            <span style={{ color: 'var(--corp-muted)' }}>Контакт:</span>
+            <span>{client.contactPerson}</span>
+          </div>
+        )}
+        {client.phone && (
+          <div className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--corp-ink-2)' }}>
+            <Phone size={12} style={{ color: 'var(--corp-ink-3)' }} />
+            <span style={{ fontFamily: 'var(--corp-mono)' }}>{client.phone}</span>
+          </div>
+        )}
+        {client.email && (
+          <div className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--corp-ink-2)' }}>
+            <Mail size={12} style={{ color: 'var(--corp-ink-3)' }} />
+            <span className="truncate">{client.email}</span>
+          </div>
+        )}
+        {client.address && (
+          <div className="flex items-start gap-1.5 text-[12px]" style={{ color: 'var(--corp-ink-2)' }}>
+            <MapPin size={12} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--corp-ink-3)' }} />
+            <span>{client.address}</span>
+          </div>
+        )}
+        {client.userId && (
+          <div className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--corp-ink-2)' }}>
+            <span style={{ color: 'var(--corp-muted)' }}>Пользователь:</span>
+            <span>{clientUsers.find(u => u.id === client.userId)?.name || 'Не найден'}</span>
+          </div>
+        )}
+      </div>
+
+      {(canManage && !deleted && onEdit && onDelete) && (
+        <div className="flex justify-end gap-2 pt-3 mt-3" style={{ borderTop: '1px solid var(--corp-line)' }}>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onEdit(client); }}
+            className="inline-flex items-center gap-1 h-8 px-3 text-[12px] font-semibold transition-colors"
+            style={{
+              background: 'var(--corp-surface-2)',
+              color: 'var(--corp-ink-2)',
+              borderRadius: 'var(--corp-r)',
+            }}
+            data-testid={`button-edit-${client.id}`}
+          >
+            <Edit2 size={12} /> Изменить
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(client); }}
+            className="inline-flex items-center gap-1 h-8 px-3 text-[12px] font-semibold transition-colors"
+            style={{
+              background: 'rgba(220,38,38,0.10)',
+              color: 'var(--corp-neg)',
+              borderRadius: 'var(--corp-r)',
+            }}
+            data-testid={`button-delete-${client.id}`}
+          >
+            <Trash2 size={12} /> Удалить
+          </button>
+        </div>
+      )}
+
+      {(deleted && onRestore) && (
+        <div className="flex justify-end gap-2 pt-3 mt-3" style={{ borderTop: '1px solid var(--corp-line)' }}>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRestore(client); }}
+            className="inline-flex items-center gap-1 h-8 px-3 text-[12px] font-semibold transition-colors"
+            style={{
+              background: 'rgba(22,163,74,0.10)',
+              color: 'var(--corp-pos)',
+              borderRadius: 'var(--corp-r)',
+            }}
+            data-testid={`button-restore-${client.id}`}
+          >
+            <RotateCcw size={12} /> Восстановить
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ClientsPage() {
   const queryClient = useQueryClient();
@@ -29,42 +189,25 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [activeTab, setActiveTab] = useState("active");
 
-  const goBack = () => {
-    setLocation('/director');
-  };
+  const goBack = () => setLocation('/director');
 
-  // Different behavior for client role users
   const isClientUser = user?.role === 'client';
 
-  // For client users, get their assigned projects
-  const { 
-    data: clientProjects, 
-    isLoading: isLoadingProjects, 
-    error: projectsError 
-  } = useQuery({
+  const { data: clientProjects, isLoading: isLoadingProjects, error: projectsError } = useQuery({
     queryKey: ["/api/my-client-projects"],
     enabled: isClientUser,
   });
 
-  // Debug logging for client users
-  if (isClientUser) {
-    console.log('Client user data:', { clientProjects, isLoadingProjects, projectsError, user });
-    console.log('isClientUser:', isClientUser);
-  }
-
-  // For admin/director users, get all clients
   const { data: clients, isLoading } = useQuery({
     queryKey: ["/api/clients"],
     enabled: !isClientUser,
   });
 
-  // Get deleted clients
-  const { data: deletedClients, isLoading: isLoadingDeleted } = useQuery({
+  const { data: deletedClients } = useQuery({
     queryKey: ["/api/clients/deleted"],
     enabled: !isClientUser && activeTab === "deleted",
   });
 
-  // Get all users with role 'client' for selection
   const { data: clientUsers = [] } = useQuery<User[]>({
     queryKey: ["/api/users", "client"],
     queryFn: async () => {
@@ -105,11 +248,7 @@ export default function ClientsPage() {
       toast({ title: "Заказчик создан успешно" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось создать заказчика",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось создать заказчика", variant: "destructive" });
     },
   });
 
@@ -131,19 +270,13 @@ export default function ClientsPage() {
       toast({ title: "Заказчик обновлен успешно" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось обновить заказчика",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось обновить заказчика", variant: "destructive" });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/clients/${id}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(`/api/clients/${id}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Failed to delete client");
       return response.json();
     },
@@ -153,19 +286,13 @@ export default function ClientsPage() {
       toast({ title: "Заказчик перемещен в удаленные" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось удалить заказчика",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось удалить заказчика", variant: "destructive" });
     },
   });
 
   const restoreMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/clients/${id}/restore`, {
-        method: "POST",
-      });
+      const response = await fetch(`/api/clients/${id}/restore`, { method: "POST" });
       if (!response.ok) throw new Error("Failed to restore client");
       return response.json();
     },
@@ -175,11 +302,7 @@ export default function ClientsPage() {
       toast({ title: "Заказчик восстановлен успешно" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось восстановить заказчика",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось восстановить заказчика", variant: "destructive" });
     },
   });
 
@@ -224,513 +347,391 @@ export default function ClientsPage() {
     form.reset();
   };
 
-  // Client role specific - render projects view
+  // ============= CLIENT USER VIEW =============
   if (isClientUser) {
-    console.log('Rendering client view', { isLoadingProjects, clientProjects, projectsError });
-    
     if (isLoadingProjects) {
       return (
-        <div className="min-h-screen bg-slate-50 p-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="h-64" />
-          </div>
+        <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
+          <CorpHeader title="Мои проекты" onBack={() => {}} />
         </div>
       );
     }
 
     if (projectsError) {
-      console.error('Projects error:', projectsError);
       return (
-        <div className="min-h-screen bg-slate-50 p-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-center h-64">
-              <div className="text-lg text-red-600">Ошибка загрузки проектов</div>
-            </div>
+        <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
+          <div className="p-4">
+            <CorpEmpty
+              icon={<Building2 size={28} />}
+              title="Ошибка загрузки"
+              description="Не удалось загрузить проекты"
+            />
           </div>
         </div>
       );
     }
 
+    const projectsArr = Array.isArray(clientProjects) ? clientProjects : [];
+
     return (
-      <div className="min-h-screen bg-slate-50 pb-20">
-        {/* Header for client users */}
-        <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-          <div className="px-4 py-3 flex justify-between items-center">
-            <h1 className="text-xl font-semibold text-slate-900">Мои проекты</h1>
-            <Button 
-              variant="outline" 
-              size="sm"
+      <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }}>
+        <header
+          className="sticky top-0 z-40"
+          style={{ background: 'var(--corp-surface)', borderBottom: '1px solid var(--corp-line)' }}
+        >
+          <div className="px-3 sm:px-4 h-14 flex items-center justify-between">
+            <h1 className="text-[15px] font-bold" style={{ color: 'var(--corp-ink)' }}>
+              Мои проекты
+            </h1>
+            <button
+              type="button"
               onClick={async () => {
                 await apiRequest('/api/auth/logout', { method: 'POST' });
                 setLocation('/login');
               }}
+              className="h-8 px-3 text-[12px] font-semibold transition-colors"
+              style={{
+                background: 'var(--corp-surface-2)',
+                color: 'var(--corp-ink-2)',
+                borderRadius: 'var(--corp-r)',
+              }}
+              data-testid="button-logout"
             >
               Выйти
-            </Button>
+            </button>
           </div>
         </header>
 
-        <div className="container mx-auto p-6 space-y-6">
-          {/* Projects list for client users */}
-          {Array.isArray(clientProjects) && clientProjects.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {clientProjects.map((project: any) => (
-                <Card 
-                  key={project.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50"
+        <div className="p-4 space-y-3">
+          {projectsArr.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {projectsArr.map((project: any) => (
+                <div
+                  key={project.id}
                   onClick={() => setLocation(`/projects/${project.projectId}`)}
+                  className="p-4 cursor-pointer transition-all hover:shadow-md"
+                  style={SECTION_STYLE}
+                  data-testid={`card-project-${project.id}`}
                 >
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <Building2 className="w-5 h-5" />
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Building2 size={14} style={{ color: 'var(--corp-ink-3)' }} />
+                        <h3 className="text-[14px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>
                           {project.projectName}
-                        </CardTitle>
-                        {project.location && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {project.location}
-                          </p>
-                        )}
+                        </h3>
                       </div>
-                      <Badge variant={project.status === 'active' ? "default" : "secondary"}>
-                        {project.status === 'active' ? "Активный" : "Завершен"}
-                      </Badge>
+                      {project.location && (
+                        <p className="text-[11px] truncate" style={{ color: 'var(--corp-muted)' }}>
+                          {project.location}
+                        </p>
+                      )}
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <span className="font-medium">Стоимость:</span>
-                      <span className="ml-2">{Number(project.totalCost).toLocaleString()} AED</span>
+                    <StatusPill active={project.status === 'active'} labelOn="Активный" labelOff="Завершен" />
+                  </div>
+
+                  <div className="space-y-1.5 mt-3">
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span style={{ color: 'var(--corp-muted)' }}>Стоимость</span>
+                      <MoneyAED amount={Number(project.totalCost) || 0} size={13} weight={600} tone="ink" />
                     </div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <span className="font-medium">Оплачено:</span>
-                      <span className="ml-2">{Number(project.totalPaid).toLocaleString()} AED</span>
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span style={{ color: 'var(--corp-muted)' }}>Оплачено</span>
+                      <MoneyAED amount={Number(project.totalPaid) || 0} size={13} weight={600} tone="pos" />
                     </div>
                     {project.contractNumber && (
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <span className="font-medium">Договор:</span>
-                        <span className="ml-2">{project.contractNumber}</span>
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span style={{ color: 'var(--corp-muted)' }}>Договор</span>
+                        <span style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}>{project.contractNumber}</span>
                       </div>
                     )}
                     {project.description && (
-                      <div className="text-sm text-muted-foreground">
-                        <span className="font-medium">Описание:</span>
-                        <p className="mt-1">{project.description}</p>
-                      </div>
+                      <p className="text-[11px] pt-1.5" style={{ color: 'var(--corp-ink-3)' }}>
+                        {project.description}
+                      </p>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Проектов не найдено</h3>
-              <p className="text-muted-foreground">
-                На вас еще не назначен ни одного проекта
-              </p>
-            </div>
+            <CorpEmpty
+              icon={<Building2 size={28} />}
+              title="Проектов не найдено"
+              description="На вас еще не назначен ни один проект"
+            />
           )}
         </div>
       </div>
     );
   }
 
-  // Admin/Director role - original functionality
+  // ============= ADMIN/DIRECTOR VIEW =============
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-48 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
+      <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
+        <CorpHeader title="Заказчики" onBack={goBack} />
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      {/* Header with back button */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={goBack}
-              className="mr-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <h1 className="text-xl font-semibold text-slate-900">Заказчики</h1>
-          </div>
-        </div>
-      </header>
+  const clientsArr = (clients as Client[]) || [];
+  const deletedArr = (deletedClients as Client[]) || [];
+  const canManage = user?.role === 'admin' || user?.role === 'director';
 
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          {(user?.role === 'admin' || user?.role === 'director') && (
+  return (
+    <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }}>
+      <CorpHeader
+        title="Заказчики"
+        onBack={goBack}
+        action={
+          canManage ? (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => setEditingClient(null)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Добавить заказчика
-                </Button>
+                <button
+                  type="button"
+                  onClick={() => setEditingClient(null)}
+                  className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold transition-colors"
+                  style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+                  data-testid="button-add-client"
+                >
+                  <Plus size={14} /> Добавить
+                </button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingClient ? "Редактировать заказчика" : "Добавить заказчика"}
-              </DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Название *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Название заказчика" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="company"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Компания</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Название компании" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Телефон</FormLabel>
-                        <FormControl>
-                          <Input placeholder="+971 XX XXX XXXX" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="email@example.com" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Адрес</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Адрес заказчика" {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="contactPerson"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Контактное лицо</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Имя контактного лица" {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="userId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Связанный пользователь</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(value === "none" ? undefined : value)} value={field.value || "none"}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Выберите пользователя с правами заказчика" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="none">Не назначен</SelectItem>
-                          {clientUsers.map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.name} ({user.username})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Активный</FormLabel>
-                        <div className="text-sm text-muted-foreground">
-                          Заказчик активен и может быть назначен на проекты
-                        </div>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value || false}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={handleDialogClose}>
-                    Отмена
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                  >
-                    {editingClient ? "Обновить" : "Создать"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingClient ? "Редактировать заказчика" : "Добавить заказчика"}</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Название *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Название заказчика" {...field} data-testid="input-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="company"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Компания</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Название компании" {...field} value={field.value || ""} data-testid="input-company" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Телефон</FormLabel>
+                            <FormControl>
+                              <Input placeholder="+971 XX XXX XXXX" {...field} value={field.value || ""} data-testid="input-phone" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="email@example.com" {...field} value={field.value || ""} data-testid="input-email" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="address"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Адрес</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Адрес заказчика" {...field} value={field.value || ""} data-testid="input-address" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="contactPerson"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Контактное лицо</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Имя контактного лица" {...field} value={field.value || ""} data-testid="input-contact" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="userId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Связанный пользователь</FormLabel>
+                          <Select
+                            onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
+                            value={field.value || "none"}
+                          >
+                            <FormControl>
+                              <SelectTrigger data-testid="select-user">
+                                <SelectValue placeholder="Выберите пользователя с правами заказчика" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">Не назначен</SelectItem>
+                              {clientUsers.map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.name} ({u.username})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="isActive"
+                      render={({ field }) => (
+                        <FormItem
+                          className="flex flex-row items-center justify-between p-4"
+                          style={{ border: '1px solid var(--corp-line)', borderRadius: 'var(--corp-r)' }}
+                        >
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Активный</FormLabel>
+                            <div className="text-sm" style={{ color: 'var(--corp-muted)' }}>
+                              Заказчик активен и может быть назначен на проекты
+                            </div>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value || false}
+                              onCheckedChange={field.onChange}
+                              data-testid="switch-active"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={handleDialogClose}
+                        className="h-10 px-4 text-[13px] font-semibold transition-colors"
+                        style={{
+                          background: 'var(--corp-surface-2)',
+                          color: 'var(--corp-ink-2)',
+                          borderRadius: 'var(--corp-r)',
+                        }}
+                        data-testid="button-cancel"
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={createMutation.isPending || updateMutation.isPending}
+                        className="h-10 px-4 text-[13px] font-semibold transition-colors disabled:opacity-50"
+                        style={{
+                          background: 'var(--corp-accent)',
+                          color: '#fff',
+                          borderRadius: 'var(--corp-r)',
+                        }}
+                        data-testid="button-save"
+                      >
+                        {editingClient ? "Обновить" : "Создать"}
+                      </button>
+                    </div>
+                  </form>
+                </Form>
               </DialogContent>
             </Dialog>
-          )}
-        </div>
+          ) : undefined
+        }
+      />
 
+      <div className="p-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="active">Активные заказчики</TabsTrigger>
-            <TabsTrigger value="deleted">Удаленные заказчики</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="active" data-testid="tab-active">Активные</TabsTrigger>
+            <TabsTrigger value="deleted" data-testid="tab-deleted">Удаленные</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="active" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {(clients as Client[] || []).map((client: Client) => (
-            <Card 
-              key={client.id} 
-              className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50"
-              onClick={() => setLocation(`/clients/${client.id}`)}
-            >
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Building2 className="w-5 h-5" />
-                    {client.name}
-                  </CardTitle>
-                  {client.company && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {client.company}
-                    </p>
-                  )}
-                </div>
-                <Badge variant={client.isActive ? "default" : "secondary"}>
-                  {client.isActive ? "Активный" : "Неактивный"}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {client.contactPerson && (
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <span className="font-medium">Контакт:</span>
-                  <span className="ml-2">{client.contactPerson}</span>
-                </div>
-              )}
-              {client.phone && (
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Phone className="w-4 h-4 mr-2" />
-                  {client.phone}
-                </div>
-              )}
-              {client.email && (
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Mail className="w-4 h-4 mr-2" />
-                  {client.email}
-                </div>
-              )}
-              {client.address && (
-                <div className="flex items-start text-sm text-muted-foreground">
-                  <MapPin className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-                  <span>{client.address}</span>
-                </div>
-              )}
-              {client.userId && (
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <span className="font-medium">Пользователь:</span>
-                  <span className="ml-2">
-                    {clientUsers.find(u => u.id === client.userId)?.name || 'Не найден'}
-                  </span>
-                </div>
-              )}
-              {(user?.role === 'admin' || user?.role === 'director') && (
-                <div className="flex justify-end space-x-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEdit(client);
-                    }}
-                  >
-                    <Edit2 className="w-4 h-4 mr-1" />
-                    Редактировать
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(client);
-                    }}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Удалить
-                  </Button>
-                </div>
-              )}
-              </CardContent>
-            </Card>
-              ))}
-            </div>
 
-            {Array.isArray(clients) && clients.length === 0 && (
-          <div className="text-center py-12">
-            <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Заказчики не найдены</h3>
-            <p className="text-muted-foreground mb-6">
-              Добавьте первого заказчика для начала работы
-            </p>
-            {(user?.role === 'admin' || user?.role === 'director') && (
-              <Button onClick={() => setIsDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Добавить заказчика
-              </Button>
-            )}
-          </div>
+          <TabsContent value="active" className="space-y-3">
+            {clientsArr.length === 0 ? (
+              <CorpEmpty
+                icon={<Building2 size={28} />}
+                title="Заказчики не найдены"
+                description="Добавьте первого заказчика для начала работы"
+                actionLabel={canManage ? "Добавить заказчика" : undefined}
+                onAction={canManage ? () => setIsDialogOpen(true) : undefined}
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {clientsArr.map((client: Client) => (
+                  <ClientCard
+                    key={client.id}
+                    client={client}
+                    role={user?.role}
+                    clientUsers={clientUsers}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onClick={() => setLocation(`/clients/${client.id}`)}
+                  />
+                ))}
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="deleted" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {(deletedClients as Client[] || []).map((client: Client) => (
-                <Card 
-                  key={client.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer hover:bg-slate-50 opacity-70"
-                  onClick={() => setLocation(`/clients/${client.id}`)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <Building2 className="w-5 h-5" />
-                          {client.name}
-                        </CardTitle>
-                        {client.company && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {client.company}
-                          </p>
-                        )}
-                      </div>
-                      <Badge variant="destructive">Удален</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {client.contactPerson && (
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <span className="font-medium">Контакт:</span>
-                        <span className="ml-2">{client.contactPerson}</span>
-                      </div>
-                    )}
-                    {client.phone && (
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Phone className="w-4 h-4 mr-2" />
-                        {client.phone}
-                      </div>
-                    )}
-                    {client.email && (
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Mail className="w-4 h-4 mr-2" />
-                        {client.email}
-                      </div>
-                    )}
-                    {client.address && (
-                      <div className="flex items-start text-sm text-muted-foreground">
-                        <MapPin className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-                        <span>{client.address}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-end space-x-2 pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRestore(client);
-                        }}
-                        className="text-green-600 hover:text-green-700"
-                      >
-                        <RotateCcw className="w-4 h-4 mr-1" />
-                        Восстановить
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {Array.isArray(deletedClients) && deletedClients.length === 0 && (
-              <div className="text-center py-12">
-                <Building2 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Удаленных заказчиков нет</h3>
-                <p className="text-muted-foreground">
-                  Все удаленные заказчики будут отображаться здесь
-                </p>
+          <TabsContent value="deleted" className="space-y-3">
+            {deletedArr.length === 0 ? (
+              <CorpEmpty
+                icon={<Building2 size={28} />}
+                title="Удаленных заказчиков нет"
+                description="Все удаленные заказчики будут отображаться здесь"
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {deletedArr.map((client: Client) => (
+                  <ClientCard
+                    key={client.id}
+                    client={client}
+                    role={user?.role}
+                    clientUsers={clientUsers}
+                    onRestore={handleRestore}
+                    onClick={() => setLocation(`/clients/${client.id}`)}
+                    deleted
+                  />
+                ))}
               </div>
             )}
           </TabsContent>
         </Tabs>
       </div>
-
-
     </div>
   );
 }

@@ -1,23 +1,17 @@
 import { useState, useMemo, useEffect } from "react";
-import { useParams, Link } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailSkeleton } from "@/components/skeletons";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { Badge } from "@/components/ui/badge";
-import { 
-  ArrowLeft, Plus, Camera, Trash2, Edit, Save, X, 
+import {
+  Plus, Camera, Trash2, Edit, Save, X,
   Eye, EyeOff, CheckCircle, Circle, Image as ImageIcon,
-  ChevronLeft, ChevronRight, MessageSquare
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -25,6 +19,7 @@ import { ObjectUploader } from "@/components/ObjectUploader";
 import { ObjectStorageService } from "@/lib/objectStorage";
 import { PhotoViewer } from "@/components/PhotoViewer";
 import { ImplementationItemComments } from "@/components/ImplementationItemComments";
+import { CorpHeader, MoneyAED } from "@/components/corp-ui";
 
 interface ImplementationItem {
   id: string;
@@ -64,77 +59,111 @@ interface ImplementationSheet {
   items: ImplementationItem[];
 }
 
+const ITEM_CARD_STYLE: React.CSSProperties = {
+  background: 'var(--corp-surface)',
+  border: '1px solid var(--corp-line)',
+  borderRadius: 'var(--corp-r-lg)',
+};
+
+function ProgressBar({ value, height = 6 }: { value: number; height?: number }) {
+  const v = Math.max(0, Math.min(100, value));
+  const color =
+    v >= 100 ? 'var(--corp-pos)' :
+    v >= 50 ? 'var(--corp-accent)' :
+    v > 0 ? 'var(--corp-warn, #f59e0b)' :
+    'var(--corp-ink-3)';
+  return (
+    <div className="w-full overflow-hidden" style={{ height, background: 'var(--corp-surface-2)', borderRadius: height }}>
+      <div
+        style={{
+          width: `${v}%`,
+          height: '100%',
+          background: color,
+          transition: 'width 0.25s ease',
+        }}
+      />
+    </div>
+  );
+}
+
+function StatusPill({ active, labelOn, labelOff }: { active: boolean; labelOn: string; labelOff: string }) {
+  return (
+    <span
+      className="inline-flex items-center px-2 h-5 text-[10px] font-bold uppercase"
+      style={{
+        background: active ? 'rgba(22,163,74,0.10)' : 'var(--corp-surface-2)',
+        color: active ? 'var(--corp-pos)' : 'var(--corp-ink-3)',
+        borderRadius: 'var(--corp-r-sm)',
+        letterSpacing: '0.04em',
+      }}
+    >
+      {active ? labelOn : labelOff}
+    </span>
+  );
+}
+
 export default function ImplementationSheetView() {
   const { sheetId } = useParams<{ sheetId: string }>();
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
   const [selectedItem, setSelectedItem] = useState<ImplementationItem | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<ImplementationPhoto | null>(null);
-  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState<string | null>(null);
   const [editProgress, setEditProgress] = useState(0);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number>(0);
   const [selectedItemForComments, setSelectedItemForComments] = useState<ImplementationItem | null>(null);
-  
+
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
   const canManageItems = user?.role === 'admin' || user?.role === 'director' || user?.role === 'master';
   const isClient = user?.role === 'client';
   const canManagePhotos = canManageItems || isClient;
-  
-  // Функция для проверки прав на удаление фото
+
   const canDeletePhoto = (photo: ImplementationPhoto) => {
-    if (canManageItems) return true; // Админы, директора и мастера могут удалять любые фото
-    if (isClient && photo.uploadedBy === user?.id) return true; // Клиенты могут удалять только свои фото
+    if (canManageItems) return true;
+    if (isClient && photo.uploadedBy === user?.id) return true;
     return false;
   };
   const objectStorageService = new ObjectStorageService();
 
   const { data: sheet, isLoading } = useQuery<ImplementationSheet>({
     queryKey: [`/api/implementation-sheets/${sheetId}`],
-    enabled: !!sheetId
+    enabled: !!sheetId,
   });
 
   const { data: itemPhotos } = useQuery<ImplementationPhoto[]>({
     queryKey: [`/api/implementation-items/${selectedItem?.id}/photos`],
-    enabled: !!selectedItem?.id
+    enabled: !!selectedItem?.id,
   });
 
-  // Сортируем фотографии по времени загрузки (новые в конце)
   const sortedPhotos = useMemo(() => {
     if (!itemPhotos) return [];
-    return [...itemPhotos].sort((a, b) => 
+    return [...itemPhotos].sort((a, b) =>
       new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime()
     );
   }, [itemPhotos]);
 
-  // Обновляем индекс когда выбираем фото
   useEffect(() => {
     if (selectedPhoto && sortedPhotos.length > 0) {
       const index = sortedPhotos.findIndex(photo => photo.id === selectedPhoto.id);
-      if (index !== -1) {
-        setCurrentPhotoIndex(index);
-      }
+      if (index !== -1) setCurrentPhotoIndex(index);
     }
   }, [selectedPhoto, sortedPhotos]);
 
-  // Функции навигации по фотографиям
   const navigateToPhoto = (direction: 'prev' | 'next') => {
     if (sortedPhotos.length === 0) return;
-    
     let newIndex = currentPhotoIndex;
     if (direction === 'prev') {
       newIndex = currentPhotoIndex > 0 ? currentPhotoIndex - 1 : sortedPhotos.length - 1;
     } else {
       newIndex = currentPhotoIndex < sortedPhotos.length - 1 ? currentPhotoIndex + 1 : 0;
     }
-    
     setCurrentPhotoIndex(newIndex);
     setSelectedPhoto(sortedPhotos[newIndex]);
   };
 
-  // Обработка клавиш навигации
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (selectedPhoto) {
@@ -149,7 +178,6 @@ export default function ImplementationSheetView() {
         }
       }
     };
-
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [selectedPhoto, currentPhotoIndex, sortedPhotos]);
@@ -163,9 +191,7 @@ export default function ImplementationSheetView() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/implementation-sheets/${sheetId}`] });
-      toast({
-        title: language === 'ru' ? "Позиция обновлена" : "Item updated",
-      });
+      toast({ title: language === 'ru' ? "Позиция обновлена" : "Item updated" });
       setIsEditMode(null);
     },
     onError: () => {
@@ -191,10 +217,8 @@ export default function ImplementationSheetView() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/implementation-items/${selectedItem?.id}/photos`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] }); // Для клиентов
-      toast({
-        title: language === 'ru' ? "Фото добавлено" : "Photo added",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] });
+      toast({ title: language === 'ru' ? "Фото добавлено" : "Photo added" });
     },
     onError: () => {
       toast({
@@ -207,15 +231,11 @@ export default function ImplementationSheetView() {
 
   const deletePhotoMutation = useMutation({
     mutationFn: async (photoId: string) => {
-      return apiRequest(`/api/implementation-photos/${photoId}`, {
-        method: "DELETE",
-      });
+      return apiRequest(`/api/implementation-photos/${photoId}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/implementation-items/${selectedItem?.id}/photos`] });
-      toast({
-        title: language === 'ru' ? "Фото удалено" : "Photo deleted",
-      });
+      toast({ title: language === 'ru' ? "Фото удалено" : "Photo deleted" });
     },
     onError: () => {
       toast({
@@ -229,21 +249,21 @@ export default function ImplementationSheetView() {
   const handleProgressUpdate = (itemId: string, progress: number) => {
     updateItemMutation.mutate({
       itemId,
-      data: { progress, isCompleted: progress === 100 }
+      data: { progress, isCompleted: progress === 100 },
     });
   };
 
   const handleToggleComplete = (item: ImplementationItem) => {
     updateItemMutation.mutate({
       itemId: item.id,
-      data: { isCompleted: !item.isCompleted, progress: item.isCompleted ? 0 : 100 }
+      data: { isCompleted: !item.isCompleted, progress: item.isCompleted ? 0 : 100 },
     });
   };
 
   const handleToggleVisibility = (item: ImplementationItem) => {
     updateItemMutation.mutate({
       itemId: item.id,
-      data: { visibleToClient: !item.visibleToClient }
+      data: { visibleToClient: !item.visibleToClient },
     });
   };
 
@@ -252,46 +272,25 @@ export default function ImplementationSheetView() {
   };
 
   const handleCameraCapture = async (itemId: string) => {
-    // Создаем input элемент для камеры
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.capture = 'environment'; // Использовать заднюю камеру
-    
+    input.capture = 'environment';
+
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
-
       try {
-        // Получаем URL для загрузки
         const uploadURL = await objectStorageService.getUploadURL();
-        
-        // Загружаем файл
         const uploadResponse = await fetch(uploadURL, {
           method: 'PUT',
           body: file,
-          headers: {
-            'Content-Type': file.type,
-          },
+          headers: { 'Content-Type': file.type },
         });
-
-        if (!uploadResponse.ok) {
-          throw new Error('Upload failed');
-        }
-
-        // Устанавливаем ACL политику и получаем нормализованный URL
+        if (!uploadResponse.ok) throw new Error('Upload failed');
         const photoUrl = await objectStorageService.setObjectAclPolicy(uploadURL, { visibility: 'private' });
-        
-        // Создаем запись фото
-        createPhotoMutation.mutate({
-          itemId,
-          photoUrl,
-          visibleToClient: true,
-        });
-
-        toast({
-          title: language === 'ru' ? "Фото добавлено" : "Photo added",
-        });
+        createPhotoMutation.mutate({ itemId, photoUrl, visibleToClient: true });
+        toast({ title: language === 'ru' ? "Фото добавлено" : "Photo added" });
       } catch (error) {
         console.error('Camera capture error:', error);
         toast({
@@ -301,18 +300,13 @@ export default function ImplementationSheetView() {
         });
       }
     };
-    
     input.click();
   };
 
   const handleGetUploadParameters = async () => {
     try {
       const uploadURL = await objectStorageService.getUploadURL();
-      console.log('Got upload URL:', uploadURL);
-      return {
-        method: 'PUT' as const,
-        url: uploadURL,
-      };
+      return { method: 'PUT' as const, url: uploadURL };
     } catch (error) {
       console.error('Error getting upload parameters:', error);
       toast({
@@ -325,35 +319,24 @@ export default function ImplementationSheetView() {
   };
 
   const handleUploadComplete = async (result: any) => {
-    console.log('Upload complete result:', result);
     if (result.successful?.length > 0 && uploadingItemId) {
       try {
-        // Обрабатываем все успешно загруженные файлы
         for (const uploadedFile of result.successful) {
-          console.log('Uploaded file URL:', uploadedFile.uploadURL);
-          
           const photoUrl = await objectStorageService.setObjectAclPolicy(uploadedFile.uploadURL, {
-            visibility: 'public'
+            visibility: 'public',
           });
-          
-          console.log('Normalized photo URL:', photoUrl);
-          
           await createPhotoMutation.mutateAsync({
             itemId: uploadingItemId,
             photoUrl,
-            visibleToClient: false
+            visibleToClient: false,
           });
-          
-          console.log('File saved to database:', photoUrl);
         }
-        
         toast({
           title: language === 'ru' ? "Успешно" : "Success",
-          description: language === 'ru' 
-            ? `Загружено ${result.successful.length} файлов` 
+          description: language === 'ru'
+            ? `Загружено ${result.successful.length} файлов`
             : `Uploaded ${result.successful.length} files`,
         });
-        
         setUploadingItemId(null);
       } catch (error) {
         console.error('Error saving files:', error);
@@ -367,121 +350,135 @@ export default function ImplementationSheetView() {
     }
   };
 
-  if (isLoading && !sheet) {
-    return <DetailSkeleton />;
-  }
+  if (isLoading && !sheet) return <DetailSkeleton />;
 
   if (!sheet) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <p className="text-center text-muted-foreground">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--corp-bg)' }}>
+        <p style={{ color: 'var(--corp-muted)' }}>
           {language === 'ru' ? 'Лист не найден' : 'Sheet not found'}
         </p>
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto px-4 py-8" data-page-header>
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <Link href={`/projects/${sheet.projectId}/implementation-sheets`}>
-            <Button variant="ghost" size="icon" data-testid="button-back">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold">{sheet.name}</h1>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">
-                {language === 'ru' ? 'Общий прогресс' : 'Total Progress'}
-              </span>
-              <span className="text-sm font-semibold">
-                {parseFloat(sheet.totalProgress || "0").toFixed(0)}%
-              </span>
-            </div>
-            <Progress value={parseFloat(sheet.totalProgress || "0")} className="h-3" />
-          </div>
-          <Badge variant={sheet.status === 'active' ? 'default' : 'secondary'}>
-            {sheet.status === 'active' 
-              ? (language === 'ru' ? 'Активный' : 'Active')
-              : (language === 'ru' ? 'Завершен' : 'Completed')}
-          </Badge>
-        </div>
-      </div>
+  const totalProgress = parseFloat(sheet.totalProgress || "0");
 
-      <div className="space-y-3">
-        {sheet.items?.map((item) => (
-          <Card key={item.id} className={`${item.isCompleted ? 'opacity-75' : ''} overflow-hidden`}>
-            <CardContent className="p-4">
+  const goBack = () => setLocation(`/projects/${sheet.projectId}/implementation-sheets`);
+
+  return (
+    <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }} data-page-header>
+      <CorpHeader
+        title={sheet.name}
+        onBack={goBack}
+        action={
+          <StatusPill
+            active={sheet.status === 'active'}
+            labelOn={language === 'ru' ? 'Активный' : 'Active'}
+            labelOff={language === 'ru' ? 'Завершен' : 'Completed'}
+          />
+        }
+      />
+
+      <div className="p-4 space-y-4">
+        {/* Total Progress */}
+        <div className="p-4" style={ITEM_CARD_STYLE}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-bold uppercase" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+              {language === 'ru' ? 'Общий прогресс' : 'Total Progress'}
+            </span>
+            <span
+              className="text-[16px] font-bold"
+              style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}
+            >
+              {totalProgress.toFixed(0)}%
+            </span>
+          </div>
+          <ProgressBar value={totalProgress} height={8} />
+        </div>
+
+        {/* Items */}
+        <div className="space-y-3">
+          {sheet.items?.map((item) => (
+            <div
+              key={item.id}
+              className="p-4 overflow-hidden"
+              style={{ ...ITEM_CARD_STYLE, opacity: item.isCompleted ? 0.75 : 1 }}
+            >
               <div className="flex items-start gap-3">
-                {/* Статус завершения */}
+                {/* Completion toggle */}
                 {canManageItems ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="flex-shrink-0 h-8 w-8"
+                  <button
+                    type="button"
+                    className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded transition-colors"
                     onClick={() => handleToggleComplete(item)}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                     data-testid={`button-toggle-${item.id}`}
                   >
-                    {item.isCompleted ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <Circle className="h-5 w-5" />
-                    )}
-                  </Button>
+                    {item.isCompleted
+                      ? <CheckCircle className="h-5 w-5" style={{ color: 'var(--corp-pos)' }} />
+                      : <Circle className="h-5 w-5" style={{ color: 'var(--corp-ink-3)' }} />
+                    }
+                  </button>
                 ) : (
                   <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center">
-                    {item.isCompleted ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-gray-400" />
-                    )}
+                    {item.isCompleted
+                      ? <CheckCircle className="h-5 w-5" style={{ color: 'var(--corp-pos)' }} />
+                      : <Circle className="h-5 w-5" style={{ color: 'var(--corp-ink-3)' }} />
+                    }
                   </div>
                 )}
 
                 <div className="flex-1 min-w-0">
-                  {/* Название и стоимость в одной строке */}
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className={`font-medium text-sm leading-tight ${item.isCompleted ? 'line-through' : ''}`}>
-                      {item.position}. {item.name}
-                      {item.totalCost && isAdminOrDirector && (
-                        <span className="ml-2 text-blue-600 font-semibold">
-                          — {item.totalCost.toLocaleString()} AED
+                  {/* Title row */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h3
+                        className={`text-[13px] font-semibold leading-snug ${item.isCompleted ? 'line-through' : ''}`}
+                        style={{ color: 'var(--corp-ink)' }}
+                      >
+                        <span style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)', marginRight: 4 }}>
+                          {item.position}.
                         </span>
-                      )}
-                    </h3>
-                    
-                    {/* Кнопки управления */}
-                    <div className="flex items-center gap-1">
-                      {isAdminOrDirector && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => handleToggleVisibility(item)}
-                          data-testid={`button-visibility-${item.id}`}
-                        >
-                          {item.visibleToClient ? (
-                            <Eye className="h-3 w-3" />
-                          ) : (
-                            <EyeOff className="h-3 w-3" />
-                          )}
-                        </Button>
+                        {item.name}
+                      </h3>
+                      {item.totalCost && isAdminOrDirector && (
+                        <div className="mt-1">
+                          <MoneyAED amount={item.totalCost} size={13} weight={700} tone="ink" />
+                        </div>
                       )}
                     </div>
+
+                    {isAdminOrDirector && (
+                      <button
+                        type="button"
+                        className="w-6 h-6 flex items-center justify-center rounded transition-colors flex-shrink-0"
+                        onClick={() => handleToggleVisibility(item)}
+                        style={{ color: 'var(--corp-ink-3)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        data-testid={`button-visibility-${item.id}`}
+                      >
+                        {item.visibleToClient ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                      </button>
+                    )}
                   </div>
 
-                  {/* Прогресс */}
+                  {/* Progress */}
                   <div className="mb-3">
                     {isEditMode === item.id ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label className="text-xs">{language === 'ru' ? 'Прогресс' : 'Progress'}</Label>
-                          <span className="text-xs font-semibold">{editProgress}%</span>
+                          <Label className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                            {language === 'ru' ? 'Прогресс' : 'Progress'}
+                          </Label>
+                          <span
+                            className="text-[12px] font-bold"
+                            style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}
+                          >
+                            {editProgress}%
+                          </span>
                         </div>
                         <Slider
                           value={[editProgress]}
@@ -490,87 +487,92 @@ export default function ImplementationSheetView() {
                           step={5}
                           className="w-full"
                         />
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            className="h-6 text-xs px-2"
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 h-7 px-3 text-[11px] font-semibold transition-colors"
+                            style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r-sm)' }}
                             onClick={() => handleProgressUpdate(item.id, editProgress)}
                             data-testid={`button-save-progress-${item.id}`}
                           >
-                            <Save className="h-3 w-3 mr-1" />
+                            <Save className="h-3 w-3" />
                             {language === 'ru' ? 'Сохранить' : 'Save'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 text-xs px-2"
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 h-7 px-3 text-[11px] font-semibold transition-colors"
+                            style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)', borderRadius: 'var(--corp-r-sm)' }}
                             onClick={() => setIsEditMode(null)}
                             data-testid={`button-cancel-progress-${item.id}`}
                           >
-                            <X className="h-3 w-3 mr-1" />
+                            <X className="h-3 w-3" />
                             {language === 'ru' ? 'Отмена' : 'Cancel'}
-                          </Button>
+                          </button>
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
                             {language === 'ru' ? 'Прогресс' : 'Progress'}
                           </span>
-                          <span className="text-xs font-semibold">{item.progress}%</span>
+                          <span
+                            className="text-[11px] font-bold"
+                            style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}
+                          >
+                            {item.progress}%
+                          </span>
                         </div>
-                        <Progress value={item.progress} className="h-2" />
+                        <ProgressBar value={item.progress} height={6} />
                       </div>
                     )}
                   </div>
 
-                  {/* Кнопки действий */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {!isEditMode && (canManageItems || user?.id === item.lastUpdatedBy) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 text-xs px-2"
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 h-7 px-2.5 text-[11px] font-semibold transition-colors"
+                        style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)', borderRadius: 'var(--corp-r-sm)' }}
                         onClick={() => {
                           setIsEditMode(item.id);
                           setEditProgress(item.progress);
                         }}
                         data-testid={`button-edit-progress-${item.id}`}
                       >
-                        <Edit className="h-3 w-3 mr-1" />
+                        <Edit className="h-3 w-3" />
                         {language === 'ru' ? 'Изменить' : 'Edit'}
-                      </Button>
+                      </button>
                     )}
 
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 text-xs px-2"
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 h-7 px-2.5 text-[11px] font-semibold transition-colors"
+                      style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)', borderRadius: 'var(--corp-r-sm)' }}
                       onClick={() => setSelectedItem(item)}
                       data-testid={`button-view-photos-${item.id}`}
                     >
-                      <ImageIcon className="h-3 w-3 mr-1" />
+                      <ImageIcon className="h-3 w-3" />
                       {language === 'ru' ? 'Фото' : 'Photos'}
-                    </Button>
-                    
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 text-xs px-2"
+                    </button>
+
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 h-7 px-2.5 text-[11px] font-semibold transition-colors"
+                      style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)', borderRadius: 'var(--corp-r-sm)' }}
                       onClick={() => setSelectedItemForComments(item)}
                       data-testid={`button-view-comments-${item.id}`}
                     >
-                      <MessageSquare className="h-3 w-3 mr-1" />
+                      <MessageSquare className="h-3 w-3" />
                       {language === 'ru' ? 'Комментарии' : 'Comments'}
-                    </Button>
-                    
-                    {/* Функция добавления фото для всех ролей, кроме клиентов */}
+                    </button>
+
                     {canManagePhotos && (
                       uploadingItemId === item.id ? (
                         <ObjectUploader
                           maxNumberOfFiles={10}
-                          maxFileSize={100 * 1024 * 1024} // 100MB
+                          maxFileSize={100 * 1024 * 1024}
                           allowedFileTypes={['image/*', 'video/*']}
                           onGetUploadParameters={handleGetUploadParameters}
                           onComplete={handleUploadComplete}
@@ -580,35 +582,35 @@ export default function ImplementationSheetView() {
                         </ObjectUploader>
                       ) : (
                         <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 text-xs px-2"
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 h-7 px-2.5 text-[11px] font-semibold transition-colors"
+                            style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)', borderRadius: 'var(--corp-r-sm)' }}
                             onClick={() => handlePhotoUpload(item.id)}
                             data-testid={`button-upload-photo-${item.id}`}
                           >
-                            <ImageIcon className="h-3 w-3 mr-1" />
+                            <Plus className="h-3 w-3" />
                             {language === 'ru' ? 'Добавить' : 'Add'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 text-xs px-2"
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 h-7 px-2.5 text-[11px] font-semibold transition-colors"
+                            style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)', borderRadius: 'var(--corp-r-sm)' }}
                             onClick={() => handleCameraCapture(item.id)}
                             data-testid={`button-camera-capture-${item.id}`}
                           >
-                            <Camera className="h-3 w-3 mr-1" />
+                            <Camera className="h-3 w-3" />
                             {language === 'ru' ? 'Камера' : 'Camera'}
-                          </Button>
+                          </button>
                         </div>
                       )
                     )}
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Photo viewer dialog */}
@@ -619,17 +621,20 @@ export default function ImplementationSheetView() {
               {language === 'ru' ? 'Фотографии позиции' : 'Item Photos'}: {selectedItem?.name}
             </DialogTitle>
           </DialogHeader>
-          
-          {/* Компактное отображение фотографий в одну строку - сортированные по времени */}
+
           <div className="flex gap-2 overflow-x-auto pb-2">
             {sortedPhotos?.map((photo, index) => (
               <div key={photo.id} className="relative group flex-shrink-0">
                 <img
                   src={photo.photoUrl}
                   alt={photo.caption || ''}
-                  className={`w-24 h-24 object-cover rounded-lg cursor-pointer border-2 transition-all ${
-                    selectedPhoto?.id === photo.id ? 'border-primary ring-2 ring-primary/20' : 'border-border'
-                  }`}
+                  className={`w-24 h-24 object-cover cursor-pointer transition-all`}
+                  style={{
+                    borderRadius: 'var(--corp-r)',
+                    border: selectedPhoto?.id === photo.id
+                      ? '2px solid var(--corp-accent)'
+                      : '2px solid var(--corp-line)',
+                  }}
                   onClick={() => {
                     setSelectedPhoto(photo);
                     setCurrentPhotoIndex(index);
@@ -649,44 +654,54 @@ export default function ImplementationSheetView() {
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 )}
-                <Badge 
-                  className="absolute bottom-1 left-1 text-xs px-1 py-0"
-                  variant={photo.visibleToClient ? 'default' : 'secondary'}
+                <span
+                  className="absolute bottom-1 left-1 inline-flex items-center justify-center h-4 px-1"
+                  style={{
+                    background: photo.visibleToClient ? 'var(--corp-accent)' : 'var(--corp-ink-2)',
+                    color: '#fff',
+                    borderRadius: 'var(--corp-r-sm)',
+                  }}
                 >
-                  {photo.visibleToClient ? (
-                    <Eye className="h-2 w-2" />
-                  ) : (
-                    <EyeOff className="h-2 w-2" />
-                  )}
-                </Badge>
-                {/* Номер фотографии */}
-                <Badge 
-                  className="absolute top-1 left-1 text-xs px-1 py-0 bg-black/50 text-white border-none"
+                  {photo.visibleToClient ? <Eye className="h-2 w-2" /> : <EyeOff className="h-2 w-2" />}
+                </span>
+                <span
+                  className="absolute top-1 left-1 inline-flex items-center justify-center h-4 px-1 text-[10px] font-bold"
+                  style={{
+                    background: 'rgba(0,0,0,0.5)',
+                    color: '#fff',
+                    borderRadius: 'var(--corp-r-sm)',
+                    fontFamily: 'var(--corp-mono)',
+                  }}
                 >
                   {index + 1}
-                </Badge>
+                </span>
               </div>
             ))}
           </div>
 
-          {/* Если больше 6 фотографий, показываем в сетке */}
           {(sortedPhotos?.length || 0) > 6 && (
-            <div className="grid gap-4 md:grid-cols-3 mt-4">
+            <div className="grid gap-3 sm:grid-cols-3 mt-4">
               {sortedPhotos?.map((photo, index) => (
                 <div key={photo.id} className="relative group">
                   <img
                     src={photo.photoUrl}
                     alt={photo.caption || ''}
-                    className={`w-full h-32 object-cover rounded-lg cursor-pointer border-2 transition-all ${
-                      selectedPhoto?.id === photo.id ? 'border-primary ring-2 ring-primary/20' : 'border-border'
-                    }`}
+                    className={`w-full h-32 object-cover cursor-pointer transition-all`}
+                    style={{
+                      borderRadius: 'var(--corp-r)',
+                      border: selectedPhoto?.id === photo.id
+                        ? '2px solid var(--corp-accent)'
+                        : '2px solid var(--corp-line)',
+                    }}
                     onClick={() => {
                       setSelectedPhoto(photo);
                       setCurrentPhotoIndex(index);
                     }}
                   />
                   {photo.caption && (
-                    <p className="text-xs text-muted-foreground mt-1 truncate">{photo.caption}</p>
+                    <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--corp-muted)' }}>
+                      {photo.caption}
+                    </p>
                   )}
                   {canDeletePhoto(photo) && (
                     <Button
@@ -702,31 +717,36 @@ export default function ImplementationSheetView() {
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   )}
-                  <Badge 
-                    className="absolute bottom-1 left-1 text-xs px-1 py-0"
-                    variant={photo.visibleToClient ? 'default' : 'secondary'}
+                  <span
+                    className="absolute bottom-1 left-1 inline-flex items-center justify-center h-4 px-1"
+                    style={{
+                      background: photo.visibleToClient ? 'var(--corp-accent)' : 'var(--corp-ink-2)',
+                      color: '#fff',
+                      borderRadius: 'var(--corp-r-sm)',
+                    }}
                   >
-                    {photo.visibleToClient ? (
-                      <Eye className="h-2 w-2" />
-                    ) : (
-                      <EyeOff className="h-2 w-2" />
-                    )}
-                  </Badge>
-                  {/* Номер фотографии */}
-                  <Badge 
-                    className="absolute top-1 left-1 text-xs px-1 py-0 bg-black/50 text-white border-none"
+                    {photo.visibleToClient ? <Eye className="h-2 w-2" /> : <EyeOff className="h-2 w-2" />}
+                  </span>
+                  <span
+                    className="absolute top-1 left-1 inline-flex items-center justify-center h-4 px-1 text-[10px] font-bold"
+                    style={{
+                      background: 'rgba(0,0,0,0.5)',
+                      color: '#fff',
+                      borderRadius: 'var(--corp-r-sm)',
+                      fontFamily: 'var(--corp-mono)',
+                    }}
                   >
                     {index + 1}
-                  </Badge>
+                  </span>
                 </div>
               ))}
             </div>
           )}
-          
+
           {sortedPhotos?.length === 0 && (
             <div className="text-center py-8">
-              <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">
+              <Camera className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--corp-ink-3)' }} />
+              <p style={{ color: 'var(--corp-muted)' }}>
                 {language === 'ru' ? 'Нет фотографий' : 'No photos'}
               </p>
             </div>
@@ -734,11 +754,11 @@ export default function ImplementationSheetView() {
         </DialogContent>
       </Dialog>
 
-      {/* Full size photo viewer with navigation and zoom */}
+      {/* Full size photo viewer */}
       <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
           {selectedPhoto && sortedPhotos.length > 0 && (
-            <PhotoViewer 
+            <PhotoViewer
               photo={selectedPhoto}
               photos={sortedPhotos}
               currentIndex={currentPhotoIndex}
@@ -757,9 +777,8 @@ export default function ImplementationSheetView() {
               {language === 'ru' ? 'Комментарии' : 'Comments'}: {selectedItemForComments?.name}
             </DialogTitle>
           </DialogHeader>
-          
           {selectedItemForComments && sheet && (
-            <ImplementationItemComments 
+            <ImplementationItemComments
               itemId={selectedItemForComments.id}
               projectId={sheet.projectId}
             />
