@@ -128,6 +128,7 @@ export function Layout({ children }: LayoutProps) {
     path: homePath,
     matches: (l) =>
       l.startsWith('/projects/') ||
+      l.startsWith('/projects-list') ||
       l.startsWith('/expenses/') ||
       l.startsWith('/implementation-sheets/') ||
       l.startsWith('/archived-projects'),

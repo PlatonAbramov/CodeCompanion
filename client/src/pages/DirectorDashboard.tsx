@@ -1031,7 +1031,7 @@ export default function DirectorDashboard() {
           </h3>
           <button
             type="button"
-            onClick={() => setLocation('/archived-projects')}
+            onClick={() => setLocation('/projects-list')}
             className="inline-flex items-center gap-1 text-[13px] font-semibold"
             style={{ color: 'var(--corp-accent)' }}
             data-testid="button-all-projects-mobile"

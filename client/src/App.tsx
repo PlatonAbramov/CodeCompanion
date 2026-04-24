@@ -45,6 +45,7 @@ const ImplementationSheetView = lazy(() => import("@/pages/ImplementationSheetVi
 const Analytics = lazy(() => import("@/pages/Analytics"));
 const History = lazy(() => import("@/pages/History"));
 const ArchivedProjects = lazy(() => import("@/pages/ArchivedProjects"));
+const MobileProjectsList = lazy(() => import("@/pages/MobileProjectsList"));
 const TestClient = lazy(() => import("@/pages/TestClient"));
 const ClientProjects = lazy(() => import("@/pages/ClientProjects"));
 // Named exports — оборачиваем через .then
@@ -146,6 +147,7 @@ function AuthenticatedApp() {
         <Route path="/analytics" component={(user.role === 'admin' || user.role === 'director') ? Analytics : NotFound} />
         <Route path="/history/:projectId" component={(user.role === 'admin' || user.role === 'director') ? History : NotFound} />
         <Route path="/archived-projects" component={(user.role === 'admin' || user.role === 'director') ? ArchivedProjects : NotFound} />
+        <Route path="/projects-list" component={(user.role === 'admin' || user.role === 'director') ? MobileProjectsList : NotFound} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
