@@ -52,6 +52,9 @@ Preferred communication style: Simple, everyday language.
 - **Multi-language Support**: Russian and English.
 - **Mobile-First Design**: Optimized for mobile devices.
 
+## UI Redesign — Pag CRM Corporate v1
+Migrating to a corporate brandbook UI in batches of pages. Shared building blocks live in `client/src/components/corp-ui.tsx`: `CorpHeader`, `CorpEmpty`, `CorpHeroSummary`, `MoneyAED`, `fmtNum`, `fmtDateRu`. Foundation tokens are defined in `client/src/index.css` (`--corp-bg`, `--corp-surface`, `--corp-ink`, `--corp-accent`, `--corp-pos`, `--corp-neg`, `--corp-brand`, `--corp-mono`, `--corp-font`, etc.). Pages migrated so far: Login, DirectorDashboard, MasterDashboard, ExpensesList, AdvancesList, CustomerAdvancesList, RevenuesList, ArchivedProjects.
+
 # External Dependencies
 
 ## Core Infrastructure

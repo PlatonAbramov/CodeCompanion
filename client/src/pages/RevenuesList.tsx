@@ -1,15 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { 
-  ArrowLeft, Plus, Edit, MoreVertical, Trash2, DollarSign
-} from "lucide-react";
+import { Plus, DollarSign, TrendingUp } from "lucide-react";
+import {
+  CorpHeader, CorpEmpty, CorpHeroSummary, MoneyAED, fmtDateRu,
+} from "@/components/corp-ui";
+import { AdvanceMenu } from "./AdvancesList";
 
 interface Revenue {
   id: string;
@@ -29,241 +26,137 @@ interface Project {
 export default function RevenuesList() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const { t } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Extract projectId from URL path  
-  const pathParts = location.split('/');
-  const projectId = pathParts[2];
+  const projectId = location.split('/')[2];
+  const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
 
-  const { data: project } = useQuery<Project>({
-    queryKey: ['/api/projects', projectId],
-  });
-
+  const { data: project } = useQuery<Project>({ queryKey: ['/api/projects', projectId] });
   const { data: revenues = [], isLoading } = useQuery<Revenue[]>({
     queryKey: ['/api/projects', projectId, 'revenues'],
   });
 
   const { mutate: deleteRevenue } = useMutation({
-    mutationFn: async (revenueId: string) => {
-      const response = await fetch(`/api/revenues/${revenueId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete revenue');
-      }
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/revenues/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete revenue');
       return response.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Доход удален",
-        description: "Доход успешно удален",
-      });
+      toast({ title: "Доход удалён", description: "Доход успешно удалён" });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'revenues'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
     },
     onError: (error: any) => {
-      toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось удалить доход",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: error.message || "Не удалось удалить доход", variant: "destructive" });
     },
   });
 
-  const goBack = () => {
-    setLocation(`/projects/${projectId}`);
-  };
-
-  const formatCurrency = (amount: string) => {
-    if (!amount) return '';
-    const num = parseFloat(amount || "0");
-    return `${num.toLocaleString("ru-RU")} AED`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ru-RU');
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50" />
-    );
-  }
+  const total = revenues.reduce((s, r) => s + parseFloat(r.amount), 0);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={goBack}
-                className="mr-2"
-              >
-                <ArrowLeft size={20} />
-              </Button>
-              <div>
-                <h2 className="font-semibold text-slate-900">Доходы</h2>
-                {project?.name && (
-                  <p className="text-sm text-slate-500">{project.name}</p>
-                )}
-              </div>
-            </div>
-            {(user?.role === 'admin' || user?.role === 'director') && (
-              <Button 
-                className="bg-primary text-white"
-                onClick={() => setLocation(`/add-revenue?projectId=${projectId}`)}
-              >
-                <Plus size={16} className="mr-1" />
-                Добавить доход
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      <CorpHeader
+        title="Доходы"
+        subtitle={project?.name}
+        onBack={() => setLocation(`/projects/${projectId}`)}
+        action={isAdminOrDirector ? (
+          <button
+            type="button"
+            onClick={() => setLocation(`/add-revenue?projectId=${projectId}`)}
+            className="inline-flex items-center gap-1.5 h-9 px-3 text-[13px] font-semibold transition-colors"
+            style={{ background: 'var(--corp-pos)', color: '#fff', borderRadius: 'var(--corp-r)' }}
+            data-testid="button-add-revenue"
+          >
+            <Plus size={14} /> <span className="hidden sm:inline">Доход</span>
+          </button>
+        ) : null}
+      />
 
-      <div className="p-4 pb-20">
-        {revenues.length === 0 ? (
-          <Card className="shadow-sm">
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <DollarSign className="text-slate-400" size={32} />
-              </div>
-              <h3 className="font-semibold text-slate-900 mb-2">Нет доходов</h3>
-              <p className="text-slate-500 mb-4">Пока не добавлено ни одного дохода для этого проекта</p>
-              {(user?.role === 'admin' || user?.role === 'director') && (
-                <Button 
-                  className="bg-primary text-white"
-                  onClick={() => setLocation(`/add-revenue?projectId=${projectId}`)}
-                >
-                  <Plus size={16} className="mr-1" />
-                  Добавить доход
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+      <main className="px-4 pt-4">
+        {!isLoading && revenues.length === 0 ? (
+          <CorpEmpty
+            icon={<TrendingUp size={28} />}
+            title="Нет доходов"
+            description="Добавьте первый доход для этого проекта"
+            actionLabel={isAdminOrDirector ? "Добавить доход" : undefined}
+            onAction={isAdminOrDirector ? () => setLocation(`/add-revenue?projectId=${projectId}`) : undefined}
+          />
         ) : (
-          <div className="space-y-4">
-            {/* Summary */}
-            <Card className="shadow-sm bg-green-50">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-semibold text-slate-900">Общие доходы</h3>
-                    <p className="text-sm text-slate-500">
-                      {revenues.length} {revenues.length === 1 ? 'запись' : 'записей'}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-green-600">
-                      {formatCurrency(
-                        revenues.reduce((sum, revenue) => sum + parseFloat(revenue.amount), 0).toString()
-                      )}
-                    </p>
-                    <p className="text-sm text-slate-500">Всего получено</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <>
+            <CorpHeroSummary
+              label="Общие доходы"
+              amount={total}
+              subtext={`${revenues.length} ${revenues.length === 1 ? 'запись' : 'записей'}`}
+              tone="pos"
+            />
 
-            {/* Revenues List */}
-            <div className="space-y-3">
+            <h3
+              className="text-[10px] font-bold uppercase mb-2"
+              style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
+            >
+              История доходов
+            </h3>
+            <div className="flex flex-col gap-2">
               {revenues.map((revenue) => (
-                <Card key={revenue.id} className="shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="font-semibold text-lg text-green-600">
-                            {formatCurrency(revenue.amount)}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {formatDate(revenue.date)}
-                          </p>
-                        </div>
-                        
-                        {revenue.source && (
-                          <div className="flex items-center mb-2">
-                            <DollarSign size={16} className="text-slate-400 mr-2" />
-                            <p className="text-sm font-medium text-slate-700">
-                              {revenue.source}
-                            </p>
-                          </div>
-                        )}
-                        
-                        {revenue.description && (
-                          <p className="text-sm text-slate-600 mb-2">
-                            {revenue.description}
-                          </p>
-                        )}
-                        
-                        <p className="text-xs text-slate-400">
-                          Добавил: {revenue.user?.name || 'Неизвестно'}
-                        </p>
-                      </div>
-                      
-                      <div className="ml-4 flex items-center">
-                        {(user?.role === 'admin' || user?.role === 'director') && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreVertical size={16} />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => setLocation(`/edit-revenue/${projectId}/${revenue.id}`)}
-                              >
-                                <Edit size={16} className="mr-2" />
-                                Редактировать
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <DropdownMenuItem
-                                    onSelect={(e) => e.preventDefault()}
-                                    className="text-red-600 focus:text-red-600"
-                                  >
-                                    <Trash2 size={16} className="mr-2" />
-                                    Удалить
-                                  </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Удалить доход?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Это действие нельзя отменить. Доход будет удален безвозвратно.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Отмена</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => deleteRevenue(revenue.id)}
-                                      className="bg-red-600 hover:bg-red-700"
-                                    >
-                                      Удалить
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
+                <div
+                  key={revenue.id}
+                  className="p-4"
+                  style={{
+                    background: 'var(--corp-surface)',
+                    border: '1px solid var(--corp-line)',
+                    borderRadius: 'var(--corp-r-lg)',
+                  }}
+                  data-testid={`revenue-card-${revenue.id}`}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <MoneyAED amount={revenue.amount} size={18} weight={700} tone="pos" />
+                    <div className="flex items-center gap-1">
+                      <span
+                        className="text-[11px]"
+                        style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)', whiteSpace: 'nowrap' }}
+                      >
+                        {fmtDateRu(revenue.date)}
+                      </span>
+                      {isAdminOrDirector && (
+                        <AdvanceMenu
+                          onEdit={() => setLocation(`/edit-revenue/${projectId}/${revenue.id}`)}
+                          onDelete={() => deleteRevenue(revenue.id)}
+                          deleteTitle="Удалить доход?"
+                          deleteDescription="Это действие нельзя отменить. Доход будет удалён безвозвратно."
+                        />
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+
+                  {revenue.source && (
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <DollarSign size={13} style={{ color: 'var(--corp-muted)' }} />
+                      <span className="text-[13px] font-medium" style={{ color: 'var(--corp-ink-2)' }}>
+                        {revenue.source}
+                      </span>
+                    </div>
+                  )}
+
+                  {revenue.description && (
+                    <p className="text-[12px] mb-1" style={{ color: 'var(--corp-ink-3)' }}>
+                      {revenue.description}
+                    </p>
+                  )}
+                  <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                    Добавил: {revenue.user?.name || 'Неизвестно'}
+                  </p>
+                </div>
               ))}
             </div>
-          </div>
+          </>
         )}
-      </div>
+      </main>
     </div>
   );
 }

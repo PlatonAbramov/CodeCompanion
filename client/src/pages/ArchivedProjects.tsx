@@ -1,16 +1,14 @@
 import { useAuth } from "@/hooks/useAuth";
-import { useLanguage } from "@/components/LanguageProvider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  ArrowLeft, Archive, ArchiveRestore, Calendar, TrendingUp, 
-  TrendingDown, ChevronDown, ChevronUp, Package
+import {
+  Archive, ArchiveRestore, Calendar,
+  ChevronDown, ChevronUp, Package,
 } from "lucide-react";
 import { useState } from "react";
+import { CorpHeader, MoneyAED, fmtDateRu } from "@/components/corp-ui";
 
 interface Project {
   id: string;
@@ -31,166 +29,181 @@ interface FinancialSummary {
   totalExpenses: string;
   currentProfit: string;
   projectedProfit: string;
-  vladAdvances: string;
-  platonAdvances: string;
-  vladEarnings: string;
-  platonEarnings: string;
 }
 
-function ProjectCard({ 
-  project, 
-  onRestore,
-  isExpanded, 
-  onToggleExpand 
-}: { 
-  project: Project; 
+function ProjectCard({
+  project, onRestore, isExpanded, onToggleExpand,
+}: {
+  project: Project;
   onRestore: (projectId: string) => void;
-  isExpanded: boolean; 
-  onToggleExpand: () => void; 
+  isExpanded: boolean;
+  onToggleExpand: () => void;
 }) {
-  const { t } = useLanguage();
   const [, setLocation] = useLocation();
-  
+
   const { data: financialSummary } = useQuery<FinancialSummary>({
     queryKey: ['/api/projects', project.id, 'financial-summary'],
+    enabled: isExpanded,
   });
-
-  const formatCurrency = (amount: string) => {
-    const num = parseFloat(amount || '0');
-    return `${num.toLocaleString('ru-RU')} AED`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ru-RU');
-  };
 
   const currentProfit = parseFloat(financialSummary?.currentProfit || '0');
   const projectedProfit = parseFloat(financialSummary?.projectedProfit || '0');
 
   return (
-    <Card className="shadow-sm hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 
-            className="font-semibold text-lg text-slate-900 cursor-pointer hover:text-primary"
+    <div
+      style={{
+        background: 'var(--corp-surface)',
+        border: '1px solid var(--corp-line)',
+        borderRadius: 'var(--corp-r-lg)',
+      }}
+      data-testid={`archived-project-card-${project.id}`}
+    >
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <button
+            type="button"
             onClick={() => setLocation(`/projects/${project.id}`)}
+            className="text-left flex-1 min-w-0"
           >
-            {project.name}
-          </h3>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="sm"
+            <h3
+              className="font-semibold text-[15px] truncate"
+              style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
+            >
+              {project.name}
+            </h3>
+            {project.location && (
+              <p className="text-[12px] truncate mt-0.5" style={{ color: 'var(--corp-muted)' }}>
+                {project.location}
+              </p>
+            )}
+          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              type="button"
               onClick={() => onRestore(project.id)}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+              style={{ color: 'var(--corp-accent)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-accent-soft)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
               title="Разархивировать"
-              className="text-blue-600 hover:text-blue-800"
+              data-testid={`button-restore-${project.id}`}
             >
-              <ArchiveRestore size={18} />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm"
+              <ArchiveRestore size={16} />
+            </button>
+            <button
+              type="button"
               onClick={onToggleExpand}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+              style={{ color: 'var(--corp-ink-3)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              data-testid={`button-toggle-${project.id}`}
             >
-              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </Button>
+              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
           </div>
         </div>
-        
-        {project.location && (
-          <p className="text-sm text-slate-500 mb-2">{project.location}</p>
-        )}
-        
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="bg-slate-50 rounded-lg p-2">
-            <p className="text-xs text-slate-500">{t('totalCost')}</p>
-            <p className="font-semibold text-slate-900">
-              {formatCurrency(project.totalCost)}
+
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <div
+            className="p-2.5 rounded-md"
+            style={{ background: 'var(--corp-surface-2)' }}
+          >
+            <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+              Стоимость
+            </p>
+            <div className="mt-1">
+              <MoneyAED amount={project.totalCost} size={13} weight={700} tone="ink" />
+            </div>
+          </div>
+          <div
+            className="p-2.5 rounded-md"
+            style={{ background: 'var(--corp-surface-2)' }}
+          >
+            <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+              Статус
+            </p>
+            <p className="text-[13px] font-semibold mt-1" style={{ color: 'var(--corp-ink-2)' }}>
+              Архивный
             </p>
           </div>
-          <div className="bg-slate-50 rounded-lg p-2">
-            <p className="text-xs text-slate-500">Статус</p>
-            <p className="font-semibold text-gray-600">Архивный</p>
-          </div>
         </div>
-        
+
         {isExpanded && financialSummary && (
-          <div className="border-t pt-3 mt-3">
-            <h4 className="font-medium text-sm text-slate-700 mb-2">Финансовая сводка</h4>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-xs text-slate-500">Доходы</p>
-                <p className="font-semibold text-green-600">
-                  {formatCurrency(financialSummary.totalRevenues)}
-                </p>
+          <div
+            className="mt-3 pt-3 grid grid-cols-2 gap-2"
+            style={{ borderTop: '1px solid var(--corp-line)' }}
+          >
+            <div>
+              <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+                Доходы
+              </p>
+              <div className="mt-1">
+                <MoneyAED amount={financialSummary.totalRevenues} size={13} weight={700} tone="pos" />
               </div>
-              <div>
-                <p className="text-xs text-slate-500">Расходы</p>
-                <p className="font-semibold text-red-600">
-                  {formatCurrency(financialSummary.totalExpenses)}
-                </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+                Расходы
+              </p>
+              <div className="mt-1">
+                <MoneyAED amount={financialSummary.totalExpenses} size={13} weight={700} tone="neg" />
               </div>
-              <div>
-                <p className="text-xs text-slate-500">Текущая прибыль</p>
-                <p className={`font-semibold ${currentProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(financialSummary.currentProfit)}
-                </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+                Текущая прибыль
+              </p>
+              <div className="mt-1">
+                <MoneyAED amount={financialSummary.currentProfit} size={13} weight={700} tone={currentProfit >= 0 ? 'pos' : 'neg'} />
               </div>
-              <div>
-                <p className="text-xs text-slate-500">Ожидаемая прибыль</p>
-                <p className={`font-semibold ${projectedProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(financialSummary.projectedProfit)}
-                </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+                Ожидаемая прибыль
+              </p>
+              <div className="mt-1">
+                <MoneyAED amount={financialSummary.projectedProfit} size={13} weight={700} tone={projectedProfit >= 0 ? 'pos' : 'neg'} />
               </div>
             </div>
           </div>
         )}
-        
-        <div className="flex items-center text-sm text-slate-500">
-          <Calendar size={16} className="mr-1" />
-          <span>Архивирован: {formatDate(project.createdAt)}</span>
+
+        <div className="flex items-center gap-1.5 mt-3 text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+          <Calendar size={12} />
+          <span>Архивирован: <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(project.createdAt)}</span></span>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 export default function ArchivedProjects() {
-  const { user, logout } = useAuth();
-  const { t } = useLanguage();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
-  // Get archived projects
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ['/api/projects/archived'],
   });
 
-  // Restore project mutation
   const restoreProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
       const res = await apiRequest(`/api/projects/${projectId}/archive`, {
         method: 'PATCH',
-        body: JSON.stringify({ archive: false })
+        body: JSON.stringify({ archive: false }),
       });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects/archived'] });
-      toast({
-        title: "Успешно",
-        description: "Проект разархивирован",
-      });
+      toast({ title: "Успешно", description: "Проект разархивирован" });
     },
     onError: () => {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось разархивировать проект",
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: "Не удалось разархивировать проект", variant: "destructive" });
     },
   });
 
@@ -202,97 +215,119 @@ export default function ArchivedProjects() {
 
   const toggleProjectExpand = (projectId: string) => {
     const newExpanded = new Set(expandedProjects);
-    if (newExpanded.has(projectId)) {
-      newExpanded.delete(projectId);
-    } else {
-      newExpanded.add(projectId);
-    }
+    if (newExpanded.has(projectId)) newExpanded.delete(projectId);
+    else newExpanded.add(projectId);
     setExpandedProjects(newExpanded);
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-        </div>
-      </div>
-    );
-  }
+  const totalCost = projects.reduce((sum, p) => sum + parseFloat(p.totalCost || '0'), 0);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setLocation('/director')}
-                className="mr-2"
-                data-testid="button-back"
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
+    >
+      <CorpHeader
+        title="Архивные проекты"
+        subtitle="Завершённые и архивированные"
+        onBack={() => setLocation('/director')}
+      />
+
+      <main className="px-4 pt-4">
+        {/* Stats strip */}
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <div
+            className="p-3"
+            style={{
+              background: 'var(--corp-surface)',
+              border: '1px solid var(--corp-line)',
+              borderRadius: 'var(--corp-r-lg)',
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-[10px] uppercase font-bold"
+                  style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
+                >
+                  Всего
+                </p>
+                <p
+                  className="font-bold mt-0.5"
+                  style={{
+                    fontFamily: 'var(--corp-mono)',
+                    fontSize: 22,
+                    color: 'var(--corp-ink)',
+                    letterSpacing: '-0.5px',
+                  }}
+                >
+                  {projects.length}
+                </p>
+              </div>
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-3)' }}
               >
-                <ArrowLeft size={20} />
-              </Button>
-              <div className="flex items-center">
-                <Archive className="text-gray-600 mr-2" size={24} />
-                <div>
-                  <h2 className="font-semibold text-slate-900">Архивные проекты</h2>
-                  <p className="text-sm text-slate-500">Завершенные и архивированные проекты</p>
+                <Archive size={16} />
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="p-3"
+            style={{
+              background: 'var(--corp-surface)',
+              border: '1px solid var(--corp-line)',
+              borderRadius: 'var(--corp-r-lg)',
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-[10px] uppercase font-bold"
+                  style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
+                >
+                  Стоимость
+                </p>
+                <div className="mt-0.5">
+                  <MoneyAED amount={totalCost} size={16} weight={700} tone="ink" />
                 </div>
+              </div>
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--corp-pos-soft)', color: 'var(--corp-pos)' }}
+              >
+                <Package size={16} />
               </div>
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Content */}
-      <div className="p-4">
-        {/* Statistics */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">Всего архивных</p>
-                  <p className="text-2xl font-bold text-slate-900">{projects.length}</p>
-                </div>
-                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <Archive className="text-gray-600" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">Общая стоимость</p>
-                  <p className="text-2xl font-bold text-slate-900">
-                    {projects.reduce((sum, p) => sum + parseFloat(p.totalCost || '0'), 0).toLocaleString('ru-RU')} AED
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Package className="text-green-600" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Projects List */}
-        {projects.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Archive className="mx-auto text-gray-400 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">Нет архивных проектов</h3>
-              <p className="text-slate-500">Здесь будут отображаться завершенные и архивированные проекты</p>
-            </CardContent>
-          </Card>
+        {/* Projects list */}
+        {!isLoading && projects.length === 0 ? (
+          <div
+            className="p-8 text-center"
+            style={{
+              background: 'var(--corp-surface)',
+              border: '1px dashed var(--corp-line)',
+              borderRadius: 'var(--corp-r-lg)',
+            }}
+          >
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
+              style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-3)' }}
+            >
+              <Archive size={28} />
+            </div>
+            <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--corp-ink-2)' }}>
+              Нет архивных проектов
+            </p>
+            <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+              Завершённые и архивированные проекты будут отображаться здесь
+            </p>
+          </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="flex flex-col gap-2">
             {projects.map((project) => (
               <ProjectCard
                 key={project.id}
@@ -304,7 +339,7 @@ export default function ArchivedProjects() {
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
