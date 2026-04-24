@@ -9,7 +9,7 @@ import {
   MoreVertical, Download, Eye, Plus, Edit,
   FileText, Trash2, ChevronDown, ChevronUp,
   History, Archive, ArchiveRestore, Upload, ArrowUpDown,
-  Calendar, DollarSign, User, CheckCircle, AlertCircle
+  Calendar, DollarSign, User, Users, CheckCircle, AlertCircle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -155,6 +155,219 @@ function formatFileSize(bytes: number): string {
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function getProjectInitials(name: string): string {
+  if (!name) return '??';
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '??';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+function getStatusInfo(status?: string): { label: string; bg: string; color: string; dot: string } {
+  switch (status) {
+    case 'completed':
+      return { label: 'Завершён', bg: 'rgba(22,163,74,0.12)', color: '#15803d', dot: '#16a34a' };
+    case 'paused':
+      return { label: 'На паузе', bg: 'rgba(100,116,139,0.14)', color: '#475569', dot: '#64748b' };
+    case 'archived':
+      return { label: 'Архив', bg: 'rgba(100,116,139,0.10)', color: '#64748b', dot: '#94a3b8' };
+    case 'active':
+    default:
+      return { label: 'В работе', bg: 'rgba(245,158,11,0.14)', color: '#b45309', dot: '#f59e0b' };
+  }
+}
+
+function MobileProjectHero({
+  project,
+  financialSummary,
+  teamCount,
+}: {
+  project: Project;
+  financialSummary?: FinancialSummary;
+  teamCount: number;
+}) {
+  const initials = getProjectInitials(project.name);
+  const status = getStatusInfo(project.status);
+
+  const totalCost = parseFloat(project.totalCost || '0');
+  const totalExpenses = parseFloat(financialSummary?.totalExpenses || '0');
+  const currentProfit = parseFloat(financialSummary?.currentProfit || '0');
+  const isOverBudget = currentProfit < 0;
+  const ratio = totalCost > 0 ? Math.min(100, (totalExpenses / totalCost) * 100) : 0;
+  const progressPct = Math.round(ratio);
+  const progressColor = isOverBudget ? 'var(--corp-neg)' : 'var(--corp-pos)';
+
+  const dateRange = project.startDate && project.endDate
+    ? `${fmtDateRu(project.startDate)} → ${fmtDateRu(project.endDate)}`
+    : project.startDate
+      ? fmtDateRu(project.startDate)
+      : project.endDate
+        ? `→ ${fmtDateRu(project.endDate)}`
+        : null;
+
+  return (
+    <div
+      className="lg:hidden p-4"
+      style={{
+        background: 'var(--corp-surface)',
+        border: '1px solid var(--corp-line)',
+        borderRadius: 'var(--corp-r-lg)',
+      }}
+      data-testid="mobile-project-hero"
+    >
+      {/* Top row: status pill + avatar */}
+      <div className="flex items-start justify-between gap-3">
+        <div
+          className="inline-flex items-center gap-1.5 h-6 px-2.5"
+          style={{
+            background: status.bg,
+            color: status.color,
+            borderRadius: 999,
+            fontSize: 11,
+            fontWeight: 600,
+          }}
+        >
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: status.dot }}
+          />
+          {status.label}
+        </div>
+        <div
+          className="flex items-center justify-center flex-shrink-0"
+          style={{
+            width: 48,
+            height: 48,
+            background: 'rgba(91,88,235,0.10)',
+            color: 'var(--corp-accent)',
+            borderRadius: 12,
+            fontSize: 14,
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+          }}
+        >
+          {initials}
+        </div>
+      </div>
+
+      {/* Project info */}
+      <div className="mt-2">
+        {project.location && (
+          <div
+            className="text-[11px] font-bold uppercase mb-1"
+            style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
+          >
+            {project.location}
+          </div>
+        )}
+        <div
+          className="text-[22px] font-bold leading-tight"
+          style={{ color: 'var(--corp-ink)', letterSpacing: '-0.4px' }}
+        >
+          {project.name}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {financialSummary && totalCost > 0 && (
+        <div className="mt-3 flex items-center gap-3">
+          <div
+            className="flex-1 h-1.5 overflow-hidden"
+            style={{ background: 'var(--corp-line)', borderRadius: 999 }}
+          >
+            <div
+              className="h-full"
+              style={{
+                width: `${ratio}%`,
+                background: progressColor,
+                borderRadius: 999,
+                transition: 'width .3s ease',
+              }}
+            />
+          </div>
+          <span
+            className="text-[12px] font-semibold flex-shrink-0"
+            style={{
+              color: 'var(--corp-ink-2)',
+              fontFamily: 'var(--corp-mono)',
+              minWidth: 38,
+              textAlign: 'right',
+            }}
+          >
+            {progressPct}%
+          </span>
+        </div>
+      )}
+
+      {/* Bottom info row: dates + team */}
+      {(dateRange || teamCount > 0) && (
+        <div
+          className="mt-3 pt-3 flex items-center gap-4 flex-wrap"
+          style={{ borderTop: '1px solid var(--corp-line)' }}
+        >
+          {dateRange && (
+            <div className="flex items-center gap-1.5">
+              <Calendar size={13} style={{ color: 'var(--corp-muted)' }} />
+              <span
+                className="text-[12px]"
+                style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}
+              >
+                {dateRange}
+              </span>
+            </div>
+          )}
+          {teamCount > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Users size={13} style={{ color: 'var(--corp-muted)' }} />
+              <span className="text-[12px]" style={{ color: 'var(--corp-ink-2)' }}>
+                <span style={{ fontFamily: 'var(--corp-mono)' }}>{teamCount}</span> чел.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MobileActionTile({
+  onClick,
+  icon,
+  label,
+  variant,
+  testId,
+}: {
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  variant: 'primary' | 'ghost';
+  testId?: string;
+}) {
+  const isPrimary = variant === 'primary';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      className="flex items-center justify-center gap-2 h-12 px-3 text-[13px] font-semibold transition-colors active:scale-[0.98]"
+      style={{
+        background: isPrimary ? 'var(--corp-accent)' : 'var(--corp-surface)',
+        color: isPrimary ? '#ffffff' : 'var(--corp-ink)',
+        border: isPrimary ? 'none' : '1px solid var(--corp-line)',
+        borderRadius: 'var(--corp-r-lg)',
+      }}
+    >
+      <span
+        className="inline-flex items-center justify-center"
+        style={{ color: isPrimary ? '#ffffff' : 'var(--corp-ink-2)' }}
+      >
+        {icon}
+      </span>
+      {label}
+    </button>
+  );
 }
 
 export default function ProjectDetail() {
@@ -498,8 +711,65 @@ export default function ProjectDetail() {
       />
 
       <div className="p-4 space-y-3">
-        {/* Action Buttons */}
-        <div className="flex flex-col gap-2">
+        {/* === MOBILE HERO CARD (lg:hidden) ====================== */}
+        <MobileProjectHero
+          project={project}
+          financialSummary={financialSummary}
+          teamCount={uniqueUsers.length}
+        />
+
+        {/* === MOBILE 2x2 ACTION GRID (lg:hidden) ================ */}
+        <div className="lg:hidden grid grid-cols-2 gap-2">
+          {user?.role !== 'client' && (
+            <MobileActionTile
+              onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
+              icon={<Plus size={16} />}
+              label="Расход"
+              variant="primary"
+              testId="button-add-expense-mobile"
+            />
+          )}
+          <MobileActionTile
+            onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
+            icon={<FileText size={16} />}
+            label="Лист реализ."
+            variant="ghost"
+            testId="button-impl-sheets-mobile"
+          />
+          {isAdminOrDirector && (
+            <MobileActionTile
+              onClick={() => setIsAssignClientModalOpen(true)}
+              icon={<User size={16} />}
+              label="Заказчик"
+              variant="ghost"
+              testId="button-assign-client-mobile"
+            />
+          )}
+          {isAdminOrDirector && project?.status !== 'archived' && financialSummary && (
+            <MobileActionTile
+              onClick={() => setIsCompleteProjectDialogOpen(true)}
+              icon={<CheckCircle size={16} />}
+              label="Завершить"
+              variant="ghost"
+              testId="button-complete-mobile"
+            />
+          )}
+        </div>
+
+        {isAdminOrDirector && (
+          <div className="lg:hidden flex justify-end">
+            <VoiceExpenseButton
+              currentProjectId={projectId}
+              onExpenseCreated={() => {
+                queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
+                queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
+              }}
+            />
+          </div>
+        )}
+
+        {/* === DESKTOP ACTION BUTTONS (hidden lg:flex) ============ */}
+        <div className="hidden lg:flex flex-col gap-2">
           {user?.role !== 'client' && (
             <button
               type="button"
