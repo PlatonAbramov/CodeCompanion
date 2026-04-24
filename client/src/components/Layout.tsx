@@ -13,8 +13,8 @@ interface LayoutProps {
 
 type TabKey = 'overview' | 'projects' | 'finance' | 'more';
 
-interface TabItem {
-  key: TabKey;
+interface NavItem {
+  key: string;
   label: string;
   icon: any;
   path: string;
@@ -22,12 +22,8 @@ interface TabItem {
   testId: string;
 }
 
-interface MenuItem {
-  label: string;
-  icon: any;
-  path: string;
-  count?: number;
-  testId: string;
+interface BottomTab extends NavItem {
+  key: TabKey;
 }
 
 export function Layout({ children }: LayoutProps) {
@@ -35,7 +31,7 @@ export function Layout({ children }: LayoutProps) {
   const [location, setLocation] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // Свайп-жесты (без изменений — поведение сохранено)
+  // Свайп-жесты
   useEffect(() => {
     let startX = 0;
     let startY = 0;
@@ -102,126 +98,149 @@ export function Layout({ children }: LayoutProps) {
     };
   }, []);
 
-  const showBottomNav = user && location !== '/login';
+  const showNav = user && location !== '/login';
 
   const go = (path: string) => {
     setMoreOpen(false);
     setLocation(path);
   };
 
-  // === Нижние вкладки (4-tab nav из брендбука) ===
   const homePath =
     user?.role === 'client' ? '/client-projects' :
     user?.role === 'master' ? '/master' :
     '/director';
 
-  const tabs: TabItem[] = [];
+  // === Сборка пунктов навигации ===
 
-  if (user) {
-    if (user.role === 'client') {
-      tabs.push({
-        key: 'overview',
-        label: 'Обзор',
-        icon: Home,
-        path: '/client-projects',
-        matches: (l) => l === '/client-projects' || l.startsWith('/client-projects'),
-        testId: 'tab-overview',
-      });
-      tabs.push({
-        key: 'projects',
-        label: 'Проекты',
-        icon: Building2,
-        path: '/client-projects',
-        matches: (l) => l.startsWith('/projects/') || l.startsWith('/expenses/') || l.startsWith('/implementation-sheets/'),
-        testId: 'tab-projects',
-      });
-    } else {
-      tabs.push({
-        key: 'overview',
-        label: 'Обзор',
-        icon: Home,
-        path: homePath,
-        matches: (l) => l === '/' || l === '/director' || l === '/master' || l === '/admin',
-        testId: 'tab-overview',
-      });
-      tabs.push({
-        key: 'projects',
-        label: 'Проекты',
-        icon: Building2,
-        path: homePath,
-        matches: (l) =>
-          l.startsWith('/projects/') ||
-          l.startsWith('/expenses/') ||
-          l.startsWith('/implementation-sheets/') ||
-          l.startsWith('/archived-projects'),
-        testId: 'tab-projects',
-      });
-      if (user.role === 'admin' || user.role === 'director') {
-        tabs.push({
-          key: 'finance',
-          label: 'Финансы',
-          icon: TrendingUp,
-          path: '/analytics',
-          matches: (l) =>
-            l.startsWith('/analytics') ||
-            l.startsWith('/add-expense') ||
-            l.startsWith('/add-revenue') ||
-            l.startsWith('/add-advance') ||
-            l.startsWith('/add-customer-advance') ||
-            l.startsWith('/add-owner-investment') ||
-            l.startsWith('/edit-expense') ||
-            l.startsWith('/edit-revenue') ||
-            l.startsWith('/edit-advance') ||
-            l.startsWith('/edit-customer-advance') ||
-            l.startsWith('/edit-owner-investment') ||
-            l.startsWith('/revenues/') ||
-            l.startsWith('/advances/') ||
-            l.startsWith('/customer-advances/') ||
-            l.startsWith('/owner-investments/'),
-          testId: 'tab-finance',
-        });
-      } else if (user.role === 'master') {
-        tabs.push({
-          key: 'finance',
-          label: 'Расходы',
-          icon: Receipt,
-          path: '/add-expense',
-          matches: (l) => l.startsWith('/add-expense') || l.startsWith('/edit-expense'),
-          testId: 'tab-finance',
-        });
-      }
-    }
-  }
+  const overviewItem: NavItem = {
+    key: 'overview',
+    label: 'Обзор',
+    icon: Home,
+    path: homePath,
+    matches: (l) => l === '/' || l === '/director' || l === '/master' || l === '/admin' || l === '/client-projects',
+    testId: 'tab-overview',
+  };
 
-  // Вкладка «Ещё» добавляется всегда последней
-  tabs.push({
-    key: 'more',
-    label: 'Ещё',
-    icon: MoreHorizontal,
-    path: '#more',
-    matches: () => false,
-    testId: 'tab-more',
-  });
+  const projectsItem: NavItem = {
+    key: 'projects',
+    label: 'Проекты',
+    icon: Building2,
+    path: homePath,
+    matches: (l) =>
+      l.startsWith('/projects/') ||
+      l.startsWith('/expenses/') ||
+      l.startsWith('/implementation-sheets/') ||
+      l.startsWith('/archived-projects'),
+    testId: 'tab-projects',
+  };
 
-  // === Содержимое sheet «Ещё» ===
-  const moreItems: MenuItem[] = [];
+  const financeItem: NavItem | null =
+    user && (user.role === 'admin' || user.role === 'director') ? {
+      key: 'finance',
+      label: 'Финансы',
+      icon: TrendingUp,
+      path: '/analytics',
+      matches: (l) =>
+        l.startsWith('/analytics') ||
+        l.startsWith('/add-expense') ||
+        l.startsWith('/add-revenue') ||
+        l.startsWith('/add-advance') ||
+        l.startsWith('/add-customer-advance') ||
+        l.startsWith('/add-owner-investment') ||
+        l.startsWith('/edit-expense') ||
+        l.startsWith('/edit-revenue') ||
+        l.startsWith('/edit-advance') ||
+        l.startsWith('/edit-customer-advance') ||
+        l.startsWith('/edit-owner-investment') ||
+        l.startsWith('/revenues/') ||
+        l.startsWith('/advances/') ||
+        l.startsWith('/customer-advances/') ||
+        l.startsWith('/owner-investments/'),
+      testId: 'tab-finance',
+    } :
+    user && user.role === 'master' ? {
+      key: 'finance',
+      label: 'Расходы',
+      icon: Receipt,
+      path: '/add-expense',
+      matches: (l) => l.startsWith('/add-expense') || l.startsWith('/edit-expense'),
+      testId: 'tab-finance',
+    } :
+    null;
 
-  if (user?.role !== 'client' && user) {
+  // Дополнительные пункты для «Ещё» / боковой панели
+  const extraItems: NavItem[] = [];
+  if (user && user.role !== 'client') {
     if (user.role !== 'master') {
-      moreItems.push({ label: 'Заказчики', icon: Users, path: '/clients', testId: 'menu-customers' });
+      extraItems.push({
+        key: 'clients',
+        label: 'Заказчики',
+        icon: Users,
+        path: '/clients',
+        matches: (l) => l.startsWith('/clients'),
+        testId: 'menu-customers',
+      });
     }
-    moreItems.push({ label: 'Подрядчики', icon: Users, path: '/contractors', testId: 'menu-contractors' });
+    extraItems.push({
+      key: 'contractors',
+      label: 'Подрядчики',
+      icon: Users,
+      path: '/contractors',
+      matches: (l) => l.startsWith('/contractors') || l.startsWith('/contractor/'),
+      testId: 'menu-contractors',
+    });
     if (user.role === 'admin' || user.role === 'director' || user.role === 'master') {
-      moreItems.push({ label: 'Инструменты', icon: Wrench, path: '/tools', testId: 'menu-tools' });
+      extraItems.push({
+        key: 'tools',
+        label: 'Инструменты',
+        icon: Wrench,
+        path: '/tools',
+        matches: (l) => l.startsWith('/tools'),
+        testId: 'menu-tools',
+      });
     }
     if (user.role === 'admin' || user.role === 'director') {
-      moreItems.push({ label: 'Персонал', icon: UserCheck, path: '/personnel', testId: 'menu-personnel' });
-      moreItems.push({ label: 'Архив проектов', icon: Building2, path: '/archived-projects', testId: 'menu-archive' });
+      extraItems.push({
+        key: 'personnel',
+        label: 'Персонал',
+        icon: UserCheck,
+        path: '/personnel',
+        matches: (l) => l.startsWith('/personnel'),
+        testId: 'menu-personnel',
+      });
     }
     if (user.role === 'admin') {
-      moreItems.push({ label: 'Сотрудники', icon: Shield, path: '/admin', testId: 'menu-staff' });
+      extraItems.push({
+        key: 'admin',
+        label: 'Сотрудники',
+        icon: Shield,
+        path: '/admin',
+        matches: (l) => l.startsWith('/admin'),
+        testId: 'menu-staff',
+      });
     }
   }
+
+  // === Вкладки нижней панели (моб.) ===
+  const bottomTabs: BottomTab[] = [];
+  if (user) {
+    bottomTabs.push({ ...overviewItem, key: 'overview' } as BottomTab);
+    bottomTabs.push({ ...projectsItem, key: 'projects' } as BottomTab);
+    if (financeItem) bottomTabs.push({ ...financeItem, key: 'finance' } as BottomTab);
+    bottomTabs.push({
+      key: 'more',
+      label: 'Ещё',
+      icon: MoreHorizontal,
+      path: '#more',
+      matches: () => false,
+      testId: 'tab-more',
+    });
+  }
+
+  // === Полный список для боковой панели и шторки «Ещё» ===
+  const sidebarItems: NavItem[] = [overviewItem, projectsItem];
+  if (financeItem) sidebarItems.push(financeItem);
+  sidebarItems.push(...extraItems);
 
   const roleLabel =
     user?.role === 'admin' ? 'Администратор' :
@@ -229,196 +248,295 @@ export function Layout({ children }: LayoutProps) {
     user?.role === 'master' ? 'Мастер' :
     user?.role === 'client' ? 'Заказчик' : '';
 
-  return (
-    <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
-      {/* Основной контент с отступом снизу для навигации */}
-      <div className={showBottomNav ? "pb-24" : ""} data-app-content>
+  const renderNavItem = (item: NavItem, active: boolean, variant: 'sidebar' | 'sheet') => {
+    const Icon = item.icon;
+    if (variant === 'sidebar') {
+      return (
+        <button
+          key={item.key}
+          type="button"
+          onClick={() => go(item.path)}
+          className="flex items-center gap-3 w-full h-11 px-3 transition-colors text-left"
+          style={{
+            background: active ? 'rgba(37,99,235,0.10)' : 'transparent',
+            color: active ? 'var(--corp-accent)' : 'var(--corp-ink-2)',
+            borderRadius: 'var(--corp-r)',
+            fontWeight: active ? 700 : 500,
+          }}
+          data-testid={item.testId}
+          aria-current={active ? 'page' : undefined}
+        >
+          <Icon size={18} strokeWidth={active ? 2.25 : 1.75} />
+          <span className="text-[14px]">{item.label}</span>
+          {active && (
+            <span
+              className="ml-auto inline-block w-1.5 h-1.5 rounded-full"
+              style={{ background: 'var(--corp-accent)' }}
+            />
+          )}
+        </button>
+      );
+    }
+    // sheet variant — без фона, с шевроном справа
+    return (
+      <button
+        key={item.key}
+        type="button"
+        onClick={() => go(item.path)}
+        className="flex items-center gap-3 w-full px-4 h-14 text-left transition-colors"
+        style={{ color: 'var(--corp-ink)' }}
+        data-testid={item.testId}
+      >
+        <Icon size={18} style={{ color: active ? 'var(--corp-accent)' : 'var(--corp-ink-2)' }} />
+        <span className="flex-1 text-[14px] font-semibold">{item.label}</span>
+        {active && (
+          <span
+            className="text-[10px] font-bold uppercase px-2 h-5 inline-flex items-center"
+            style={{
+              color: 'var(--corp-accent)',
+              background: 'rgba(37,99,235,0.10)',
+              borderRadius: 'var(--corp-r-sm)',
+              letterSpacing: '0.04em',
+            }}
+          >
+            Сейчас
+          </span>
+        )}
+        <ChevronRight size={16} style={{ color: 'var(--corp-muted)' }} />
+      </button>
+    );
+  };
+
+  // Не показываем меню вообще на странице логина
+  if (!showNav) {
+    return (
+      <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
         {children}
       </div>
+    );
+  }
 
-      {/* Фиксированная нижняя навигация — 4 вкладки */}
-      {showBottomNav && (
-        <nav
-          className="fixed bottom-0 left-0 right-0 z-50"
-          style={{
-            background: 'var(--corp-surface)',
-            borderTop: '1px solid var(--corp-line)',
-            paddingBottom: 'env(safe-area-inset-bottom)',
-          }}
+  return (
+    <div className="min-h-screen flex" style={{ background: 'var(--corp-bg)' }}>
+      {/* Боковая панель — десктоп (md+) */}
+      <aside
+        className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-60 z-40"
+        style={{
+          background: 'var(--corp-surface)',
+          borderRight: '1px solid var(--corp-line)',
+        }}
+      >
+        {/* Логотип / бренд */}
+        <div
+          className="px-4 h-16 flex items-center gap-3"
+          style={{ borderBottom: '1px solid var(--corp-line)' }}
         >
-          <div className="flex items-stretch h-16 max-w-3xl mx-auto">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isMore = tab.key === 'more';
-              const active = isMore ? moreOpen : tab.matches(location);
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--corp-ink)', color: '#fff' }}
+          >
+            <span className="text-[14px] font-bold">P</span>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[14px] font-bold leading-tight" style={{ color: 'var(--corp-ink)' }}>Pag</div>
+            <div
+              className="text-[10px] uppercase font-bold leading-tight"
+              style={{ color: 'var(--corp-muted)', letterSpacing: '0.08em' }}
+            >
+              Workspace
+            </div>
+          </div>
+        </div>
 
-              const inner = (
-                <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
-                  <Icon
-                    size={22}
-                    style={{ color: active ? 'var(--corp-ink)' : 'var(--corp-muted)' }}
-                    strokeWidth={active ? 2.25 : 1.75}
-                  />
-                  <span
-                    className="text-[10px] uppercase"
+        {/* Список разделов */}
+        <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+          {sidebarItems.map((item) => renderNavItem(item, item.matches(location), 'sidebar'))}
+        </nav>
+
+        {/* Пользователь и выход */}
+        <div className="p-3" style={{ borderTop: '1px solid var(--corp-line)' }}>
+          <div className="flex items-center gap-3 px-2 py-2 mb-1">
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)' }}
+            >
+              <span className="text-[12px] font-bold">
+                {(user?.name || '?').slice(0, 2).toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>
+                {user?.name || 'Пользователь'}
+              </div>
+              {roleLabel && (
+                <div className="text-[11px] truncate" style={{ color: 'var(--corp-muted)' }}>
+                  {roleLabel}
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="flex items-center gap-3 w-full h-10 px-3 transition-colors text-left"
+            style={{ color: 'var(--corp-neg)', borderRadius: 'var(--corp-r)' }}
+            data-testid="nav-logout-sidebar"
+          >
+            <LogOut size={16} />
+            <span className="text-[13px] font-bold">Выйти</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Основной контент */}
+      <div className="flex-1 min-w-0 md:pl-60">
+        <div className="pb-24 md:pb-6" data-app-content>
+          {children}
+        </div>
+      </div>
+
+      {/* Нижняя панель — только моб. (до md) */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
+        style={{
+          background: 'var(--corp-surface)',
+          borderTop: '1px solid var(--corp-line)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}
+      >
+        <div className="flex items-stretch h-16 max-w-3xl mx-auto">
+          {bottomTabs.map((tab) => {
+            const Icon = tab.icon;
+            const isMore = tab.key === 'more';
+            const active = isMore ? moreOpen : tab.matches(location);
+
+            const inner = (
+              <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
+                <Icon
+                  size={22}
+                  style={{ color: active ? 'var(--corp-ink)' : 'var(--corp-muted)' }}
+                  strokeWidth={active ? 2.25 : 1.75}
+                />
+                <span
+                  className="text-[10px] uppercase"
+                  style={{
+                    color: active ? 'var(--corp-ink)' : 'var(--corp-muted)',
+                    fontWeight: active ? 700 : 500,
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  {tab.label}
+                </span>
+              </div>
+            );
+
+            if (isMore) {
+              return (
+                <Sheet key={tab.key} open={moreOpen} onOpenChange={setMoreOpen}>
+                  <SheetTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex-1 transition-colors"
+                      data-testid={tab.testId}
+                      aria-label={tab.label}
+                    >
+                      {inner}
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent
+                    side="bottom"
+                    className="border-t p-0 max-h-[85vh] overflow-y-auto"
                     style={{
-                      color: active ? 'var(--corp-ink)' : 'var(--corp-muted)',
-                      fontWeight: active ? 700 : 500,
-                      letterSpacing: '0.06em',
+                      background: 'var(--corp-bg)',
+                      borderColor: 'var(--corp-line)',
+                      borderTopLeftRadius: 'var(--corp-r-lg)',
+                      borderTopRightRadius: 'var(--corp-r-lg)',
                     }}
                   >
-                    {tab.label}
-                  </span>
-                </div>
-              );
+                    <SheetHeader className="sr-only">
+                      <SheetTitle>Меню</SheetTitle>
+                    </SheetHeader>
 
-              if (isMore) {
-                return (
-                  <Sheet key={tab.key} open={moreOpen} onOpenChange={setMoreOpen}>
-                    <SheetTrigger asChild>
+                    {/* Шапка с пользователем */}
+                    <div
+                      className="px-4 pt-5 pb-4 flex items-center gap-3"
+                      style={{ borderBottom: '1px solid var(--corp-line)' }}
+                    >
+                      <div
+                        className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ background: 'var(--corp-ink)', color: '#fff' }}
+                      >
+                        <Home size={20} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[15px] font-bold truncate" style={{ color: 'var(--corp-ink)' }}>
+                          {user?.name || 'Пользователь'}
+                        </div>
+                        {roleLabel && (
+                          <div className="text-[12px] truncate" style={{ color: 'var(--corp-muted)' }}>
+                            {roleLabel}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Все разделы (включая обзор/проекты/финансы) */}
+                    {sidebarItems.length > 0 && (
+                      <div className="p-3">
+                        <div
+                          className="overflow-hidden"
+                          style={{
+                            background: 'var(--corp-surface)',
+                            border: '1px solid var(--corp-line)',
+                            borderRadius: 'var(--corp-r-lg)',
+                          }}
+                        >
+                          {sidebarItems.map((item, idx) => (
+                            <div
+                              key={item.key}
+                              style={{ borderTop: idx === 0 ? 'none' : '1px solid var(--corp-line)' }}
+                            >
+                              {renderNavItem(item, item.matches(location), 'sheet')}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Кнопка выхода */}
+                    <div className="px-3 pb-6">
                       <button
                         type="button"
-                        className="flex-1 transition-colors"
-                        data-testid={tab.testId}
-                        aria-label={tab.label}
+                        onClick={() => { setMoreOpen(false); logout(); }}
+                        className="flex items-center gap-3 w-full px-4 h-12 text-left"
+                        data-testid="nav-logout"
+                        style={{ color: 'var(--corp-neg)' }}
                       >
-                        {inner}
+                        <LogOut size={18} />
+                        <span className="text-[14px] font-bold">Выйти</span>
                       </button>
-                    </SheetTrigger>
-                    <SheetContent
-                      side="bottom"
-                      className="border-t p-0 max-h-[85vh] overflow-y-auto"
-                      style={{
-                        background: 'var(--corp-bg)',
-                        borderColor: 'var(--corp-line)',
-                        borderTopLeftRadius: 'var(--corp-r-lg)',
-                        borderTopRightRadius: 'var(--corp-r-lg)',
-                      }}
-                    >
-                      <SheetHeader className="sr-only">
-                        <SheetTitle>Меню</SheetTitle>
-                      </SheetHeader>
-
-                      {/* Шапка с пользователем */}
-                      <div
-                        className="px-4 pt-5 pb-4 flex items-center gap-3"
-                        style={{ borderBottom: '1px solid var(--corp-line)' }}
-                      >
-                        <div
-                          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ background: 'var(--corp-ink)', color: '#fff' }}
-                        >
-                          <Home size={20} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div
-                            className="text-[15px] font-bold truncate"
-                            style={{ color: 'var(--corp-ink)' }}
-                          >
-                            {user?.name || 'Пользователь'}
-                          </div>
-                          {roleLabel && (
-                            <div
-                              className="text-[12px] truncate"
-                              style={{ color: 'var(--corp-muted)' }}
-                            >
-                              {roleLabel}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Список разделов */}
-                      {moreItems.length > 0 && (
-                        <div className="p-3">
-                          <div
-                            className="overflow-hidden"
-                            style={{
-                              background: 'var(--corp-surface)',
-                              border: '1px solid var(--corp-line)',
-                              borderRadius: 'var(--corp-r-lg)',
-                            }}
-                          >
-                            {moreItems.map((item, idx) => {
-                              const ItemIcon = item.icon;
-                              return (
-                                <button
-                                  key={item.path}
-                                  type="button"
-                                  onClick={() => go(item.path)}
-                                  className="flex items-center gap-3 w-full px-4 h-14 text-left transition-colors"
-                                  style={{
-                                    borderTop: idx === 0 ? 'none' : '1px solid var(--corp-line)',
-                                    color: 'var(--corp-ink)',
-                                  }}
-                                  data-testid={item.testId}
-                                >
-                                  <ItemIcon
-                                    size={18}
-                                    style={{ color: 'var(--corp-ink-2)' }}
-                                  />
-                                  <span className="flex-1 text-[14px] font-semibold">
-                                    {item.label}
-                                  </span>
-                                  {typeof item.count === 'number' && (
-                                    <span
-                                      className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 text-[11px] font-bold"
-                                      style={{
-                                        background: 'var(--corp-surface-2)',
-                                        color: 'var(--corp-ink-3)',
-                                        borderRadius: 'var(--corp-r-sm)',
-                                        fontFamily: 'var(--corp-mono)',
-                                      }}
-                                    >
-                                      {item.count}
-                                    </span>
-                                  )}
-                                  <ChevronRight
-                                    size={16}
-                                    style={{ color: 'var(--corp-muted)' }}
-                                  />
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Кнопка выхода */}
-                      <div className="px-3 pb-6">
-                        <button
-                          type="button"
-                          onClick={() => { setMoreOpen(false); logout(); }}
-                          className="flex items-center gap-3 w-full px-4 h-12 text-left"
-                          data-testid="nav-logout"
-                          style={{ color: 'var(--corp-neg)' }}
-                        >
-                          <LogOut size={18} />
-                          <span className="text-[14px] font-bold">Выйти</span>
-                        </button>
-                      </div>
-                    </SheetContent>
-                  </Sheet>
-                );
-              }
-
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => go(tab.path)}
-                  className="flex-1 transition-colors"
-                  data-testid={tab.testId}
-                  aria-label={tab.label}
-                  aria-current={active ? 'page' : undefined}
-                >
-                  {inner}
-                </button>
+                    </div>
+                  </SheetContent>
+                </Sheet>
               );
-            })}
-          </div>
-        </nav>
-      )}
+            }
+
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => go(tab.path)}
+                className="flex-1 transition-colors"
+                data-testid={tab.testId}
+                aria-label={tab.label}
+                aria-current={active ? 'page' : undefined}
+              >
+                {inner}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
