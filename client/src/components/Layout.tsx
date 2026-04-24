@@ -190,64 +190,120 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
       {/* Основной контент с отступом снизу для навигации */}
       <div className={showBottomNav ? "pb-24" : ""} data-app-content>
         {children}
       </div>
 
-      {/* Фиксированная нижняя навигация - одна кнопка-меню */}
+      {/* Фиксированная нижняя навигация — корпоративный стиль */}
       {showBottomNav && (
         <div
-          className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          className="fixed bottom-0 left-0 right-0 z-50"
+          style={{
+            background: 'var(--corp-surface)',
+            borderTop: '1px solid var(--corp-line)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+          }}
         >
           <div className="flex justify-center items-center h-16 px-4">
             <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
               <SheetTrigger asChild>
                 <button
-                  className="flex flex-col items-center justify-center px-6 py-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+                  type="button"
+                  className="inline-flex items-center gap-2 h-11 px-5 transition-colors"
+                  style={{
+                    background: menuOpen ? 'var(--corp-accent)' : 'var(--corp-surface-2)',
+                    color: menuOpen ? '#fff' : 'var(--corp-ink-2)',
+                    borderRadius: 'var(--corp-r)',
+                    border: '1px solid var(--corp-line)',
+                  }}
                   data-testid="nav-menu"
                   aria-label="Меню"
                 >
-                  <Menu size={24} />
-                  <span className="text-xs mt-1">Меню</span>
+                  <Menu size={18} />
+                  <span
+                    className="text-[12px] font-bold uppercase"
+                    style={{ letterSpacing: '0.06em' }}
+                  >
+                    Меню
+                  </span>
                 </button>
               </SheetTrigger>
-              <SheetContent side="bottom" className="rounded-t-2xl">
-                <SheetHeader>
-                  <SheetTitle>Меню</SheetTitle>
-                </SheetHeader>
-                <div className="grid grid-cols-1 gap-1 mt-4 pb-4">
-                  {menuItems.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        key={item.path}
-                        onClick={() => go(item.path)}
-                        className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-colors ${
-                          item.active
-                            ? 'text-blue-600 bg-blue-50'
-                            : 'text-gray-700 hover:bg-gray-50'
-                        }`}
-                        data-testid={item.testId}
-                      >
-                        <Icon size={20} />
-                        <span className="font-medium">{item.label}</span>
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      logout();
-                    }}
-                    className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left text-red-600 hover:bg-red-50 transition-colors mt-2"
-                    data-testid="nav-logout"
-                  >
-                    <LogOut size={20} />
-                    <span className="font-medium">Выход</span>
-                  </button>
+              <SheetContent
+                side="bottom"
+                className="border-t p-0"
+                style={{
+                  background: 'var(--corp-surface)',
+                  borderColor: 'var(--corp-line)',
+                  borderTopLeftRadius: 'var(--corp-r-lg)',
+                  borderTopRightRadius: 'var(--corp-r-lg)',
+                }}
+              >
+                <div
+                  className="px-4 pt-4 pb-3"
+                  style={{ borderBottom: '1px solid var(--corp-line)' }}
+                >
+                  <SheetHeader>
+                    <SheetTitle
+                      className="text-[11px] font-bold uppercase text-left"
+                      style={{ color: 'var(--corp-muted)', letterSpacing: '0.08em' }}
+                    >
+                      {user?.name || 'Меню'}
+                    </SheetTitle>
+                  </SheetHeader>
+                </div>
+                <div className="px-2 pt-2 pb-4">
+                  <div className="flex flex-col">
+                    {menuItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.path}
+                          type="button"
+                          onClick={() => go(item.path)}
+                          className="flex items-center gap-3 w-full px-3 h-12 text-left transition-colors"
+                          style={{
+                            background: item.active ? 'rgba(37,99,235,0.10)' : 'transparent',
+                            color: item.active ? 'var(--corp-accent)' : 'var(--corp-ink-2)',
+                            borderRadius: 'var(--corp-r)',
+                          }}
+                          data-testid={item.testId}
+                        >
+                          <Icon size={18} />
+                          <span className="text-[14px] font-semibold">{item.label}</span>
+                          {item.active && (
+                            <span
+                              className="ml-auto inline-block w-1.5 h-1.5 rounded-full"
+                              style={{ background: 'var(--corp-accent)' }}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    <div
+                      className="my-2"
+                      style={{ borderTop: '1px solid var(--corp-line)' }}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        logout();
+                      }}
+                      className="flex items-center gap-3 w-full px-3 h-12 text-left transition-colors"
+                      style={{
+                        color: 'var(--corp-neg)',
+                        borderRadius: 'var(--corp-r)',
+                      }}
+                      data-testid="nav-logout"
+                    >
+                      <LogOut size={18} />
+                      <span className="text-[14px] font-semibold">Выход</span>
+                    </button>
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
