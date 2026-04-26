@@ -23,8 +23,14 @@ interface VehicleListItem {
   color?: string | null;
   photoUrl?: string | null;
   status: string;
-  assignedUserId?: string | null;
-  assignedUser?: { id: string; name: string; role: string } | null;
+  assignedPersonnelId?: string | null;
+  assignedPersonnel?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    specialization?: string | null;
+    photoUrl?: string | null;
+  } | null;
   lastPhotoControl?: {
     id: string;
     performedAt: string | null;
@@ -33,10 +39,12 @@ interface VehicleListItem {
   } | null;
 }
 
-interface MasterUser {
+interface PersonnelOption {
   id: string;
-  name: string;
-  username: string;
+  firstName: string;
+  lastName: string;
+  specialization: string;
+  status?: string | null;
 }
 
 type StatusFilter = 'active' | 'archived' | 'all';
@@ -93,7 +101,10 @@ function VehicleCard({ v, onClick }: { v: VehicleListItem; onClick: () => void }
             )}
           </div>
           <p className="text-[12px] truncate" style={{ color: 'var(--corp-muted)' }}>
-            {v.assignedUser?.name || 'Не назначен'}{v.year ? ` · ${v.year}` : ''}
+            {v.assignedPersonnel
+              ? `${v.assignedPersonnel.lastName} ${v.assignedPersonnel.firstName}`
+              : 'Не назначен'}
+            {v.year ? ` · ${v.year}` : ''}
           </p>
           {v.lastPhotoControl ? (
             <p className="text-[11px] mt-0.5" style={{ color: 'var(--corp-ink-3)' }}>
@@ -124,10 +135,10 @@ export default function Vehicles() {
     queryKey: ['/api/vehicles'],
   });
 
-  const { data: masters = [] } = useQuery<MasterUser[]>({
-    queryKey: ['/api/users', 'master'],
+  const { data: personnelOptions = [] } = useQuery<PersonnelOption[]>({
+    queryKey: ['/api/personnel'],
     queryFn: async () => {
-      const r = await fetch('/api/users?role=master', { credentials: 'include' });
+      const r = await fetch('/api/personnel', { credentials: 'include' });
       if (!r.ok) return [];
       return r.json();
     },
@@ -139,11 +150,14 @@ export default function Vehicles() {
     return vehicles.filter((v) => {
       if (statusFilter !== 'all' && v.status !== statusFilter) return false;
       if (assignedFilter !== 'all') {
-        if (assignedFilter === 'none' && v.assignedUserId) return false;
-        if (assignedFilter !== 'none' && v.assignedUserId !== assignedFilter) return false;
+        if (assignedFilter === 'none' && v.assignedPersonnelId) return false;
+        if (assignedFilter !== 'none' && v.assignedPersonnelId !== assignedFilter) return false;
       }
       if (!q) return true;
-      return [v.brand, v.model, v.plateNumber, v.vin || '', v.assignedUser?.name || '']
+      const personName = v.assignedPersonnel
+        ? `${v.assignedPersonnel.lastName} ${v.assignedPersonnel.firstName}`
+        : '';
+      return [v.brand, v.model, v.plateNumber, v.vin || '', personName]
         .join(' ')
         .toLowerCase()
         .includes(q);
@@ -243,20 +257,20 @@ export default function Vehicles() {
         </div>
 
         {/* Assigned filter (director only) */}
-        {isDirector && masters.length > 0 && (
+        {isDirector && personnelOptions.length > 0 && (
           <Select value={assignedFilter} onValueChange={setAssignedFilter}>
             <SelectTrigger
               className="h-9 text-[12px]"
               data-testid="select-assigned-filter"
             >
-              <SelectValue placeholder="Сотрудник" />
+              <SelectValue placeholder="Водитель" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все сотрудники</SelectItem>
+              <SelectItem value="all">Все водители</SelectItem>
               <SelectItem value="none">Без назначения</SelectItem>
-              {masters.map((m) => (
-                <SelectItem key={m.id} value={m.id}>
-                  {m.name || m.username}
+              {personnelOptions.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.lastName} {p.firstName}
                 </SelectItem>
               ))}
             </SelectContent>

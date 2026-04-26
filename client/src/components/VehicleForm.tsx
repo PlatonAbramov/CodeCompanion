@@ -19,14 +19,16 @@ export interface VehicleFormValues {
   vin?: string | null;
   color?: string | null;
   photoUrl?: string | null;
-  assignedUserId?: string | null;
+  assignedPersonnelId?: string | null;
 }
 
-interface MasterUser {
+interface PersonnelRecord {
   id: string;
-  name: string;
-  username: string;
-  role: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string | null;
+  specialization: string;
+  status?: string | null;
 }
 
 interface VehicleFormProps {
@@ -48,16 +50,24 @@ export function VehicleForm({ initial, onSuccess, onCancel }: VehicleFormProps) 
   const [plateNumber, setPlateNumber] = useState(initial?.plateNumber || '');
   const [vin, setVin] = useState(initial?.vin || '');
   const [color, setColor] = useState(initial?.color || '');
-  const [assignedUserId, setAssignedUserId] = useState(initial?.assignedUserId || '');
+  const [assignedPersonnelId, setAssignedPersonnelId] = useState(initial?.assignedPersonnelId || '');
   const [photoUrl, setPhotoUrl] = useState(initial?.photoUrl || '');
 
-  const { data: masters = [] } = useQuery<MasterUser[]>({
-    queryKey: ['/api/users', 'master'],
+  // Список водителей берём из справочника «Персонал».
+  const { data: personnelList = [] } = useQuery<PersonnelRecord[]>({
+    queryKey: ['/api/personnel'],
     queryFn: async () => {
-      const r = await fetch('/api/users?role=master', { credentials: 'include' });
+      const r = await fetch('/api/personnel', { credentials: 'include' });
       if (!r.ok) return [];
       return r.json();
     },
+  });
+  // Активные сотрудники сверху, остальные — ниже, с пометкой статуса.
+  const personnelSorted = [...personnelList].sort((a, b) => {
+    const aActive = (a.status || 'active') === 'active' ? 0 : 1;
+    const bActive = (b.status || 'active') === 'active' ? 0 : 1;
+    if (aActive !== bActive) return aActive - bActive;
+    return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'ru');
   });
 
   const handleGetUploadParameters = async () => {
@@ -103,7 +113,7 @@ export function VehicleForm({ initial, onSuccess, onCancel }: VehicleFormProps) 
         vin: vin.trim() || null,
         color: color.trim() || null,
         photoUrl: photoUrl || null,
-        assignedUserId: assignedUserId || null,
+        assignedPersonnelId: assignedPersonnelId || null,
       };
       const r = await apiRequest(
         isEdit ? `/api/vehicles/${initial!.id}` : '/api/vehicles',
@@ -268,24 +278,33 @@ export function VehicleForm({ initial, onSuccess, onCancel }: VehicleFormProps) 
 
       <div>
         <Label className="text-[12px] font-semibold" style={{ color: 'var(--corp-ink-2)' }}>
-          Закреплённый сотрудник
+          Закреплённый водитель (из «Персонала»)
         </Label>
         <Select
-          value={assignedUserId || 'none'}
-          onValueChange={(v) => setAssignedUserId(v === 'none' ? '' : v)}
+          value={assignedPersonnelId || 'none'}
+          onValueChange={(v) => setAssignedPersonnelId(v === 'none' ? '' : v)}
         >
-          <SelectTrigger className="h-9 text-[13px] mt-1" data-testid="select-assigned-user">
+          <SelectTrigger className="h-9 text-[13px] mt-1" data-testid="select-assigned-personnel">
             <SelectValue placeholder="Не назначен" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">Не назначен</SelectItem>
-            {masters.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.name || m.username}
-              </SelectItem>
-            ))}
+            {personnelSorted.map((p) => {
+              const fullName = `${p.lastName} ${p.firstName}${p.middleName ? ' ' + p.middleName : ''}`.trim();
+              const inactive = (p.status || 'active') !== 'active';
+              return (
+                <SelectItem key={p.id} value={p.id}>
+                  {fullName} · {p.specialization}{inactive ? ' (не активен)' : ''}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
+        {personnelList.length === 0 && (
+          <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)' }}>
+            Список пуст. Добавьте сотрудника в разделе «Персонал».
+          </p>
+        )}
       </div>
 
       <div className="flex gap-2 pt-2">

@@ -18,8 +18,8 @@ interface Vehicle {
   model: string;
   plateNumber: string;
   status: string;
-  assignedUserId?: string | null;
-  assignedUser?: { id: string; name: string } | null;
+  assignedPersonnelId?: string | null;
+  assignedPersonnel?: { id: string; firstName: string; lastName: string } | null;
 }
 
 interface LastControl {
@@ -209,12 +209,12 @@ export default function PhotoControl() {
   }, []);
 
   const isAdmin = user?.role === 'admin';
-  const isAssigned = vehicle && vehicle.assignedUserId === user?.id;
+  // Закрепление теперь идёт из «Персонала», поэтому фотоконтроль доступен любому
+  // с ролью master/director/admin (имя выполняющего сохраняется в performedByUserId).
   const canPerform = !!timeWin?.canPerform || isAdmin;
   const blockReason = useMemo(() => {
     if (!vehicle) return null;
     if (vehicle.status === 'archived') return 'Этот автомобиль в архиве.';
-    if (!isAssigned && !isAdmin) return 'Этот автомобиль не закреплён за вами.';
     if (!canPerform) {
       if (timeWin?.windowStartsAtUtcMs) {
         return `Фотоконтроль доступен по воскресеньям с 08:00 до 20:00 (GST). Следующее окно: ${formatDateRu(timeWin.windowStartsAtUtcMs)}.`;
@@ -222,7 +222,7 @@ export default function PhotoControl() {
       return 'Окно фотоконтроля закрыто. Доступно по воскресеньям с 08:00 до 20:00 (GST).';
     }
     return null;
-  }, [vehicle, isAssigned, isAdmin, canPerform, timeWin]);
+  }, [vehicle, canPerform, timeWin]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {

@@ -3096,18 +3096,24 @@ export class DatabaseStorage implements IStorage {
   // ========================================================================
   // Vehicles (Автомобили / фотоконтроль)
   // ========================================================================
-  async getAllVehicles(opts?: { assignedUserId?: string; status?: string }) {
+  async getAllVehicles(opts?: { assignedPersonnelId?: string; status?: string }) {
     const conds: any[] = [];
-    if (opts?.assignedUserId) conds.push(eq(vehicles.assignedUserId, opts.assignedUserId));
+    if (opts?.assignedPersonnelId) conds.push(eq(vehicles.assignedPersonnelId, opts.assignedPersonnelId));
     if (opts?.status) conds.push(eq(vehicles.status, opts.status));
     const where = conds.length > 0 ? and(...conds) : undefined;
     const rows = await db
       .select({
         v: vehicles,
-        u: { id: users.id, name: users.name, role: users.role },
+        p: {
+          id: personnel.id,
+          firstName: personnel.firstName,
+          lastName: personnel.lastName,
+          specialization: personnel.specialization,
+          photoUrl: personnel.photoUrl,
+        },
       })
       .from(vehicles)
-      .leftJoin(users, eq(users.id, vehicles.assignedUserId))
+      .leftJoin(personnel, eq(personnel.id, vehicles.assignedPersonnelId))
       .where(where as any)
       .orderBy(desc(vehicles.createdAt));
 
@@ -3131,9 +3137,9 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    return rows.map(({ v, u }) => ({
+    return rows.map(({ v, p }) => ({
       ...v,
-      assignedUser: u && u.id ? u : null,
+      assignedPersonnel: p && p.id ? p : null,
       lastPhotoControl: lastByVehicle.get(v.id) || null,
     }));
   }
@@ -3142,14 +3148,20 @@ export class DatabaseStorage implements IStorage {
     const [row] = await db
       .select({
         v: vehicles,
-        u: { id: users.id, name: users.name, role: users.role },
+        p: {
+          id: personnel.id,
+          firstName: personnel.firstName,
+          lastName: personnel.lastName,
+          specialization: personnel.specialization,
+          photoUrl: personnel.photoUrl,
+        },
       })
       .from(vehicles)
-      .leftJoin(users, eq(users.id, vehicles.assignedUserId))
+      .leftJoin(personnel, eq(personnel.id, vehicles.assignedPersonnelId))
       .where(eq(vehicles.id, id))
       .limit(1);
     if (!row) return undefined;
-    return { ...row.v, assignedUser: row.u && row.u.id ? row.u : null };
+    return { ...row.v, assignedPersonnel: row.p && row.p.id ? row.p : null };
   }
 
   async createVehicle(data: InsertVehicle) {

@@ -1179,7 +1179,7 @@ export const vehicles = pgTable("vehicles", {
   vin: text("vin"),
   color: text("color"),
   photoUrl: text("photo_url"),
-  assignedUserId: varchar("assigned_user_id").references(() => users.id),
+  assignedPersonnelId: varchar("assigned_personnel_id").references(() => personnel.id),
   status: text("status").notNull().default("active"), // 'active' | 'archived'
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1218,7 +1218,7 @@ export const vehicleAuditLog = pgTable("vehicle_audit_log", {
 });
 
 export const vehiclesRelations = relations(vehicles, ({ one, many }) => ({
-  assignedUser: one(users, { fields: [vehicles.assignedUserId], references: [users.id] }),
+  assignedPersonnel: one(personnel, { fields: [vehicles.assignedPersonnelId], references: [personnel.id] }),
   photoControls: many(vehiclePhotoControls),
 }));
 

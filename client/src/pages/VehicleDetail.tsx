@@ -25,8 +25,14 @@ interface Vehicle {
   color?: string | null;
   photoUrl?: string | null;
   status: string;
-  assignedUserId?: string | null;
-  assignedUser?: { id: string; name: string; role: string } | null;
+  assignedPersonnelId?: string | null;
+  assignedPersonnel?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    specialization?: string | null;
+    photoUrl?: string | null;
+  } | null;
   createdAt?: string | null;
 }
 
@@ -174,7 +180,7 @@ export default function VehicleDetail() {
 
   const isArchived = vehicle?.status === 'archived';
   const canManage = isDirector;
-  const canPhotoControl = isMaster && vehicle?.assignedUserId === user?.id && !isArchived;
+  const canPhotoControl = (isMaster || isDirector || user?.role === 'admin') && !isArchived;
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
@@ -266,7 +272,17 @@ export default function VehicleDetail() {
                 <InfoRow label="Год выпуска" value={vehicle.year || '—'} />
                 <InfoRow label="VIN" value={vehicle.vin ? <span className="font-mono text-[11px]">{vehicle.vin}</span> : '—'} />
                 <InfoRow label="Цвет" value={vehicle.color || '—'} />
-                <InfoRow label="Закреплён" value={vehicle.assignedUser?.name || 'Не назначен'} />
+                <InfoRow
+                  label="Закреплён"
+                  value={
+                    vehicle.assignedPersonnel
+                      ? `${vehicle.assignedPersonnel.lastName} ${vehicle.assignedPersonnel.firstName}` +
+                        (vehicle.assignedPersonnel.specialization
+                          ? ` · ${vehicle.assignedPersonnel.specialization}`
+                          : '')
+                      : 'Не назначен'
+                  }
+                />
                 <InfoRow label="Статус" value={isArchived ? 'Архив' : 'Активен'} />
                 {vehicle.createdAt && (
                   <InfoRow label="Добавлен" value={fmtDateRu(vehicle.createdAt)} />
@@ -603,7 +619,7 @@ export default function VehicleDetail() {
                 vin: vehicle.vin,
                 color: vehicle.color,
                 photoUrl: vehicle.photoUrl,
-                assignedUserId: vehicle.assignedUserId,
+                assignedPersonnelId: vehicle.assignedPersonnelId,
               }}
               onSuccess={() => setEditOpen(false)}
               onCancel={() => setEditOpen(false)}

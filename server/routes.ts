@@ -3828,15 +3828,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.status(403).json({ error: "Forbidden" });
   };
 
-  // Список автомобилей
+  // Список автомобилей.
+  // Закрепление сотрудника производится из справочника «Персонал», поэтому
+  // прямой связи между login-пользователем (master) и автомобилем больше нет.
+  // Мастер видит все активные авто (любой может выполнять фотоконтроль на любом авто).
   app.get("/api/vehicles", requireAuth, requireVehicleRole, async (req: any, res) => {
     try {
       const u = req.session.user;
       const status = req.query.status as string | undefined;
-      const opts: { assignedUserId?: string; status?: string } = {};
+      const opts: { status?: string } = {};
       if (status) opts.status = status;
-      if (u.role === 'master') {
-        opts.assignedUserId = u.id;
+      // Для мастера показываем только активные авто (архив скрываем).
+      if (u.role === 'master' && !opts.status) {
+        opts.status = 'active';
       }
       const list = await storage.getAllVehicles(opts);
       res.json(list);
@@ -3852,7 +3856,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
       const u = req.session.user;
-      if (u.role === 'master' && v.assignedUserId !== u.id) {
+      // Мастеру не показываем архивные авто.
+      if (u.role === 'master' && v.status === 'archived') {
         return res.status(403).json({ error: "Forbidden" });
       }
       res.json(v);
@@ -3909,14 +3914,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action = (data as any).status === 'archived' ? 'archive' : 'restore';
         details.statusFrom = before.status;
         details.statusTo = (data as any).status;
-      } else if (changed.includes('assignedUserId') && (data as any).assignedUserId !== before.assignedUserId) {
+      } else if (
+        changed.includes('assignedPersonnelId') &&
+        (data as any).assignedPersonnelId !== before.assignedPersonnelId
+      ) {
         action = 'reassign';
-        details.assignedFrom = before.assignedUserId || null;
-        details.assignedTo = (data as any).assignedUserId || null;
-        details.assignedFromName = before.assignedUser?.name || null;
+        details.assignedFrom = before.assignedPersonnelId || null;
+        details.assignedTo = (data as any).assignedPersonnelId || null;
+        const fromName = before.assignedPersonnel
+          ? `${before.assignedPersonnel.lastName} ${before.assignedPersonnel.firstName}`.trim()
+          : null;
+        details.assignedFromName = fromName;
         if (details.assignedTo) {
-          const u = await storage.getUser(details.assignedTo);
-          details.assignedToName = u?.name || u?.username || null;
+          const p = await storage.getPersonnel(details.assignedTo);
+          details.assignedToName = p ? `${p.lastName} ${p.firstName}`.trim() : null;
         } else {
           details.assignedToName = null;
         }
@@ -4171,12 +4182,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Автомобиль в архиве" });
       }
 
-      // Только закреплённый сотрудник (admin может в виде исключения)
-      const isAssigned = v.assignedUserId === u.id;
-      const isAdmin = u.role === 'admin';
-      if (!isAssigned && !isAdmin) {
-        return res.status(403).json({ error: "Только закреплённый сотрудник может проходить фотоконтроль" });
+      // Закрепление теперь идёт из «Персонала» (без login-связи), поэтому
+      // фотоконтроль может выполнить любой пользователь с ролью master/director/admin.
+      // Имя выполнившего сохраняется в performedByUserId и в журнале аудита.
+      if (u.role !== 'master' && u.role !== 'director' && u.role !== 'admin') {
+        return res.status(403).json({ error: "Недостаточно прав" });
       }
+      const isAdmin = u.role === 'admin';
 
       // Серверная проверка окна (Воскресенье 08:00–20:00 GST)
       const now = new Date();
@@ -4322,7 +4334,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
       const u = req.session.user;
-      if (u.role === 'master' && v.assignedUserId !== u.id) {
+      if (u.role === 'master' && v.status === 'archived') {
         return res.status(403).json({ error: "Forbidden" });
       }
       const list = await storage.getVehiclePhotoControls(req.params.id);
@@ -4340,7 +4352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
       const u = req.session.user;
-      if (u.role === 'master' && v.assignedUserId !== u.id) {
+      if (u.role === 'master' && v.status === 'archived') {
         return res.status(403).json({ error: "Forbidden" });
       }
       const stats = await storage.getVehicleMileageStats(req.params.id);
