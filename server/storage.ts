@@ -400,6 +400,10 @@ export interface IStorage {
   }>;
 
   createVehicleAuditLog(entry: InsertVehicleAuditLog): Promise<VehicleAuditLog>;
+  getVehicleAuditLog(vehicleId: string, limit?: number): Promise<(VehicleAuditLog & {
+    user?: { id: string; name: string | null; username: string | null } | null;
+  })[]>;
+  correctVehiclePhotoControlMileage(controlId: string, newMileageKm: number): Promise<VehiclePhotoControl>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3296,6 +3300,35 @@ export class DatabaseStorage implements IStorage {
       .update(vehiclePhotoControls)
       .set({ pdfUrl })
       .where(eq(vehiclePhotoControls.id, id));
+  }
+
+  async getVehicleAuditLog(vehicleId: string, limit = 100) {
+    const rows = await db
+      .select({
+        log: vehicleAuditLog,
+        u: { id: users.id, name: users.name, username: users.username },
+      })
+      .from(vehicleAuditLog)
+      .leftJoin(users, eq(users.id, vehicleAuditLog.userId))
+      .where(eq(vehicleAuditLog.vehicleId, vehicleId))
+      .orderBy(desc(vehicleAuditLog.createdAt))
+      .limit(limit);
+    return rows.map(({ log, u }) => ({
+      ...log,
+      user: u && u.id ? u : null,
+    }));
+  }
+
+  async correctVehiclePhotoControlMileage(controlId: string, newMileageKm: number) {
+    const [updated] = await db
+      .update(vehiclePhotoControls)
+      .set({ mileageKm: newMileageKm })
+      .where(eq(vehiclePhotoControls.id, controlId))
+      .returning();
+    if (!updated) {
+      throw new Error('Photo control not found');
+    }
+    return updated;
   }
 
   async createVehicleAuditLog(entry: InsertVehicleAuditLog) {

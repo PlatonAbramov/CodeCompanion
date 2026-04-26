@@ -4,11 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Car, Edit2, Archive, RotateCcw, Camera, BarChart3, ClipboardList, FileText, ImageIcon } from "lucide-react";
+import { ArrowLeft, Car, Edit2, Archive, RotateCcw, Camera, BarChart3, ClipboardList, FileText, ImageIcon, Pencil, History, Loader2 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { fmtDateRu } from "@/components/corp-ui";
 import { VehicleForm } from "@/components/VehicleForm";
 
@@ -99,6 +102,55 @@ export default function VehicleDetail() {
     enabled: !!id,
   });
 
+  // Журнал аудита (только для директора/админа)
+  interface AuditEntry {
+    id: string;
+    action: string;
+    details: any;
+    createdAt: string | null;
+    user?: { id: string; name: string | null; username: string | null } | null;
+  }
+  const { data: auditLog = [], isLoading: auditLoading } = useQuery<AuditEntry[]>({
+    queryKey: ['/api/vehicles', id, 'audit-log'],
+    queryFn: async () => {
+      const r = await fetch(`/api/vehicles/${id}/audit-log`, { credentials: 'include' });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: !!id && (user?.role === 'admin' || user?.role === 'director'),
+  });
+
+  // Корректировка пробега (директор/админ)
+  const [mileageEdit, setMileageEdit] = useState<{
+    controlId: string;
+    currentMileage: number;
+    newMileage: string;
+    reason: string;
+  } | null>(null);
+  const correctMileageMutation = useMutation({
+    mutationFn: async (vars: { controlId: string; mileageKm: number; reason: string }) => {
+      const r = await apiRequest(
+        `/api/vehicles/${id}/photo-controls/${vars.controlId}/mileage`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ mileageKm: vars.mileageKm, reason: vars.reason }),
+        },
+      );
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/vehicles', id, 'photo-controls'] });
+      qc.invalidateQueries({ queryKey: ['/api/vehicles', id, 'mileage-stats'] });
+      qc.invalidateQueries({ queryKey: ['/api/vehicles', id, 'audit-log'] });
+      qc.invalidateQueries({ queryKey: ['/api/vehicles'] });
+      setMileageEdit(null);
+      toast({ title: 'Пробег обновлён' });
+    },
+    onError: (e: any) => {
+      toast({ title: 'Ошибка', description: e?.message || 'Не удалось обновить', variant: 'destructive' });
+    },
+  });
+
   const archiveMutation = useMutation({
     mutationFn: async (newStatus: 'active' | 'archived') => {
       const r = await apiRequest(`/api/vehicles/${id}`, {
@@ -110,6 +162,7 @@ export default function VehicleDetail() {
     onSuccess: (_d, newStatus) => {
       qc.invalidateQueries({ queryKey: ['/api/vehicles'] });
       qc.invalidateQueries({ queryKey: ['/api/vehicles', id] });
+      qc.invalidateQueries({ queryKey: ['/api/vehicles', id, 'audit-log'] });
       toast({
         title: newStatus === 'archived' ? 'В архиве' : 'Восстановлен',
       });
@@ -382,31 +435,136 @@ export default function VehicleDetail() {
                             {' · '}{c.performedBy?.name || '—'}
                           </p>
                         </div>
-                        {c.pdfUrl ? (
-                          <a
-                            href={c.pdfUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-semibold"
-                            style={{
-                              background: 'var(--corp-accent-soft, #EEF1FF)',
-                              color: 'var(--corp-accent)',
-                            }}
-                            data-testid={`link-pdf-${c.id}`}
-                          >
-                            <FileText size={12} /> PDF
-                          </a>
-                        ) : (
-                          <span className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                            нет PDF
-                          </span>
-                        )}
+                        <div className="flex flex-col items-end gap-1">
+                          {c.pdfUrl ? (
+                            <a
+                              href={c.pdfUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-semibold"
+                              style={{
+                                background: 'var(--corp-accent-soft, #EEF1FF)',
+                                color: 'var(--corp-accent)',
+                              }}
+                              data-testid={`link-pdf-${c.id}`}
+                            >
+                              <FileText size={12} /> PDF
+                            </a>
+                          ) : (
+                            <span className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                              нет PDF
+                            </span>
+                          )}
+                          {canManage && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setMileageEdit({
+                                  controlId: c.id,
+                                  currentMileage: c.mileageKm,
+                                  newMileage: String(c.mileageKm),
+                                  reason: '',
+                                })
+                              }
+                              data-testid={`button-correct-mileage-${c.id}`}
+                              className="flex items-center gap-1 px-2 py-1 rounded text-[11px]"
+                              style={{
+                                color: 'var(--corp-muted)',
+                                border: '1px solid var(--corp-line)',
+                              }}
+                            >
+                              <Pencil size={10} /> Пробег
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               )}
             </div>
+
+            {/* Audit log (директор/админ) */}
+            {canManage && (
+              <div
+                className="p-3"
+                style={{
+                  background: 'var(--corp-surface)',
+                  border: '1px solid var(--corp-line)',
+                  borderRadius: 'var(--corp-r-lg)',
+                }}
+                data-testid="card-audit-log"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <History size={16} style={{ color: 'var(--corp-accent)' }} />
+                  <h3 className="text-[13px] font-bold" style={{ color: 'var(--corp-ink)' }}>
+                    Журнал действий
+                  </h3>
+                </div>
+                {auditLoading ? (
+                  <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+                    <Loader2 size={12} className="animate-spin" /> Загрузка…
+                  </div>
+                ) : auditLog.length === 0 ? (
+                  <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+                    Записей пока нет.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                    {auditLog.map((a) => {
+                      const actor = a.user?.name || a.user?.username || 'Система';
+                      const d = a.details || {};
+                      let descr = '';
+                      switch (a.action) {
+                        case 'create':
+                          descr = `Добавлен автомобиль ${d.brand || ''} ${d.model || ''} · ${d.plateNumber || ''}`.trim();
+                          break;
+                        case 'update':
+                          descr = `Обновлены поля: ${(d.fields || []).join(', ') || '—'}`;
+                          break;
+                        case 'archive':
+                          descr = 'Перенесён в архив';
+                          break;
+                        case 'restore':
+                          descr = 'Восстановлен из архива';
+                          break;
+                        case 'reassign':
+                          descr = `Назначен сотрудник: ${d.assignedToName || 'не назначен'}` +
+                            (d.assignedFromName ? ` (был: ${d.assignedFromName})` : '');
+                          break;
+                        case 'photo_control':
+                          descr = `Выполнен фотоконтроль · пробег ${(d.mileageKm || 0).toLocaleString('ru-RU')} км`;
+                          break;
+                        case 'mileage_correction':
+                          descr = `Корректировка пробега: ${(d.mileageFrom || 0).toLocaleString('ru-RU')} → ${(d.mileageTo || 0).toLocaleString('ru-RU')} км` +
+                            (d.reason ? ` · ${d.reason}` : '');
+                          break;
+                        default:
+                          descr = a.action;
+                      }
+                      return (
+                        <div
+                          key={a.id}
+                          className="text-[11px] py-1.5 px-2 rounded"
+                          style={{ background: 'var(--corp-surface-2)' }}
+                          data-testid={`audit-${a.id}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold" style={{ color: 'var(--corp-ink)' }}>
+                              {actor}
+                            </span>
+                            <span style={{ color: 'var(--corp-muted)' }}>
+                              {fmtDateRu(a.createdAt || undefined)}
+                            </span>
+                          </div>
+                          <div style={{ color: 'var(--corp-ink-2)' }}>{descr}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Archive / Restore (director only) */}
             {canManage && (
@@ -453,6 +611,88 @@ export default function VehicleDetail() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Корректировка пробега (директор/админ) */}
+      <Dialog open={!!mileageEdit} onOpenChange={(o) => !o && setMileageEdit(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Корректировка пробега</DialogTitle>
+          </DialogHeader>
+          {mileageEdit && (
+            <div className="space-y-3">
+              <div className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+                Текущее значение: <b style={{ color: 'var(--corp-ink)' }}>
+                  {mileageEdit.currentMileage.toLocaleString('ru-RU')} км
+                </b>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="mileage-new" className="text-[12px]">Новый пробег (км)</Label>
+                <Input
+                  id="mileage-new"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={mileageEdit.newMileage}
+                  onChange={(e) =>
+                    setMileageEdit({ ...mileageEdit, newMileage: e.target.value })
+                  }
+                  data-testid="input-correct-mileage"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="mileage-reason" className="text-[12px]">Причина</Label>
+                <Textarea
+                  id="mileage-reason"
+                  rows={3}
+                  placeholder="Например: ошибка ввода, опечатка"
+                  value={mileageEdit.reason}
+                  onChange={(e) =>
+                    setMileageEdit({ ...mileageEdit, reason: e.target.value })
+                  }
+                  data-testid="input-correct-reason"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setMileageEdit(null)}
+                  data-testid="button-correct-cancel"
+                >
+                  Отмена
+                </Button>
+                <Button
+                  type="button"
+                  disabled={correctMileageMutation.isPending}
+                  onClick={() => {
+                    const n = parseInt(mileageEdit.newMileage, 10);
+                    if (!Number.isFinite(n) || n < 0) {
+                      toast({ title: 'Введите корректный пробег', variant: 'destructive' });
+                      return;
+                    }
+                    if (n === mileageEdit.currentMileage) {
+                      toast({ title: 'Значение не изменилось', variant: 'destructive' });
+                      return;
+                    }
+                    if (mileageEdit.reason.trim().length < 1) {
+                      toast({ title: 'Укажите причину', variant: 'destructive' });
+                      return;
+                    }
+                    correctMileageMutation.mutate({
+                      controlId: mileageEdit.controlId,
+                      mileageKm: n,
+                      reason: mileageEdit.reason.trim(),
+                    });
+                  }}
+                  data-testid="button-correct-save"
+                >
+                  {correctMileageMutation.isPending ? 'Сохранение…' : 'Сохранить'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

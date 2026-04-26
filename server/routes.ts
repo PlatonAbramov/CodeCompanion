@@ -3889,23 +3889,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Обновить (только директор/админ)
+  // Распознаём специальные действия: archive/restore (по status), reassign (по assignedUserId).
   app.patch("/api/vehicles/:id", requireAuth, requireDirector, async (req: any, res) => {
     try {
       const data = insertVehicleSchema.partial().parse(req.body);
+      const before = await storage.getVehicle(req.params.id);
+      if (!before) return res.status(404).json({ error: "Not found" });
+
       const updated = await storage.updateVehicle(req.params.id, data);
+
+      const changed = Object.keys(data);
+      let action: 'update' | 'archive' | 'restore' | 'reassign' = 'update';
+      const details: Record<string, any> = {
+        userName: req.session.user.name || req.session.user.username,
+        fields: changed,
+      };
+
+      if (changed.includes('status') && (data as any).status !== before.status) {
+        action = (data as any).status === 'archived' ? 'archive' : 'restore';
+        details.statusFrom = before.status;
+        details.statusTo = (data as any).status;
+      } else if (changed.includes('assignedUserId') && (data as any).assignedUserId !== before.assignedUserId) {
+        action = 'reassign';
+        details.assignedFrom = before.assignedUserId || null;
+        details.assignedTo = (data as any).assignedUserId || null;
+        details.assignedFromName = before.assignedUser?.name || null;
+        if (details.assignedTo) {
+          const u = await storage.getUser(details.assignedTo);
+          details.assignedToName = u?.name || u?.username || null;
+        } else {
+          details.assignedToName = null;
+        }
+      }
+
       await storage.createVehicleAuditLog({
         vehicleId: updated.id,
-        action: 'update',
+        action,
         userId: req.session.user.id,
-        details: {
-          userName: req.session.user.name || req.session.user.username,
-          fields: Object.keys(data),
-        },
+        details,
       });
       res.json(updated);
     } catch (error: any) {
       console.error("update vehicle error:", error);
       res.status(400).json({ error: error?.message || "Bad request" });
+    }
+  });
+
+  // Корректировка пробега в записи фотоконтроля (только директор/админ).
+  // Логируется в журнале аудита с прежним и новым значением + причиной.
+  app.patch(
+    "/api/vehicles/:id/photo-controls/:controlId/mileage",
+    requireAuth,
+    requireDirector,
+    async (req: any, res) => {
+      try {
+        const { id, controlId } = req.params;
+        const v = await storage.getVehicle(id);
+        if (!v) return res.status(404).json({ error: "Vehicle not found" });
+
+        const ctl = await storage.getVehiclePhotoControl(controlId);
+        if (!ctl || ctl.vehicleId !== id) {
+          return res.status(404).json({ error: "Photo control not found" });
+        }
+
+        const Body = z.object({
+          mileageKm: z.union([z.number().int(), z.string()]).transform((v) => {
+            const n = typeof v === 'number' ? v : parseInt(v, 10);
+            if (!Number.isFinite(n) || n < 0) throw new Error('mileageKm must be non-negative integer');
+            return n;
+          }),
+          reason: z.string().trim().min(1, 'Укажите причину').max(500),
+        });
+        const body = Body.parse(req.body);
+
+        if (body.mileageKm === ctl.mileageKm) {
+          return res.status(400).json({ error: 'Новый пробег не отличается от текущего' });
+        }
+
+        // Защита монотонности: новый пробег должен быть ≥ предыдущей записи и ≤ следующей
+        // (по performedAt). Это страхует stats от отрицательных дельт.
+        const allControls = await storage.getVehiclePhotoControls(id);
+        const sorted = [...allControls].sort(
+          (a, b) => new Date(a.performedAt).getTime() - new Date(b.performedAt).getTime(),
+        );
+        const idx = sorted.findIndex((x) => x.id === controlId);
+        const prev = idx > 0 ? sorted[idx - 1] : null;
+        const next = idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null;
+        if (prev && body.mileageKm < prev.mileageKm) {
+          return res.status(400).json({
+            error: `Новый пробег (${body.mileageKm} км) меньше предыдущей записи (${prev.mileageKm} км). Сначала исправьте более ранние записи.`,
+          });
+        }
+        if (next && body.mileageKm > next.mileageKm) {
+          return res.status(400).json({
+            error: `Новый пробег (${body.mileageKm} км) больше следующей записи (${next.mileageKm} км). Сначала исправьте более поздние записи.`,
+          });
+        }
+
+        const before = ctl.mileageKm;
+        const updated = await storage.correctVehiclePhotoControlMileage(controlId, body.mileageKm);
+
+        await storage.createVehicleAuditLog({
+          vehicleId: id,
+          userId: req.session.user.id,
+          action: 'mileage_correction',
+          details: {
+            userName: req.session.user.name || req.session.user.username,
+            controlId,
+            mileageFrom: before,
+            mileageTo: body.mileageKm,
+            delta: body.mileageKm - before,
+            reason: body.reason,
+          },
+        });
+
+        res.json(updated);
+      } catch (error: any) {
+        console.error("mileage correction error:", error);
+        res.status(400).json({ error: error?.message || "Bad request" });
+      }
+    },
+  );
+
+  // Журнал аудита автомобиля (только директор/админ).
+  app.get("/api/vehicles/:id/audit-log", requireAuth, requireDirector, async (req: any, res) => {
+    try {
+      const v = await storage.getVehicle(req.params.id);
+      if (!v) return res.status(404).json({ error: "Not found" });
+      const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit || '100'), 10) || 100));
+      const log = await storage.getVehicleAuditLog(req.params.id, limit);
+      res.json(log);
+    } catch (error) {
+      console.error("get vehicle audit log error:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 

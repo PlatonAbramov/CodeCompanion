@@ -47,6 +47,7 @@ Preferred communication style: Simple, everyday language.
 - **Financial Reporting**: Real-time profit/loss, financial summaries.
 - **Document Management**: Centralized storage for project documents.
 - **Implementation Sheets**: Detailed tracking of work progress from estimates, including photo documentation.
+- **Vehicles Photo Control**: Weekly Sunday 8-step photo control of fleet vehicles with watermarked photos, mileage tracking, server-time validation, PDF reports stored in GCS, mileage statistics, full audit log, and director-only mileage correction with monotonic ordering safeguards.
 - **Enhanced Photo Viewing**: Full-screen photo viewer with zoom, rotation, navigation, and keyboard shortcuts.
 - **Real-time Updates**: Automatic cache invalidation and refresh for client users.
 - **Multi-language Support**: Russian and English.
