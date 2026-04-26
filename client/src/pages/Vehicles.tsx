@@ -1,9 +1,17 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Car, Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { CorpEmpty, fmtDateRu } from "@/components/corp-ui";
+import { VehicleForm } from "@/components/VehicleForm";
 
 interface VehicleListItem {
   id: string;
@@ -25,16 +33,28 @@ interface VehicleListItem {
   } | null;
 }
 
-function VehicleCard({ v }: { v: VehicleListItem }) {
+interface MasterUser {
+  id: string;
+  name: string;
+  username: string;
+}
+
+type StatusFilter = 'active' | 'archived' | 'all';
+
+function VehicleCard({ v, onClick }: { v: VehicleListItem; onClick: () => void }) {
   const initials = `${v.brand?.[0] || '?'}${v.model?.[0] || ''}`.toUpperCase();
+  const isArchived = v.status === 'archived';
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
       data-testid={`card-vehicle-${v.id}`}
-      className="w-full text-left p-3"
+      className="w-full text-left p-3 transition-colors active:opacity-80"
       style={{
         background: 'var(--corp-surface)',
         border: '1px solid var(--corp-line)',
         borderRadius: 'var(--corp-r-lg)',
+        opacity: isArchived ? 0.7 : 1,
       }}
     >
       <div className="flex items-center gap-3">
@@ -58,11 +78,19 @@ function VehicleCard({ v }: { v: VehicleListItem }) {
               {v.brand} {v.model}
             </p>
             <span
-              className="text-[10px] px-1.5 py-0.5 rounded font-bold"
+              className="text-[10px] px-1.5 py-0.5 rounded font-bold font-mono"
               style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)' }}
             >
               {v.plateNumber}
             </span>
+            {isArchived && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded font-bold"
+                style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-muted)' }}
+              >
+                Архив
+              </span>
+            )}
           </div>
           <p className="text-[12px] truncate" style={{ color: 'var(--corp-muted)' }}>
             {v.assignedUser?.name || 'Не назначен'}{v.year ? ` · ${v.year}` : ''}
@@ -78,13 +106,17 @@ function VehicleCard({ v }: { v: VehicleListItem }) {
           )}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
 export default function Vehicles() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [assignedFilter, setAssignedFilter] = useState<string>('all');
+  const [createOpen, setCreateOpen] = useState(false);
 
   const isDirector = user?.role === 'admin' || user?.role === 'director';
 
@@ -92,16 +124,37 @@ export default function Vehicles() {
     queryKey: ['/api/vehicles'],
   });
 
+  const { data: masters = [] } = useQuery<MasterUser[]>({
+    queryKey: ['/api/users', 'master'],
+    queryFn: async () => {
+      const r = await fetch('/api/users?role=master', { credentials: 'include' });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: isDirector,
+  });
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return vehicles;
-    return vehicles.filter((v) =>
-      [v.brand, v.model, v.plateNumber, v.vin || '', v.assignedUser?.name || '']
+    return vehicles.filter((v) => {
+      if (statusFilter !== 'all' && v.status !== statusFilter) return false;
+      if (assignedFilter !== 'all') {
+        if (assignedFilter === 'none' && v.assignedUserId) return false;
+        if (assignedFilter !== 'none' && v.assignedUserId !== assignedFilter) return false;
+      }
+      if (!q) return true;
+      return [v.brand, v.model, v.plateNumber, v.vin || '', v.assignedUser?.name || '']
         .join(' ')
         .toLowerCase()
-        .includes(q),
-    );
-  }, [vehicles, search]);
+        .includes(q);
+    });
+  }, [vehicles, search, statusFilter, assignedFilter]);
+
+  const tabs: { key: StatusFilter; label: string }[] = [
+    { key: 'active', label: 'Активные' },
+    { key: 'archived', label: 'Архив' },
+    { key: 'all', label: 'Все' },
+  ];
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
@@ -132,9 +185,7 @@ export default function Vehicles() {
             <button
               type="button"
               data-testid="button-add-vehicle"
-              onClick={() => {
-                /* T002: открытие диалога создания */
-              }}
+              onClick={() => setCreateOpen(true)}
               className="inline-flex items-center gap-1.5 h-9 px-3 text-[13px] font-semibold transition-colors"
               style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
             >
@@ -144,7 +195,7 @@ export default function Vehicles() {
         </div>
       </header>
 
-      <div className="px-3 sm:px-4 py-3 space-y-3 max-w-2xl mx-auto">
+      <div className="px-3 sm:px-4 py-3 space-y-3 max-w-2xl mx-auto pb-24">
         {/* Search */}
         <div className="relative">
           <Search
@@ -160,6 +211,57 @@ export default function Vehicles() {
             data-testid="input-vehicle-search"
           />
         </div>
+
+        {/* Status tabs */}
+        <div
+          className="flex p-0.5 gap-0.5"
+          style={{
+            background: 'var(--corp-surface-2)',
+            borderRadius: 'var(--corp-r-lg)',
+          }}
+        >
+          {tabs.map((t) => {
+            const active = statusFilter === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setStatusFilter(t.key)}
+                data-testid={`tab-status-${t.key}`}
+                className="flex-1 h-8 text-[12px] font-semibold transition-colors"
+                style={{
+                  background: active ? 'var(--corp-surface)' : 'transparent',
+                  color: active ? 'var(--corp-ink)' : 'var(--corp-muted)',
+                  borderRadius: 'calc(var(--corp-r-lg) - 2px)',
+                  boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Assigned filter (director only) */}
+        {isDirector && masters.length > 0 && (
+          <Select value={assignedFilter} onValueChange={setAssignedFilter}>
+            <SelectTrigger
+              className="h-9 text-[12px]"
+              data-testid="select-assigned-filter"
+            >
+              <SelectValue placeholder="Сотрудник" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все сотрудники</SelectItem>
+              <SelectItem value="none">Без назначения</SelectItem>
+              {masters.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name || m.username}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {/* List */}
         {isLoading ? (
@@ -178,27 +280,47 @@ export default function Vehicles() {
         ) : filtered.length === 0 ? (
           <CorpEmpty
             icon={<Car size={22} />}
-            title={search ? 'Ничего не найдено' : 'Автомобилей пока нет'}
+            title={search || assignedFilter !== 'all' ? 'Ничего не найдено' : 'Автомобилей пока нет'}
             description={
-              search
-                ? 'Попробуйте изменить поисковый запрос'
+              search || assignedFilter !== 'all'
+                ? 'Попробуйте изменить фильтры'
                 : isDirector
                   ? 'Добавьте первый автомобиль, чтобы вести фотоконтроль'
                   : 'За вами пока не закреплено ни одного автомобиля'
             }
-            actionLabel={isDirector && !search ? 'Добавить автомобиль' : undefined}
-            onAction={isDirector && !search ? () => {
-              /* T002 */
-            } : undefined}
+            actionLabel={isDirector && !search && assignedFilter === 'all' ? 'Добавить автомобиль' : undefined}
+            onAction={isDirector && !search && assignedFilter === 'all' ? () => setCreateOpen(true) : undefined}
           />
         ) : (
           <div className="space-y-2">
             {filtered.map((v) => (
-              <VehicleCard key={v.id} v={v} />
+              <VehicleCard
+                key={v.id}
+                v={v}
+                onClick={() => setLocation(`/vehicles/${v.id}`)}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* Create dialog */}
+      {isDirector && (
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Новый автомобиль</DialogTitle>
+            </DialogHeader>
+            <VehicleForm
+              onSuccess={(id) => {
+                setCreateOpen(false);
+                setLocation(`/vehicles/${id}`);
+              }}
+              onCancel={() => setCreateOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
