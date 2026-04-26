@@ -8,6 +8,7 @@ import connectPgSimple from "connect-pg-simple";
 import pg from "pg";
 import multer from "multer";
 import path from "path";
+import { z } from "zod";
 import fs from "fs";
 import { fileURLToPath } from 'url';
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
@@ -3903,6 +3904,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updated);
     } catch (error: any) {
       console.error("update vehicle error:", error);
+      res.status(400).json({ error: error?.message || "Bad request" });
+    }
+  });
+
+  // Сабмит результата фотоконтроля (8 фото + пробег)
+  app.post("/api/vehicles/:id/photo-control", requireAuth, requireVehicleRole, async (req: any, res) => {
+    try {
+      const u = req.session.user;
+      const v = await storage.getVehicle(req.params.id);
+      if (!v) return res.status(404).json({ error: "Автомобиль не найден" });
+      if (v.status === 'archived') {
+        return res.status(400).json({ error: "Автомобиль в архиве" });
+      }
+
+      // Только закреплённый сотрудник (admin может в виде исключения)
+      const isAssigned = v.assignedUserId === u.id;
+      const isAdmin = u.role === 'admin';
+      if (!isAssigned && !isAdmin) {
+        return res.status(403).json({ error: "Только закреплённый сотрудник может проходить фотоконтроль" });
+      }
+
+      // Серверная проверка окна (Воскресенье 08:00–20:00 GST)
+      const now = new Date();
+      const GST_OFFSET_MS = 4 * 60 * 60 * 1000;
+      const gst = new Date(now.getTime() + GST_OFFSET_MS);
+      const dayOfWeek = gst.getUTCDay();
+      const hour = gst.getUTCHours();
+      const inWindow = dayOfWeek === 0 && hour >= 8 && hour < 20;
+      if (!inWindow && !isAdmin) {
+        return res.status(403).json({
+          error: "Окно фотоконтроля закрыто. Доступно по воскресеньям с 08:00 до 20:00 (GST).",
+        });
+      }
+
+      const photoSchema = z.object({
+        step: z.number().int().min(1).max(8),
+        label: z.string().min(1),
+        photoUrl: z.string().min(1),
+        takenAt: z.union([z.string(), z.date()]),
+      });
+      const bodySchema = z.object({
+        mileageKm: z.number().int().nonnegative(),
+        photos: z.array(photoSchema).length(8),
+      });
+      const body = bodySchema.parse(req.body);
+
+      // Все 8 шагов должны быть уникальны
+      const stepSet = new Set(body.photos.map(p => p.step));
+      if (stepSet.size !== 8) {
+        return res.status(400).json({ error: "Нужны фото для всех 8 шагов" });
+      }
+
+      // Валидация пробега относительно последнего
+      const last = await storage.getLastVehiclePhotoControl(v.id);
+      if (last && body.mileageKm < last.mileageKm) {
+        return res.status(400).json({
+          error: `Пробег должен быть не меньше предыдущего (${last.mileageKm.toLocaleString('ru-RU')} км)`,
+        });
+      }
+
+      // weekKey YYYY-W## по GST
+      const yStart = new Date(Date.UTC(gst.getUTCFullYear(), 0, 1));
+      const dayOfYear = Math.floor((gst.getTime() - yStart.getTime()) / 86400000) + 1;
+      const weekNum = Math.ceil((dayOfYear + ((yStart.getUTCDay() + 6) % 7)) / 7);
+      const weekKey = `${gst.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+
+      const created = await storage.createVehiclePhotoControl(
+        {
+          vehicleId: v.id,
+          performedByUserId: u.id,
+          performedAt: now,
+          weekKey,
+          mileageKm: body.mileageKm,
+          status: 'completed',
+        } as any,
+        body.photos.map(p => ({
+          step: p.step,
+          label: p.label,
+          photoUrl: p.photoUrl,
+          takenAt: typeof p.takenAt === 'string' ? new Date(p.takenAt) : p.takenAt,
+        })),
+      );
+
+      await storage.createVehicleAuditLog({
+        vehicleId: v.id,
+        userId: u.id,
+        action: 'photo_control',
+        details: {
+          userName: u.name || u.username,
+          mileageKm: body.mileageKm,
+          weekKey,
+          controlId: created.id,
+        },
+      });
+
+      res.status(201).json(created);
+    } catch (error: any) {
+      console.error("photo control submit error:", error);
       res.status(400).json({ error: error?.message || "Bad request" });
     }
   });

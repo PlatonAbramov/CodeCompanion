@@ -221,12 +221,7 @@ export default function VehicleDetail() {
                 <Button
                   className="w-full h-10"
                   data-testid="button-start-photo-control"
-                  onClick={() => {
-                    toast({
-                      title: 'Скоро',
-                      description: 'Фотоконтроль будет доступен в следующем обновлении',
-                    });
-                  }}
+                  onClick={() => setLocation(`/vehicles/${id}/photo-control`)}
                 >
                   <Camera size={14} className="mr-2" /> Начать фотоконтроль
                 </Button>
