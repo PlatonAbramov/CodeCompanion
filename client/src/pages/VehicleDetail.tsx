@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Car, Edit2, Archive, RotateCcw, Camera, BarChart3, ClipboardList } from "lucide-react";
+import { ArrowLeft, Car, Edit2, Archive, RotateCcw, Camera, BarChart3, ClipboardList, FileText, ImageIcon } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -75,6 +75,25 @@ export default function VehicleDetail() {
     queryFn: async () => {
       const r = await fetch(`/api/vehicles/${id}/photo-controls`, { credentials: 'include' });
       if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: !!id,
+  });
+
+  interface MileageStats {
+    week: number;
+    month: number;
+    year: number;
+    all: number;
+    controlsCount: number;
+    lastMileage: number | null;
+    lastDate: string | null;
+  }
+  const { data: stats } = useQuery<MileageStats>({
+    queryKey: ['/api/vehicles', id, 'mileage-stats'],
+    queryFn: async () => {
+      const r = await fetch(`/api/vehicles/${id}/mileage-stats`, { credentials: 'include' });
+      if (!r.ok) throw new Error('failed');
       return r.json();
     },
     enabled: !!id,
@@ -236,7 +255,7 @@ export default function VehicleDetail() {
               )}
             </div>
 
-            {/* Stats placeholder (T005) */}
+            {/* Stats */}
             <div
               className="p-3"
               style={{
@@ -244,16 +263,53 @@ export default function VehicleDetail() {
                 border: '1px solid var(--corp-line)',
                 borderRadius: 'var(--corp-r-lg)',
               }}
+              data-testid="card-mileage-stats"
             >
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-3">
                 <BarChart3 size={16} style={{ color: 'var(--corp-accent)' }} />
                 <h3 className="text-[13px] font-bold" style={{ color: 'var(--corp-ink)' }}>
                   Статистика пробега
                 </h3>
               </div>
-              <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                Появится после первого фотоконтроля.
-              </p>
+              {!stats || stats.controlsCount === 0 ? (
+                <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+                  Появится после первого фотоконтроля.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: 'За неделю', value: stats.week },
+                      { label: 'За месяц', value: stats.month },
+                      { label: 'За год', value: stats.year },
+                      { label: 'Всего', value: stats.all },
+                    ].map((s) => (
+                      <div
+                        key={s.label}
+                        className="p-2 rounded"
+                        style={{ background: 'var(--corp-surface-2)' }}
+                        data-testid={`stat-${s.label}`}
+                      >
+                        <div className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                          {s.label}
+                        </div>
+                        <div className="text-[15px] font-bold" style={{ color: 'var(--corp-ink)' }}>
+                          {s.value.toLocaleString('ru-RU')} <span className="text-[11px] font-normal" style={{ color: 'var(--corp-muted)' }}>км</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {stats.lastMileage !== null && (
+                    <div className="mt-3 pt-2 flex items-center justify-between text-[11px]"
+                      style={{ borderTop: '1px solid var(--corp-line)', color: 'var(--corp-muted)' }}>
+                      <span>Последняя запись: {fmtDateRu(stats.lastDate || undefined)}</span>
+                      <span className="font-semibold" style={{ color: 'var(--corp-ink-2)' }}>
+                        {stats.lastMileage.toLocaleString('ru-RU')} км
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             {/* History */}
@@ -274,34 +330,80 @@ export default function VehicleDetail() {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {controls.map((c) => (
-                    <div
-                      key={c.id}
-                      className="flex items-center justify-between p-2 rounded"
-                      style={{ background: 'var(--corp-surface-2)' }}
-                      data-testid={`row-control-${c.id}`}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold" style={{ color: 'var(--corp-ink)' }}>
-                          {fmtDateRu(c.performedAt || undefined)}
-                        </p>
-                        <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                          {c.mileageKm.toLocaleString('ru-RU')} км · {c.performedBy?.name || '—'}
-                        </p>
-                      </div>
-                      {c.pdfUrl && (
-                        <a
-                          href={c.pdfUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[12px] font-semibold"
-                          style={{ color: 'var(--corp-accent)' }}
+                  {controls.map((c, idx) => {
+                    // controls приходят desc по дате; предыдущая запись = следующая в массиве.
+                    const prev = controls[idx + 1];
+                    const delta = prev ? Math.max(0, c.mileageKm - prev.mileageKm) : null;
+                    const firstPhoto = c.photos && c.photos.length > 0 ? c.photos[0] : null;
+                    return (
+                      <div
+                        key={c.id}
+                        className="flex items-center gap-2 p-2 rounded"
+                        style={{ background: 'var(--corp-surface-2)' }}
+                        data-testid={`row-control-${c.id}`}
+                      >
+                        <div
+                          className="w-12 h-12 rounded overflow-hidden flex-shrink-0 flex items-center justify-center"
+                          style={{ background: 'var(--corp-surface)', border: '1px solid var(--corp-line)' }}
                         >
-                          PDF
-                        </a>
-                      )}
-                    </div>
-                  ))}
+                          {firstPhoto ? (
+                            <img
+                              src={firstPhoto.photoUrl}
+                              alt={firstPhoto.label}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const img = e.currentTarget;
+                                img.style.display = 'none';
+                                const sib = img.nextElementSibling as HTMLElement | null;
+                                if (sib) sib.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <span
+                            className="w-full h-full items-center justify-center"
+                            style={{ display: firstPhoto ? 'none' : 'flex', color: 'var(--corp-muted)' }}
+                          >
+                            <ImageIcon size={18} />
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>
+                            {fmtDateRu(c.performedAt || undefined)}
+                          </p>
+                          <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                            <span className="font-semibold" style={{ color: 'var(--corp-ink-2)' }}>
+                              {c.mileageKm.toLocaleString('ru-RU')} км
+                            </span>
+                            {delta !== null && (
+                              <span style={{ color: 'var(--corp-accent)' }}>
+                                {' '}+{delta.toLocaleString('ru-RU')}
+                              </span>
+                            )}
+                            {' · '}{c.performedBy?.name || '—'}
+                          </p>
+                        </div>
+                        {c.pdfUrl ? (
+                          <a
+                            href={c.pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-semibold"
+                            style={{
+                              background: 'var(--corp-accent-soft, #EEF1FF)',
+                              color: 'var(--corp-accent)',
+                            }}
+                            data-testid={`link-pdf-${c.id}`}
+                          >
+                            <FileText size={12} /> PDF
+                          </a>
+                        ) : (
+                          <span className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                            нет PDF
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

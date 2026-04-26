@@ -389,6 +389,15 @@ export interface IStorage {
     photos: Omit<InsertVehiclePhotoControlPhoto, 'controlId'>[],
   ): Promise<VehiclePhotoControl>;
   setVehiclePhotoControlPdf(id: string, pdfUrl: string): Promise<void>;
+  getVehicleMileageStats(vehicleId: string): Promise<{
+    week: number;
+    month: number;
+    year: number;
+    all: number;
+    controlsCount: number;
+    lastMileage: number | null;
+    lastDate: string | null;
+  }>;
 
   createVehicleAuditLog(entry: InsertVehicleAuditLog): Promise<VehicleAuditLog>;
 }
@@ -3229,6 +3238,57 @@ export class DatabaseStorage implements IStorage {
       );
     }
     return created;
+  }
+
+  async getVehicleMileageStats(vehicleId: string) {
+    const all = await db
+      .select({
+        performedAt: vehiclePhotoControls.performedAt,
+        mileageKm: vehiclePhotoControls.mileageKm,
+      })
+      .from(vehiclePhotoControls)
+      .where(eq(vehiclePhotoControls.vehicleId, vehicleId))
+      .orderBy(vehiclePhotoControls.performedAt);
+
+    if (all.length === 0) {
+      return { week: 0, month: 0, year: 0, all: 0, controlsCount: 0, lastMileage: null, lastDate: null };
+    }
+
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+
+    // Дельта пробега за окно: latest_in_window - max(latest_before_window, earliest_in_window)
+    const calcWindow = (windowMs: number): number => {
+      const cutoff = now - windowMs;
+      let lastBefore: number | null = null;
+      let firstIn: number | null = null;
+      let lastIn: number | null = null;
+      for (const c of all) {
+        if (!c.performedAt) continue;
+        const t = new Date(c.performedAt).getTime();
+        if (t < cutoff) {
+          lastBefore = c.mileageKm;
+        } else {
+          if (firstIn === null) firstIn = c.mileageKm;
+          lastIn = c.mileageKm;
+        }
+      }
+      if (lastIn === null) return 0;
+      const baseline = lastBefore !== null ? lastBefore : (firstIn as number);
+      return Math.max(0, lastIn - baseline);
+    };
+
+    const first = all[0];
+    const last = all[all.length - 1];
+    return {
+      week: calcWindow(7 * day),
+      month: calcWindow(30 * day),
+      year: calcWindow(365 * day),
+      all: Math.max(0, (last.mileageKm || 0) - (first.mileageKm || 0)),
+      controlsCount: all.length,
+      lastMileage: last.mileageKm,
+      lastDate: last.performedAt ? new Date(last.performedAt).toISOString() : null,
+    };
   }
 
   async setVehiclePhotoControlPdf(id: string, pdfUrl: string) {

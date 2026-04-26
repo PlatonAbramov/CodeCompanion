@@ -4201,7 +4201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // История фотоконтролей
-  app.get("/api/vehicles/:id/photo-controls", requireAuth, async (req: any, res) => {
+  app.get("/api/vehicles/:id/photo-controls", requireAuth, requireVehicleRole, async (req: any, res) => {
     try {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
@@ -4213,6 +4213,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(list);
     } catch (error) {
       console.error("get photo controls error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Статистика пробега: неделя/месяц/год/всё время.
+  // Дельта в окне = последний пробег в окне − (последний пробег ДО окна, либо первый В окне).
+  app.get("/api/vehicles/:id/mileage-stats", requireAuth, requireVehicleRole, async (req: any, res) => {
+    try {
+      const v = await storage.getVehicle(req.params.id);
+      if (!v) return res.status(404).json({ error: "Not found" });
+      const u = req.session.user;
+      if (u.role === 'master' && v.assignedUserId !== u.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const stats = await storage.getVehicleMileageStats(req.params.id);
+      res.json(stats);
+    } catch (error) {
+      console.error("get mileage stats error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
