@@ -12,6 +12,7 @@ import { z } from "zod";
 import fs from "fs";
 import { fileURLToPath } from 'url';
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import PDFDocument from "pdfkit";
 import { cache, cacheKeys, invalidateProjectCache, invalidateUserCache, invalidateContractorCache, invalidateClientCache, invalidateToolCache } from "./cache";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -3908,6 +3909,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Генерация PDF-отчёта по фотоконтролю.
+  // Шапка: марка/модель/госномер, ФИО, дата, пробег.
+  // 8 фото с подписями. Footer: уникальный controlId.
+  // DejaVuSans даёт поддержку кириллицы.
+  const FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
+  const FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
+
+  async function generatePhotoControlPdf(args: {
+    controlId: string;
+    vehicle: { brand: string; model: string; plateNumber: string; year?: number | null; vin?: string | null };
+    user: { name?: string | null; username?: string | null };
+    performedAt: Date;
+    mileageKm: number;
+    photos: { step: number; label: string; photoUrl: string }[];
+    storageSvc: ObjectStorageService;
+  }): Promise<Buffer> {
+    const { controlId, vehicle, user, performedAt, mileageKm, photos, storageSvc } = args;
+
+    // Скачаем все фото в буферы (для embed-а в PDF)
+    const photosWithBuffers: { step: number; label: string; buffer: Buffer | null }[] = [];
+    for (const p of [...photos].sort((a, b) => a.step - b.step)) {
+      try {
+        const file = await storageSvc.getObjectEntityFile(p.photoUrl);
+        const [buf] = await file.download();
+        photosWithBuffers.push({ step: p.step, label: p.label, buffer: buf });
+      } catch (e) {
+        console.error(`pdf: failed to fetch photo step=${p.step}:`, e);
+        photosWithBuffers.push({ step: p.step, label: p.label, buffer: null });
+      }
+    }
+
+    return new Promise<Buffer>((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ size: 'A4', margin: 40 });
+        const chunks: Buffer[] = [];
+        doc.on('data', (c) => chunks.push(c));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+
+        // Шрифты с поддержкой кириллицы
+        if (fs.existsSync(FONT_REGULAR)) doc.registerFont('Body', FONT_REGULAR);
+        if (fs.existsSync(FONT_BOLD)) doc.registerFont('BodyBold', FONT_BOLD);
+
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const dateStr = `${pad(performedAt.getDate())}.${pad(performedAt.getMonth() + 1)}.${performedAt.getFullYear()} ${pad(performedAt.getHours())}:${pad(performedAt.getMinutes())}`;
+        const userName = user.name || user.username || '—';
+
+        const drawFooter = () => {
+          doc.font('Body').fontSize(8).fillColor('#888');
+          doc.text(`ID отчёта: ${controlId}`, 40, doc.page.height - 30, {
+            width: doc.page.width - 80,
+            align: 'left',
+          });
+          doc.fillColor('#000');
+        };
+
+        // ====== Cover page ======
+        doc.font('BodyBold').fontSize(20).fillColor('#111');
+        doc.text('Фотоконтроль автомобиля', { align: 'left' });
+        doc.moveDown(0.5);
+        doc.font('Body').fontSize(11).fillColor('#666');
+        doc.text(`Сформировано: ${dateStr}`);
+        doc.moveDown(1);
+
+        // Card
+        const cardX = 40;
+        const cardY = doc.y;
+        const cardW = doc.page.width - 80;
+        doc.rect(cardX, cardY, cardW, 170).fillColor('#f4f5f7').fill();
+        doc.fillColor('#000');
+
+        const labelOpts = { width: cardW - 30 };
+        doc.font('BodyBold').fontSize(14).fillColor('#111');
+        doc.text(`${vehicle.brand} ${vehicle.model}`, cardX + 15, cardY + 15, labelOpts);
+        doc.font('Body').fontSize(11).fillColor('#666');
+        doc.text(`Госномер: ${vehicle.plateNumber}`, cardX + 15, cardY + 40);
+        if (vehicle.year) doc.text(`Год выпуска: ${vehicle.year}`, cardX + 15, cardY + 58);
+        if (vehicle.vin) doc.text(`VIN: ${vehicle.vin}`, cardX + 15, cardY + 76);
+
+        doc.font('BodyBold').fontSize(12).fillColor('#111');
+        doc.text('Сотрудник', cardX + 15, cardY + 100);
+        doc.font('Body').fontSize(11).fillColor('#333');
+        doc.text(userName, cardX + 15, cardY + 116);
+
+        doc.font('BodyBold').fontSize(12).fillColor('#111');
+        doc.text('Пробег', cardX + cardW / 2, cardY + 100);
+        doc.font('Body').fontSize(15).fillColor('#1d4ed8');
+        doc.text(`${mileageKm.toLocaleString('ru-RU')} км`, cardX + cardW / 2, cardY + 116);
+
+        doc.fillColor('#000');
+        doc.y = cardY + 200;
+
+        doc.font('Body').fontSize(10).fillColor('#666');
+        doc.text(
+          'Отчёт содержит 8 обязательных фотографий состояния автомобиля с водяным знаком даты, времени (GST) и госномера, нанесённым в момент съёмки.',
+          40, doc.y, { width: cardW, align: 'left' },
+        );
+        drawFooter();
+
+        // ====== 8 photo pages ======
+        for (const ph of photosWithBuffers) {
+          doc.addPage();
+          doc.font('BodyBold').fontSize(13).fillColor('#111');
+          doc.text(`Шаг ${ph.step}. ${ph.label}`, 40, 40, { width: doc.page.width - 80 });
+
+          const imgX = 40;
+          const imgY = 75;
+          const imgW = doc.page.width - 80;
+          const imgH = doc.page.height - imgY - 60; // место под footer
+
+          if (ph.buffer) {
+            try {
+              doc.image(ph.buffer, imgX, imgY, {
+                fit: [imgW, imgH],
+                align: 'center',
+                valign: 'center',
+              });
+            } catch (e) {
+              console.error(`pdf: image draw error step=${ph.step}:`, e);
+              doc.font('Body').fontSize(11).fillColor('#c00');
+              doc.text('Не удалось вставить изображение', imgX, imgY + 20);
+            }
+          } else {
+            doc.font('Body').fontSize(11).fillColor('#c00');
+            doc.text('Файл фотографии недоступен', imgX, imgY + 20);
+          }
+          drawFooter();
+        }
+
+        doc.end();
+      } catch (e) {
+        reject(e as Error);
+      }
+    });
+  }
+
   // Сабмит результата фотоконтроля (8 фото + пробег)
   app.post("/api/vehicles/:id/photo-control", requireAuth, requireVehicleRole, async (req: any, res) => {
     try {
@@ -3999,7 +4136,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
 
-      res.status(201).json(created);
+      // Сразу пробуем сгенерировать PDF и сохранить в GCS.
+      // Если не получится — отчёт всё равно сохранён, PDF можно повторить позже.
+      let pdfUrl: string | null = null;
+      let uploadedPdfPath: string | null = null;
+      try {
+        const storageSvc = new ObjectStorageService();
+        const pdfBuffer = await generatePhotoControlPdf({
+          controlId: created.id,
+          vehicle: {
+            brand: v.brand,
+            model: v.model,
+            plateNumber: v.plateNumber,
+            year: v.year,
+            vin: v.vin,
+          },
+          user: { name: u.name, username: u.username },
+          performedAt: now,
+          mileageKm: body.mileageKm,
+          photos: body.photos.map((p) => ({
+            step: p.step,
+            label: p.label,
+            photoUrl: p.photoUrl,
+          })),
+          storageSvc,
+        });
+
+        // Имя файла по ТЗ: {plate}_{YYYY-MM-DD}_{userShortId}.pdf
+        // Безопасная нормализация: оставляем буквы/цифры (включая Cyrillic), остальное — '_'.
+        const pad2 = (n: number) => String(n).padStart(2, '0');
+        const dateKey = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+        // Сохраняем латиницу, цифры и кириллицу; остальное — '_'.
+        const plateKey = (v.plateNumber || 'plate')
+          .replace(/[^A-Za-z0-9\u0400-\u04FF]+/g, '_')
+          .replace(/^_+|_+$/g, '') || 'plate';
+        const userShort = (u.id || '').replace(/-/g, '').slice(0, 8) || 'user';
+        // Короткий уникализатор от controlId для предотвращения коллизий.
+        const uniq = (created.id || '').replace(/-/g, '').slice(0, 8);
+        const desiredKey = `${plateKey}_${dateKey}_${userShort}_${uniq}`;
+
+        uploadedPdfPath = await storageSvc.uploadEntityBuffer(pdfBuffer, 'application/pdf', {
+          extension: 'pdf',
+          desiredKey,
+        });
+
+        try {
+          await storage.setVehiclePhotoControlPdf(created.id, uploadedPdfPath);
+          pdfUrl = uploadedPdfPath; // подтверждаем клиенту только после успешного persist
+        } catch (dbErr: any) {
+          console.error('photo control pdf db persist failed:', dbErr?.message || dbErr);
+          // Откат: удаляем сирот в GCS, чтобы не накапливались.
+          try { await storageSvc.deleteEntityByPath(uploadedPdfPath); } catch {}
+          uploadedPdfPath = null;
+        }
+      } catch (pdfErr: any) {
+        console.error("photo control pdf generation failed:", pdfErr?.message || pdfErr);
+      }
+
+      res.status(201).json({ ...created, pdfUrl });
     } catch (error: any) {
       console.error("photo control submit error:", error);
       res.status(400).json({ error: error?.message || "Bad request" });

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   ArrowLeft, Camera, Loader2, Check, RotateCcw, AlertTriangle,
-  CheckCircle2, Clock, Gauge,
+  CheckCircle2, Clock, Gauge, FileText,
 } from "lucide-react";
 
 interface Vehicle {
@@ -166,7 +166,7 @@ export default function PhotoControl() {
   const [pendingPhoto, setPendingPhoto] = useState<{ photoUrl: string; takenAt: string } | null>(null);
   const [processing, setProcessing] = useState(false);
   const [mileage, setMileage] = useState('');
-  const [doneInfo, setDoneInfo] = useState<{ mileageKm: number; performedAtIso: string } | null>(null);
+  const [doneInfo, setDoneInfo] = useState<{ mileageKm: number; performedAtIso: string; pdfUrl?: string | null } | null>(null);
 
   const { data: vehicle, isLoading: vehicleLoading } = useQuery<Vehicle>({
     queryKey: ['/api/vehicles', id],
@@ -261,6 +261,7 @@ export default function PhotoControl() {
       setDoneInfo({
         mileageKm: data?.mileageKm ?? parseInt(mileage, 10),
         performedAtIso: data?.performedAt || new Date().toISOString(),
+        pdfUrl: data?.pdfUrl || null,
       });
       setStepIdx(9);
     },
@@ -394,9 +395,27 @@ export default function PhotoControl() {
               </span>
             </div>
           </div>
-          <p className="text-[11px] mb-6" style={{ color: 'var(--corp-muted)' }}>
-            PDF-отчёт появится в карточке автомобиля автоматически.
-          </p>
+          {doneInfo.pdfUrl ? (
+            <a
+              href={doneInfo.pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="block w-full h-10 mb-2 rounded-md flex items-center justify-center text-[13px] font-semibold"
+              style={{
+                background: 'var(--corp-accent-soft, #EEF1FF)',
+                color: 'var(--corp-accent)',
+                border: '1px solid var(--corp-line)',
+              }}
+              data-testid="link-pdf"
+            >
+              <FileText size={14} className="mr-2" />
+              Открыть PDF-отчёт
+            </a>
+          ) : (
+            <p className="text-[11px] mb-2" style={{ color: 'var(--corp-muted)' }}>
+              PDF-отчёт ещё не сформирован — попробуйте обновить карточку через минуту.
+            </p>
+          )}
           <Button
             className="w-full h-10"
             data-testid="button-back-to-vehicle"

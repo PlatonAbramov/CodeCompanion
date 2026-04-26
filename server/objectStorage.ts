@@ -114,6 +114,51 @@ export class ObjectStorageService {
     });
   }
 
+  // Прямая загрузка серверного буфера в приватный bucket.
+  // Возвращает entity-path вида "/objects/uploads/<key>".
+  // Если desiredKey задан, он используется как имя объекта (с проверкой на безопасность),
+  // иначе генерируется случайный UUID. Расширение добавляется автоматически, если в ключе его нет.
+  async uploadEntityBuffer(
+    buffer: Buffer,
+    contentType: string,
+    opts?: { extension?: string; desiredKey?: string },
+  ): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const ext = opts?.extension ? (opts.extension.startsWith('.') ? opts.extension : `.${opts.extension}`) : '';
+
+    let key: string;
+    if (opts?.desiredKey) {
+      // Защита от path traversal и недопустимых символов.
+      const safe = opts.desiredKey.replace(/[\/\\\.]{2,}/g, '_').replace(/^[\/\\]+/, '');
+      if (!safe || safe.includes('..')) {
+        key = `${randomUUID()}${ext}`;
+      } else {
+        key = safe.endsWith(ext) || !ext ? safe : `${safe}${ext}`;
+      }
+    } else {
+      key = `${randomUUID()}${ext}`;
+    }
+
+    const fullPath = `${privateObjectDir}/uploads/${key}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    await file.save(buffer, { contentType, resumable: false });
+    return `/objects/uploads/${key}`;
+  }
+
+  // Удалить объект из bucket по entity-path "/objects/...".
+  // Используется для отката, если БД не удалось обновить после успешной загрузки.
+  async deleteEntityByPath(objectPath: string): Promise<void> {
+    if (!objectPath.startsWith('/objects/')) return;
+    const file = await this.getObjectEntityFile(objectPath);
+    try {
+      await file.delete({ ignoreNotFound: true } as any);
+    } catch (e) {
+      console.error('deleteEntityByPath failed:', (e as Error).message);
+    }
+  }
+
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith("/objects/")) {
       throw new ObjectNotFoundError();
