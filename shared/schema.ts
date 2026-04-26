@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, decimal, boolean, jsonb, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, decimal, boolean, jsonb, json, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1155,3 +1155,132 @@ export type PersonnelDocument = typeof personnelDocuments.$inferSelect;
 export type InsertPersonnelDocument = z.infer<typeof insertPersonnelDocumentSchema>;
 export type ImplementationItemComment = typeof implementationItemComments.$inferSelect;
 export type InsertImplementationItemComment = z.infer<typeof insertImplementationItemCommentSchema>;
+
+// ============================================================================
+// Express-session table (управляется connect-pg-simple). Объявлена здесь
+// только чтобы drizzle-kit не считал её "пропавшей" и не предлагал rename.
+// ============================================================================
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: json("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+});
+
+// ============================================================================
+// Vehicles (Автомобили / фотоконтроль) — модуль строго аддитивный.
+// Существующие сущности не меняются, только новые таблицы.
+// ============================================================================
+export const vehicles = pgTable("vehicles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  brand: text("brand").notNull(),
+  model: text("model").notNull(),
+  year: integer("year"),
+  plateNumber: text("plate_number").notNull(),
+  vin: text("vin"),
+  color: text("color"),
+  photoUrl: text("photo_url"),
+  assignedUserId: varchar("assigned_user_id").references(() => users.id),
+  status: text("status").notNull().default("active"), // 'active' | 'archived'
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const vehiclePhotoControls = pgTable("vehicle_photo_controls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vehicleId: varchar("vehicle_id").references(() => vehicles.id, { onDelete: "cascade" }).notNull(),
+  performedByUserId: varchar("performed_by_user_id").references(() => users.id).notNull(),
+  performedAt: timestamp("performed_at").notNull().defaultNow(),
+  weekKey: text("week_key").notNull(), // 'YYYY-WW' (ISO неделя по серверному времени GST)
+  mileageKm: integer("mileage_km").notNull(),
+  pdfUrl: text("pdf_url"),
+  status: text("status").notNull().default("completed"), // 'completed'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const vehiclePhotoControlPhotos = pgTable("vehicle_photo_control_photos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  controlId: varchar("control_id").references(() => vehiclePhotoControls.id, { onDelete: "cascade" }).notNull(),
+  step: integer("step").notNull(), // 1..8
+  label: text("label").notNull(),
+  photoUrl: text("photo_url").notNull(),
+  takenAt: timestamp("taken_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const vehicleAuditLog = pgTable("vehicle_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vehicleId: varchar("vehicle_id").references(() => vehicles.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id),
+  action: text("action").notNull(), // 'create' | 'update' | 'archive' | 'restore' | 'reassign' | 'photo_control' | 'mileage_correction'
+  details: jsonb("details"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const vehiclesRelations = relations(vehicles, ({ one, many }) => ({
+  assignedUser: one(users, { fields: [vehicles.assignedUserId], references: [users.id] }),
+  photoControls: many(vehiclePhotoControls),
+}));
+
+export const vehiclePhotoControlsRelations = relations(vehiclePhotoControls, ({ one, many }) => ({
+  vehicle: one(vehicles, { fields: [vehiclePhotoControls.vehicleId], references: [vehicles.id] }),
+  performedBy: one(users, { fields: [vehiclePhotoControls.performedByUserId], references: [users.id] }),
+  photos: many(vehiclePhotoControlPhotos),
+}));
+
+export const vehiclePhotoControlPhotosRelations = relations(vehiclePhotoControlPhotos, ({ one }) => ({
+  control: one(vehiclePhotoControls, { fields: [vehiclePhotoControlPhotos.controlId], references: [vehiclePhotoControls.id] }),
+}));
+
+export const insertVehicleSchema = createInsertSchema(vehicles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  year: z.union([
+    z.number().int(),
+    z.string().transform((s) => (s ? parseInt(s, 10) : undefined as any)),
+  ]).optional(),
+});
+
+export const insertVehiclePhotoControlSchema = createInsertSchema(vehiclePhotoControls).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  performedAt: z.union([
+    z.date(),
+    z.string().transform((s) => new Date(s)),
+  ]).optional(),
+  mileageKm: z.union([
+    z.number().int(),
+    z.string().transform((s) => parseInt(s, 10)),
+  ]),
+});
+
+export const insertVehiclePhotoControlPhotoSchema = createInsertSchema(vehiclePhotoControlPhotos).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  step: z.union([
+    z.number().int(),
+    z.string().transform((s) => parseInt(s, 10)),
+  ]),
+  takenAt: z.union([
+    z.date(),
+    z.string().transform((s) => new Date(s)),
+  ]),
+});
+
+export const insertVehicleAuditLogSchema = createInsertSchema(vehicleAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Vehicle = typeof vehicles.$inferSelect;
+export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
+export type VehiclePhotoControl = typeof vehiclePhotoControls.$inferSelect;
+export type InsertVehiclePhotoControl = z.infer<typeof insertVehiclePhotoControlSchema>;
+export type VehiclePhotoControlPhoto = typeof vehiclePhotoControlPhotos.$inferSelect;
+export type InsertVehiclePhotoControlPhoto = z.infer<typeof insertVehiclePhotoControlPhotoSchema>;
+export type VehicleAuditLog = typeof vehicleAuditLog.$inferSelect;
+export type InsertVehicleAuditLog = z.infer<typeof insertVehicleAuditLogSchema>;

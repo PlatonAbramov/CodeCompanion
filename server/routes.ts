@@ -22,6 +22,7 @@ import {
   insertContractorProjectSchema, insertClientSchema, insertClientProjectSchema,
   insertClientPaymentSchema, insertToolSchema, insertToolMovementSchema,
   createUserSchema, implementationItemComments, users,
+  insertVehicleSchema,
   type InsertContractorProject, type InsertClientProject, type InsertClientPayment,
   type InsertTool, type InsertToolMovement, type CreateUser, type ClientEmployee
 } from "@shared/schema";
@@ -3762,6 +3763,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(summary);
     } catch (error) {
       console.error("Get financial overview error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ============================================================
+  // Vehicles (Автомобили / фотоконтроль) — Phase 1: список + CRUD
+  // ============================================================
+
+  // Серверное окно для фотоконтроля: GST = UTC+4, воскресенье 08:00–20:00
+  app.get("/api/vehicles/server-time-window", requireAuth, async (_req, res) => {
+    try {
+      const now = new Date();
+      const GST_OFFSET_MS = 4 * 60 * 60 * 1000;
+      const gst = new Date(now.getTime() + GST_OFFSET_MS);
+      const dayOfWeek = gst.getUTCDay(); // 0 = Sunday
+      const hour = gst.getUTCHours();
+      const isSunday = dayOfWeek === 0;
+      const inWindow = isSunday && hour >= 8 && hour < 20;
+
+      // Следующее «закрытие окна» (Sunday 20:00 GST):
+      // если сейчас воскресенье ≤20:00 — это сегодня, иначе — следующее воскресенье.
+      const endOfWindow = new Date(gst);
+      let daysUntilSunday = (7 - dayOfWeek) % 7;
+      if (isSunday && hour >= 20) daysUntilSunday = 7;
+      endOfWindow.setUTCDate(endOfWindow.getUTCDate() + daysUntilSunday);
+      endOfWindow.setUTCHours(20, 0, 0, 0);
+      const untilUtc = new Date(endOfWindow.getTime() - GST_OFFSET_MS);
+
+      // Следующее «открытие окна» (Sunday 08:00 GST)
+      const startOfWindow = new Date(gst);
+      let daysUntilOpen = (7 - dayOfWeek) % 7;
+      if (isSunday && hour >= 20) daysUntilOpen = 7;
+      startOfWindow.setUTCDate(startOfWindow.getUTCDate() + daysUntilOpen);
+      startOfWindow.setUTCHours(8, 0, 0, 0);
+      const startsUtc = new Date(startOfWindow.getTime() - GST_OFFSET_MS);
+
+      // weekKey формата YYYY-W## по GST
+      const yStart = new Date(Date.UTC(gst.getUTCFullYear(), 0, 1));
+      const dayOfYear = Math.floor((gst.getTime() - yStart.getTime()) / 86400000) + 1;
+      const weekNum = Math.ceil((dayOfYear + ((yStart.getUTCDay() + 6) % 7)) / 7);
+      const weekKey = `${gst.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+
+      res.json({
+        canPerform: inWindow,
+        nowUtcMs: now.getTime(),
+        nowGstIso: gst.toISOString(),
+        windowStartsAtUtcMs: startsUtc.getTime(),
+        windowEndsAtUtcMs: untilUtc.getTime(),
+        weekKey,
+      });
+    } catch (error) {
+      console.error("vehicles server-time-window error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Внутренний guard: разрешён только admin/director/master
+  const requireVehicleRole = (req: any, res: any, next: any) => {
+    const role = req.session?.user?.role;
+    if (role === 'admin' || role === 'director' || role === 'master') return next();
+    return res.status(403).json({ error: "Forbidden" });
+  };
+
+  // Список автомобилей
+  app.get("/api/vehicles", requireAuth, requireVehicleRole, async (req: any, res) => {
+    try {
+      const u = req.session.user;
+      const status = req.query.status as string | undefined;
+      const opts: { assignedUserId?: string; status?: string } = {};
+      if (status) opts.status = status;
+      if (u.role === 'master') {
+        opts.assignedUserId = u.id;
+      }
+      const list = await storage.getAllVehicles(opts);
+      res.json(list);
+    } catch (error) {
+      console.error("get vehicles error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Получить один автомобиль
+  app.get("/api/vehicles/:id", requireAuth, requireVehicleRole, async (req: any, res) => {
+    try {
+      const v = await storage.getVehicle(req.params.id);
+      if (!v) return res.status(404).json({ error: "Not found" });
+      const u = req.session.user;
+      if (u.role === 'master' && v.assignedUserId !== u.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      res.json(v);
+    } catch (error) {
+      console.error("get vehicle error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Создать (только директор/админ)
+  app.post("/api/vehicles", requireAuth, requireDirector, async (req: any, res) => {
+    try {
+      const data = insertVehicleSchema.parse({
+        ...req.body,
+        createdBy: req.session.user.id,
+      });
+      const created = await storage.createVehicle(data);
+      await storage.createVehicleAuditLog({
+        vehicleId: created.id,
+        action: 'create',
+        userId: req.session.user.id,
+        details: {
+          userName: req.session.user.name || req.session.user.username,
+          brand: created.brand,
+          model: created.model,
+          plateNumber: created.plateNumber,
+        },
+      });
+      res.status(201).json(created);
+    } catch (error: any) {
+      console.error("create vehicle error:", error);
+      res.status(400).json({ error: error?.message || "Bad request" });
+    }
+  });
+
+  // Обновить (только директор/админ)
+  app.patch("/api/vehicles/:id", requireAuth, requireDirector, async (req: any, res) => {
+    try {
+      const data = insertVehicleSchema.partial().parse(req.body);
+      const updated = await storage.updateVehicle(req.params.id, data);
+      await storage.createVehicleAuditLog({
+        vehicleId: updated.id,
+        action: 'update',
+        userId: req.session.user.id,
+        details: {
+          userName: req.session.user.name || req.session.user.username,
+          fields: Object.keys(data),
+        },
+      });
+      res.json(updated);
+    } catch (error: any) {
+      console.error("update vehicle error:", error);
+      res.status(400).json({ error: error?.message || "Bad request" });
+    }
+  });
+
+  // История фотоконтролей
+  app.get("/api/vehicles/:id/photo-controls", requireAuth, async (req: any, res) => {
+    try {
+      const v = await storage.getVehicle(req.params.id);
+      if (!v) return res.status(404).json({ error: "Not found" });
+      const u = req.session.user;
+      if (u.role === 'master' && v.assignedUserId !== u.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const list = await storage.getVehiclePhotoControls(req.params.id);
+      res.json(list);
+    } catch (error) {
+      console.error("get photo controls error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

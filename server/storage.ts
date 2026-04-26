@@ -22,7 +22,12 @@ import {
   type ImplementationPhoto, type InsertImplementationPhoto, type ImplementationChangeLog, type InsertImplementationChangeLog,
   type ImplementationItemComment, type InsertImplementationItemComment,
   type Personnel, type InsertPersonnel, type PersonnelDocument, type InsertPersonnelDocument,
-  type PersonnelAdvance, type InsertPersonnelAdvance
+  type PersonnelAdvance, type InsertPersonnelAdvance,
+  vehicles, vehiclePhotoControls, vehiclePhotoControlPhotos, vehicleAuditLog,
+  type Vehicle, type InsertVehicle,
+  type VehiclePhotoControl, type InsertVehiclePhotoControl,
+  type VehiclePhotoControlPhoto, type InsertVehiclePhotoControlPhoto,
+  type VehicleAuditLog, type InsertVehicleAuditLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -358,6 +363,34 @@ export interface IStorage {
     toPay: number;
     carryOver: number;
   }>;
+
+  // Vehicles (Автомобили / фотоконтроль)
+  getAllVehicles(opts?: { assignedUserId?: string; status?: string }): Promise<(Vehicle & {
+    assignedUser?: { id: string; name: string; role: string } | null;
+    lastPhotoControl?: { id: string; performedAt: Date | null; weekKey: string; mileageKm: number } | null;
+  })[]>;
+  getVehicle(id: string): Promise<(Vehicle & {
+    assignedUser?: { id: string; name: string; role: string } | null;
+  }) | undefined>;
+  createVehicle(data: InsertVehicle): Promise<Vehicle>;
+  updateVehicle(id: string, data: Partial<InsertVehicle>): Promise<Vehicle>;
+  setVehicleStatus(id: string, status: 'active' | 'archived'): Promise<Vehicle>;
+
+  getVehiclePhotoControls(vehicleId: string): Promise<(VehiclePhotoControl & {
+    performedBy?: { id: string; name: string } | null;
+    photos: VehiclePhotoControlPhoto[];
+  })[]>;
+  getVehiclePhotoControl(id: string): Promise<(VehiclePhotoControl & {
+    photos: VehiclePhotoControlPhoto[];
+  }) | undefined>;
+  getLastVehiclePhotoControl(vehicleId: string): Promise<VehiclePhotoControl | undefined>;
+  createVehiclePhotoControl(
+    control: InsertVehiclePhotoControl,
+    photos: Omit<InsertVehiclePhotoControlPhoto, 'controlId'>[],
+  ): Promise<VehiclePhotoControl>;
+  setVehiclePhotoControlPdf(id: string, pdfUrl: string): Promise<void>;
+
+  createVehicleAuditLog(entry: InsertVehicleAuditLog): Promise<VehicleAuditLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3045,6 +3078,169 @@ export class DatabaseStorage implements IStorage {
       toPay,
       carryOver
     };
+  }
+
+  // ========================================================================
+  // Vehicles (Автомобили / фотоконтроль)
+  // ========================================================================
+  async getAllVehicles(opts?: { assignedUserId?: string; status?: string }) {
+    const conds: any[] = [];
+    if (opts?.assignedUserId) conds.push(eq(vehicles.assignedUserId, opts.assignedUserId));
+    if (opts?.status) conds.push(eq(vehicles.status, opts.status));
+    const where = conds.length > 0 ? and(...conds) : undefined;
+    const rows = await db
+      .select({
+        v: vehicles,
+        u: { id: users.id, name: users.name, role: users.role },
+      })
+      .from(vehicles)
+      .leftJoin(users, eq(users.id, vehicles.assignedUserId))
+      .where(where as any)
+      .orderBy(desc(vehicles.createdAt));
+
+    const ids = rows.map(r => r.v.id);
+    let lastByVehicle = new Map<string, { id: string; performedAt: Date | null; weekKey: string; mileageKm: number }>();
+    if (ids.length > 0) {
+      const lasts = await db
+        .select()
+        .from(vehiclePhotoControls)
+        .where(inArray(vehiclePhotoControls.vehicleId, ids))
+        .orderBy(desc(vehiclePhotoControls.performedAt));
+      for (const c of lasts) {
+        if (!lastByVehicle.has(c.vehicleId)) {
+          lastByVehicle.set(c.vehicleId, {
+            id: c.id,
+            performedAt: c.performedAt,
+            weekKey: c.weekKey,
+            mileageKm: c.mileageKm,
+          });
+        }
+      }
+    }
+
+    return rows.map(({ v, u }) => ({
+      ...v,
+      assignedUser: u && u.id ? u : null,
+      lastPhotoControl: lastByVehicle.get(v.id) || null,
+    }));
+  }
+
+  async getVehicle(id: string) {
+    const [row] = await db
+      .select({
+        v: vehicles,
+        u: { id: users.id, name: users.name, role: users.role },
+      })
+      .from(vehicles)
+      .leftJoin(users, eq(users.id, vehicles.assignedUserId))
+      .where(eq(vehicles.id, id))
+      .limit(1);
+    if (!row) return undefined;
+    return { ...row.v, assignedUser: row.u && row.u.id ? row.u : null };
+  }
+
+  async createVehicle(data: InsertVehicle) {
+    const [row] = await db.insert(vehicles).values(data as any).returning();
+    return row;
+  }
+
+  async updateVehicle(id: string, data: Partial<InsertVehicle>) {
+    const [row] = await db
+      .update(vehicles)
+      .set({ ...(data as any), updatedAt: new Date() })
+      .where(eq(vehicles.id, id))
+      .returning();
+    return row;
+  }
+
+  async setVehicleStatus(id: string, status: 'active' | 'archived') {
+    const [row] = await db
+      .update(vehicles)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(vehicles.id, id))
+      .returning();
+    return row;
+  }
+
+  async getVehiclePhotoControls(vehicleId: string) {
+    const controls = await db
+      .select({
+        c: vehiclePhotoControls,
+        u: { id: users.id, name: users.name },
+      })
+      .from(vehiclePhotoControls)
+      .leftJoin(users, eq(users.id, vehiclePhotoControls.performedByUserId))
+      .where(eq(vehiclePhotoControls.vehicleId, vehicleId))
+      .orderBy(desc(vehiclePhotoControls.performedAt));
+
+    if (controls.length === 0) return [];
+    const ids = controls.map(c => c.c.id);
+    const photos = await db
+      .select()
+      .from(vehiclePhotoControlPhotos)
+      .where(inArray(vehiclePhotoControlPhotos.controlId, ids))
+      .orderBy(vehiclePhotoControlPhotos.controlId, vehiclePhotoControlPhotos.step);
+    const photosByControl = new Map<string, VehiclePhotoControlPhoto[]>();
+    for (const p of photos) {
+      const arr = photosByControl.get(p.controlId) || [];
+      arr.push(p);
+      photosByControl.set(p.controlId, arr);
+    }
+    return controls.map(({ c, u }) => ({
+      ...c,
+      performedBy: u && u.id ? u : null,
+      photos: photosByControl.get(c.id) || [],
+    }));
+  }
+
+  async getVehiclePhotoControl(id: string) {
+    const [c] = await db
+      .select()
+      .from(vehiclePhotoControls)
+      .where(eq(vehiclePhotoControls.id, id))
+      .limit(1);
+    if (!c) return undefined;
+    const photos = await db
+      .select()
+      .from(vehiclePhotoControlPhotos)
+      .where(eq(vehiclePhotoControlPhotos.controlId, id))
+      .orderBy(vehiclePhotoControlPhotos.step);
+    return { ...c, photos };
+  }
+
+  async getLastVehiclePhotoControl(vehicleId: string) {
+    const [row] = await db
+      .select()
+      .from(vehiclePhotoControls)
+      .where(eq(vehiclePhotoControls.vehicleId, vehicleId))
+      .orderBy(desc(vehiclePhotoControls.performedAt))
+      .limit(1);
+    return row || undefined;
+  }
+
+  async createVehiclePhotoControl(
+    control: InsertVehiclePhotoControl,
+    photos: Omit<InsertVehiclePhotoControlPhoto, 'controlId'>[],
+  ) {
+    const [created] = await db.insert(vehiclePhotoControls).values(control as any).returning();
+    if (photos.length > 0) {
+      await db.insert(vehiclePhotoControlPhotos).values(
+        photos.map(p => ({ ...(p as any), controlId: created.id }))
+      );
+    }
+    return created;
+  }
+
+  async setVehiclePhotoControlPdf(id: string, pdfUrl: string) {
+    await db
+      .update(vehiclePhotoControls)
+      .set({ pdfUrl })
+      .where(eq(vehiclePhotoControls.id, id));
+  }
+
+  async createVehicleAuditLog(entry: InsertVehicleAuditLog) {
+    const [row] = await db.insert(vehicleAuditLog).values(entry as any).returning();
+    return row;
   }
 }
 

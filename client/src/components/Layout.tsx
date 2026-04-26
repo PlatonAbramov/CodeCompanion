@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import {
   Home, Users, Building2, Wrench, UserCheck, Shield,
-  TrendingUp, MoreHorizontal, LogOut, ChevronRight, Receipt
+  TrendingUp, MoreHorizontal, LogOut, ChevronRight, Receipt, Car
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
@@ -210,6 +210,14 @@ export function Layout({ children }: LayoutProps) {
         path: '/tools',
         matches: (l) => l.startsWith('/tools'),
         testId: 'menu-tools',
+      });
+      extraItems.push({
+        key: 'vehicles',
+        label: 'Автомобили',
+        icon: Car,
+        path: '/vehicles',
+        matches: (l) => l.startsWith('/vehicles'),
+        testId: 'menu-vehicles',
       });
     }
     if (user.role === 'admin' || user.role === 'director') {
