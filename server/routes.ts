@@ -4125,7 +4125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function generatePhotoControlPdf(args: {
     controlId: string;
-    vehicle: { brand: string; model: string; plateNumber: string; year?: number | null; vin?: string | null };
+    vehicle: { brand: string; model: string; plateNumber: string; year?: number | null; vin?: string | null; photoUrl?: string | null };
     user: { name?: string | null; username?: string | null };
     performedAt: Date;
     mileageKm: number;
@@ -4147,9 +4147,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
 
+    // Скачаем основное фото авто из профиля (для титульной страницы)
+    let vehicleCoverBuffer: Buffer | null = null;
+    if (vehicle.photoUrl) {
+      try {
+        const file = await storageSvc.getObjectEntityFile(vehicle.photoUrl);
+        const [buf] = await file.download();
+        vehicleCoverBuffer = buf;
+      } catch (e) {
+        console.error('pdf: failed to fetch vehicle cover photo:', e);
+      }
+    }
+
     return new Promise<Buffer>((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ size: 'A4', margin: 40 });
+        // autoFirstPage:false — ниже создадим первую страницу вручную, чтобы исключить
+        // непреднамеренные «пустые» страницы при автопереполнении текста.
+        const doc = new PDFDocument({ size: 'A4', margin: 40, autoFirstPage: false });
         const chunks: Buffer[] = [];
         doc.on('data', (c) => chunks.push(c));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -4168,63 +4182,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
           doc.text(`ID отчёта: ${controlId}`, 40, doc.page.height - 30, {
             width: doc.page.width - 80,
             align: 'left',
+            lineBreak: false,
           });
           doc.fillColor('#000');
         };
 
-        // ====== Cover page ======
+        // ====== Титульная страница ======
+        doc.addPage();
+        const pageW = doc.page.width;
+        const pageH = doc.page.height;
+        const margin = 40;
+
+        // Заголовок
         doc.font('BodyBold').fontSize(20).fillColor('#111');
-        doc.text('Фотоконтроль автомобиля', { align: 'left' });
-        doc.moveDown(0.5);
+        doc.text('Фотоконтроль автомобиля', margin, margin, {
+          width: pageW - margin * 2,
+          lineBreak: false,
+        });
         doc.font('Body').fontSize(11).fillColor('#666');
-        doc.text(`Сформировано: ${dateStr}`);
-        doc.moveDown(1);
+        doc.text(`Сформировано: ${dateStr}`, margin, margin + 28, {
+          width: pageW - margin * 2,
+          lineBreak: false,
+        });
 
-        // Card
-        const cardX = 40;
-        const cardY = doc.y;
-        const cardW = doc.page.width - 80;
-        doc.rect(cardX, cardY, cardW, 170).fillColor('#f4f5f7').fill();
+        // Фото автомобиля из профиля — крупно, на половину страницы
+        const coverImgY = margin + 60;
+        const coverImgW = pageW - margin * 2;
+        const coverImgH = 280;
+        if (vehicleCoverBuffer) {
+          try {
+            // Серый фон-плейсхолдер
+            doc.rect(margin, coverImgY, coverImgW, coverImgH).fillColor('#f4f5f7').fill();
+            doc.fillColor('#000');
+            doc.image(vehicleCoverBuffer, margin, coverImgY, {
+              fit: [coverImgW, coverImgH],
+              align: 'center',
+              valign: 'center',
+            });
+          } catch (e) {
+            console.error('pdf: cover image draw error:', e);
+            doc.rect(margin, coverImgY, coverImgW, coverImgH).fillColor('#f4f5f7').fill();
+            doc.fillColor('#999').font('Body').fontSize(11);
+            doc.text('Фото автомобиля недоступно', margin, coverImgY + coverImgH / 2 - 8, {
+              width: coverImgW, align: 'center', lineBreak: false,
+            });
+            doc.fillColor('#000');
+          }
+        } else {
+          doc.rect(margin, coverImgY, coverImgW, coverImgH).fillColor('#f4f5f7').fill();
+          doc.fillColor('#999').font('Body').fontSize(11);
+          doc.text('Фото автомобиля не загружено', margin, coverImgY + coverImgH / 2 - 8, {
+            width: coverImgW, align: 'center', lineBreak: false,
+          });
+          doc.fillColor('#000');
+        }
+
+        // Карточка с данными автомобиля и пробегом
+        const cardY = coverImgY + coverImgH + 20;
+        const cardH = 150;
+        const cardW = pageW - margin * 2;
+        doc.rect(margin, cardY, cardW, cardH).fillColor('#f4f5f7').fill();
         doc.fillColor('#000');
 
-        const labelOpts = { width: cardW - 30 };
-        doc.font('BodyBold').fontSize(14).fillColor('#111');
-        doc.text(`${vehicle.brand} ${vehicle.model}`, cardX + 15, cardY + 15, labelOpts);
-        doc.font('Body').fontSize(11).fillColor('#666');
-        doc.text(`Госномер: ${vehicle.plateNumber}`, cardX + 15, cardY + 40);
-        if (vehicle.year) doc.text(`Год выпуска: ${vehicle.year}`, cardX + 15, cardY + 58);
-        if (vehicle.vin) doc.text(`VIN: ${vehicle.vin}`, cardX + 15, cardY + 76);
+        // Левая колонка — авто
+        const leftX = margin + 16;
+        const leftW = cardW / 2 - 24;
+        doc.font('BodyBold').fontSize(15).fillColor('#111');
+        doc.text(`${vehicle.brand} ${vehicle.model}`, leftX, cardY + 14, { width: leftW, lineBreak: false });
+        doc.font('Body').fontSize(11).fillColor('#444');
+        doc.text(`Госномер: ${vehicle.plateNumber}`, leftX, cardY + 40, { width: leftW, lineBreak: false });
+        if (vehicle.year) {
+          doc.text(`Год выпуска: ${vehicle.year}`, leftX, cardY + 58, { width: leftW, lineBreak: false });
+        }
+        if (vehicle.vin) {
+          doc.text(`VIN: ${vehicle.vin}`, leftX, cardY + 76, { width: leftW, lineBreak: false });
+        }
 
-        doc.font('BodyBold').fontSize(12).fillColor('#111');
-        doc.text('Сотрудник', cardX + 15, cardY + 100);
-        doc.font('Body').fontSize(11).fillColor('#333');
-        doc.text(userName, cardX + 15, cardY + 116);
+        // Правая колонка — сотрудник и пробег
+        const rightX = margin + cardW / 2 + 8;
+        const rightW = cardW / 2 - 24;
+        doc.font('BodyBold').fontSize(11).fillColor('#666');
+        doc.text('СОТРУДНИК', rightX, cardY + 14, { width: rightW, lineBreak: false, characterSpacing: 0.4 });
+        doc.font('Body').fontSize(13).fillColor('#111');
+        doc.text(userName, rightX, cardY + 32, { width: rightW, lineBreak: false });
 
-        doc.font('BodyBold').fontSize(12).fillColor('#111');
-        doc.text('Пробег', cardX + cardW / 2, cardY + 100);
-        doc.font('Body').fontSize(15).fillColor('#1d4ed8');
-        doc.text(`${mileageKm.toLocaleString('ru-RU')} км`, cardX + cardW / 2, cardY + 116);
-
+        doc.font('BodyBold').fontSize(11).fillColor('#666');
+        doc.text('ПРОБЕГ', rightX, cardY + 70, { width: rightW, lineBreak: false, characterSpacing: 0.4 });
+        doc.font('BodyBold').fontSize(20).fillColor('#1d4ed8');
+        doc.text(`${mileageKm.toLocaleString('ru-RU')} км`, rightX, cardY + 88, { width: rightW, lineBreak: false });
         doc.fillColor('#000');
-        doc.y = cardY + 200;
 
-        doc.font('Body').fontSize(10).fillColor('#666');
-        doc.text(
-          'Отчёт содержит 8 обязательных фотографий состояния автомобиля с водяным знаком даты, времени (GST) и госномера, нанесённым в момент съёмки.',
-          40, doc.y, { width: cardW, align: 'left' },
-        );
+        // Подпись внизу
+        const captionY = cardY + cardH + 16;
+        if (captionY < pageH - 60) {
+          doc.font('Body').fontSize(10).fillColor('#666');
+          doc.text(
+            'Отчёт содержит 8 обязательных фотографий состояния автомобиля с водяным знаком даты, времени (GST) и госномера.',
+            margin, captionY, { width: cardW, align: 'left' },
+          );
+          doc.fillColor('#000');
+        }
         drawFooter();
 
-        // ====== 8 photo pages ======
+        // ====== 8 страниц с фотографиями (1 фото на страницу) ======
         for (const ph of photosWithBuffers) {
           doc.addPage();
-          doc.font('BodyBold').fontSize(13).fillColor('#111');
-          doc.text(`Шаг ${ph.step}. ${ph.label}`, 40, 40, { width: doc.page.width - 80 });
 
-          const imgX = 40;
-          const imgY = 75;
-          const imgW = doc.page.width - 80;
-          const imgH = doc.page.height - imgY - 60; // место под footer
+          // Подпись страницы: «Шаг N из 8 · <название>»
+          doc.font('BodyBold').fontSize(14).fillColor('#111');
+          doc.text(`Шаг ${ph.step} из 8`, margin, margin, {
+            width: pageW - margin * 2,
+            lineBreak: false,
+          });
+          doc.font('Body').fontSize(13).fillColor('#444');
+          doc.text(ph.label, margin, margin + 22, {
+            width: pageW - margin * 2,
+            lineBreak: false,
+          });
+
+          // Зона изображения — между подписью сверху и футером снизу
+          const imgX = margin;
+          const imgY = margin + 56;
+          const imgW = pageW - margin * 2;
+          const imgH = pageH - imgY - 60; // оставляем место для футера
 
           if (ph.buffer) {
             try {
@@ -4235,12 +4315,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
             } catch (e) {
               console.error(`pdf: image draw error step=${ph.step}:`, e);
-              doc.font('Body').fontSize(11).fillColor('#c00');
-              doc.text('Не удалось вставить изображение', imgX, imgY + 20);
+              doc.rect(imgX, imgY, imgW, imgH).fillColor('#fafafa').fill();
+              doc.fillColor('#c00').font('Body').fontSize(11);
+              doc.text('Не удалось вставить изображение', imgX, imgY + imgH / 2 - 8, {
+                width: imgW, align: 'center', lineBreak: false,
+              });
+              doc.fillColor('#000');
             }
           } else {
-            doc.font('Body').fontSize(11).fillColor('#c00');
-            doc.text('Файл фотографии недоступен', imgX, imgY + 20);
+            doc.rect(imgX, imgY, imgW, imgH).fillColor('#fafafa').fill();
+            doc.fillColor('#c00').font('Body').fontSize(11);
+            doc.text('Файл фотографии недоступен', imgX, imgY + imgH / 2 - 8, {
+              width: imgW, align: 'center', lineBreak: false,
+            });
+            doc.fillColor('#000');
           }
           drawFooter();
         }
@@ -4358,6 +4446,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             plateNumber: v.plateNumber,
             year: v.year,
             vin: v.vin,
+            photoUrl: v.photoUrl,
           },
           user: { name: u.name, username: u.username },
           performedAt: now,
