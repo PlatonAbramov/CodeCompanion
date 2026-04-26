@@ -43,8 +43,17 @@ interface Personnel {
   salary?: string;
   status?: string;
   photoUrl?: string;
+  isDriver?: boolean;
   createdAt: string;
   updatedAt?: string;
+}
+
+interface RoleAuditEntry {
+  id: string;
+  action: string;
+  actorName: string | null;
+  createdAt: string | null;
+  details?: any;
 }
 
 interface PersonnelDocument {
@@ -196,6 +205,53 @@ export function PersonnelDetail() {
     onError: (error) => {
       toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     },
+  });
+
+  // Изменение роли «Водитель»
+  const driverRoleMutation = useMutation({
+    mutationFn: async (isDriver: boolean) => {
+      const r = await fetch(`/api/personnel/${personnelId}/driver-role`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDriver }),
+      });
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const err: any = new Error(json?.error || 'Не удалось изменить роль');
+        err.payload = json;
+        err.status = r.status;
+        throw err;
+      }
+      return json;
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/personnel'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/role-audit-log`] });
+      if (data?.changed !== false) {
+        toast({
+          title: "Готово",
+          description: data?.person?.isDriver ? 'Назначена роль «Водитель»' : 'Снята роль «Водитель»',
+        });
+      }
+    },
+    onError: (error: any) => {
+      const linked = error?.payload?.vehicles as Array<{ brand: string; model: string; plateNumber: string }> | undefined;
+      const linkedTxt = linked && linked.length > 0
+        ? `: ${linked.map((v) => `${v.brand} ${v.model} (${v.plateNumber})`).join(', ')}`
+        : '';
+      toast({
+        title: "Ошибка",
+        description: (error?.message || 'Не удалось изменить роль') + linkedTxt,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const { data: roleAudit = [] } = useQuery<RoleAuditEntry[]>({
+    queryKey: [`/api/personnel/${personnelId}/role-audit-log`],
+    enabled: !!personnelId && canView,
   });
 
   const deleteDocMutation = useMutation({
@@ -477,7 +533,12 @@ export function PersonnelDetail() {
 
             <div className="text-center mt-4">
               <p className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{person.specialization}</p>
-              <div className="mt-2"><StatusBadge tone={statusTone}>{statusText}</StatusBadge></div>
+              <div className="mt-2 flex items-center justify-center gap-1 flex-wrap">
+                <StatusBadge tone={statusTone}>{statusText}</StatusBadge>
+                {person.isDriver && (
+                  <StatusBadge tone="accent">Водитель</StatusBadge>
+                )}
+              </div>
             </div>
           </div>
 
@@ -504,6 +565,68 @@ export function PersonnelDetail() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Роли */}
+          <div className="p-4" style={SECTION_STYLE} data-testid="card-roles">
+            <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Роли</h3>
+            <div className="flex items-center justify-between gap-3 py-1">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold" style={{ color: 'var(--corp-ink)' }}>Водитель</p>
+                <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                  Доступ к фотоконтролю автомобиля
+                </p>
+              </div>
+              {(user?.role === 'admin' || user?.role === 'director') ? (
+                <label className="inline-flex items-center cursor-pointer select-none" data-testid="toggle-driver-role">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={!!person.isDriver}
+                    disabled={driverRoleMutation.isPending}
+                    onChange={(e) => driverRoleMutation.mutate(e.target.checked)}
+                  />
+                  <div
+                    className="w-10 h-6 rounded-full transition-all relative"
+                    style={{
+                      background: person.isDriver ? 'var(--corp-accent)' : 'var(--corp-surface-2)',
+                      border: '1px solid var(--corp-line)',
+                      opacity: driverRoleMutation.isPending ? 0.6 : 1,
+                    }}
+                  >
+                    <div
+                      className="absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all"
+                      style={{
+                        left: person.isDriver ? '20px' : '2px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      }}
+                    />
+                  </div>
+                </label>
+              ) : (
+                <StatusBadge tone={person.isDriver ? 'accent' : 'neutral'}>
+                  {person.isDriver ? 'Назначен' : 'Не назначен'}
+                </StatusBadge>
+              )}
+            </div>
+            {roleAudit.length > 0 && (
+              <div className="mt-3 pt-3 space-y-1" style={{ borderTop: '1px solid var(--corp-line)' }}>
+                <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
+                  Журнал изменений
+                </p>
+                {roleAudit.slice(0, 5).map((a) => (
+                  <div key={a.id} className="text-[11px] flex justify-between gap-2" data-testid={`role-audit-${a.id}`}>
+                    <span style={{ color: 'var(--corp-ink-2)' }}>
+                      {a.action === 'grant_driver' ? 'Назначена «Водитель»' : 'Снята «Водитель»'}
+                      {a.actorName ? ` · ${a.actorName}` : ''}
+                    </span>
+                    <span style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                      {fmtDateRu(a.createdAt || undefined)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

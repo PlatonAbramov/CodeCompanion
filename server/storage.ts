@@ -23,6 +23,7 @@ import {
   type ImplementationItemComment, type InsertImplementationItemComment,
   type Personnel, type InsertPersonnel, type PersonnelDocument, type InsertPersonnelDocument,
   type PersonnelAdvance, type InsertPersonnelAdvance,
+  personnelRoleAuditLog,
   vehicles, vehiclePhotoControls, vehiclePhotoControlPhotos, vehicleAuditLog,
   type Vehicle, type InsertVehicle,
   type VehiclePhotoControl, type InsertVehiclePhotoControl,
@@ -344,6 +345,10 @@ export interface IStorage {
   createPersonnel(data: InsertPersonnel): Promise<Personnel>;
   updatePersonnel(id: string, data: Partial<InsertPersonnel>): Promise<Personnel>;
   deletePersonnel(id: string): Promise<void>;
+  setPersonnelDriverRole(id: string, isDriver: boolean): Promise<Personnel>;
+  getVehiclesAssignedToPersonnel(personnelId: string): Promise<Array<{ id: string; brand: string; model: string; plateNumber: string; status: string }>>;
+  createPersonnelRoleAuditEntry(data: { personnelId: string; action: 'grant_driver' | 'revoke_driver'; actorUserId: string | null; details?: any }): Promise<void>;
+  getPersonnelRoleAuditLog(personnelId: string): Promise<Array<{ id: string; action: string; actorName: string | null; createdAt: Date | null; details: any }>>;
   
   // Personnel Documents
   getPersonnelDocuments(personnelId: string): Promise<PersonnelDocument[]>;
@@ -2903,7 +2908,83 @@ export class DatabaseStorage implements IStorage {
     await db.delete(personnelDocuments).where(eq(personnelDocuments.personnelId, id));
     await db.delete(personnel).where(eq(personnel.id, id));
   }
-  
+
+  async setPersonnelDriverRole(id: string, isDriver: boolean): Promise<Personnel> {
+    const [person] = await db
+      .update(personnel)
+      .set({ isDriver, updatedAt: new Date() })
+      .where(eq(personnel.id, id))
+      .returning();
+    return person;
+  }
+
+  async setPersonnelDriverRoleWithAudit(
+    id: string,
+    isDriver: boolean,
+    audit: { action: 'grant_driver' | 'revoke_driver'; actorUserId: string | null; details?: any }
+  ): Promise<Personnel> {
+    return await db.transaction(async (tx) => {
+      const [person] = await tx
+        .update(personnel)
+        .set({ isDriver, updatedAt: new Date() })
+        .where(eq(personnel.id, id))
+        .returning();
+      await tx.insert(personnelRoleAuditLog).values({
+        personnelId: id,
+        action: audit.action,
+        actorUserId: audit.actorUserId,
+        details: audit.details ?? null,
+      });
+      return person;
+    });
+  }
+
+  async getVehiclesAssignedToPersonnel(personnelId: string): Promise<Array<{ id: string; brand: string; model: string; plateNumber: string; status: string }>> {
+    const rows = await db
+      .select({
+        id: vehicles.id,
+        brand: vehicles.brand,
+        model: vehicles.model,
+        plateNumber: vehicles.plateNumber,
+        status: vehicles.status,
+      })
+      .from(vehicles)
+      .where(eq(vehicles.assignedPersonnelId, personnelId));
+    return rows.map((r) => ({ ...r, status: r.status || 'active' }));
+  }
+
+  async createPersonnelRoleAuditEntry(data: { personnelId: string; action: 'grant_driver' | 'revoke_driver'; actorUserId: string | null; details?: any }): Promise<void> {
+    await db.insert(personnelRoleAuditLog).values({
+      personnelId: data.personnelId,
+      action: data.action,
+      actorUserId: data.actorUserId,
+      details: data.details ?? null,
+    });
+  }
+
+  async getPersonnelRoleAuditLog(personnelId: string): Promise<Array<{ id: string; action: string; actorName: string | null; createdAt: Date | null; details: any }>> {
+    const rows = await db
+      .select({
+        id: personnelRoleAuditLog.id,
+        action: personnelRoleAuditLog.action,
+        createdAt: personnelRoleAuditLog.createdAt,
+        details: personnelRoleAuditLog.details,
+        actorName: users.name,
+        actorUsername: users.username,
+      })
+      .from(personnelRoleAuditLog)
+      .leftJoin(users, eq(personnelRoleAuditLog.actorUserId, users.id))
+      .where(eq(personnelRoleAuditLog.personnelId, personnelId))
+      .orderBy(desc(personnelRoleAuditLog.createdAt));
+    return rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      createdAt: r.createdAt,
+      details: r.details,
+      actorName: r.actorName || r.actorUsername || null,
+    }));
+  }
+
   // Personnel Documents methods
   async getPersonnelDocuments(personnelId: string): Promise<PersonnelDocument[]> {
     return await db

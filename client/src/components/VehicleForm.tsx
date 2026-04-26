@@ -29,6 +29,7 @@ interface PersonnelRecord {
   middleName?: string | null;
   specialization: string;
   status?: string | null;
+  isDriver?: boolean;
 }
 
 interface VehicleFormProps {
@@ -62,13 +63,15 @@ export function VehicleForm({ initial, onSuccess, onCancel }: VehicleFormProps) 
       return r.json();
     },
   });
-  // Активные сотрудники сверху, остальные — ниже, с пометкой статуса.
-  const personnelSorted = [...personnelList].sort((a, b) => {
-    const aActive = (a.status || 'active') === 'active' ? 0 : 1;
-    const bActive = (b.status || 'active') === 'active' ? 0 : 1;
-    if (aActive !== bActive) return aActive - bActive;
-    return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'ru');
-  });
+  // Только сотрудники с ролью «Водитель»; активные сверху.
+  const personnelSorted = [...personnelList]
+    .filter((p) => p.isDriver === true)
+    .sort((a, b) => {
+      const aActive = (a.status || 'active') === 'active' ? 0 : 1;
+      const bActive = (b.status || 'active') === 'active' ? 0 : 1;
+      if (aActive !== bActive) return aActive - bActive;
+      return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'ru');
+    });
 
   const handleGetUploadParameters = async () => {
     const r = await apiRequest('/api/objects/upload', { method: 'POST' });
@@ -300,11 +303,16 @@ export function VehicleForm({ initial, onSuccess, onCancel }: VehicleFormProps) 
             })}
           </SelectContent>
         </Select>
-        {personnelList.length === 0 && (
+        {personnelList.length === 0 ? (
           <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)' }}>
             Список пуст. Добавьте сотрудника в разделе «Персонал».
           </p>
-        )}
+        ) : personnelSorted.length === 0 ? (
+          <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)' }}>
+            Нет сотрудников с ролью «Водитель». Назначьте роль в карточке сотрудника
+            (Персонал → карточка → блок «Роли»).
+          </p>
+        ) : null}
       </div>
 
       <div className="flex gap-2 pt-2">

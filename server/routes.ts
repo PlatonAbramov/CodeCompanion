@@ -3585,7 +3585,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Internal server error" });
     }
   });
-  
+
+  // Назначение / снятие роли «Водитель» (только директор/админ).
+  // При снятии роли сначала проверяем, не закреплён ли сотрудник за активным авто.
+  app.patch("/api/personnel/:id/driver-role", requireAuth, async (req: any, res) => {
+    try {
+      const u = req.session?.user;
+      if (!u) return res.status(401).json({ error: "Unauthorized" });
+      if (u.role !== 'director' && u.role !== 'admin') {
+        return res.status(403).json({ error: "Только директор может изменять роли сотрудников" });
+      }
+
+      const bodySchema = z.object({ isDriver: z.boolean() });
+      const { isDriver } = bodySchema.parse(req.body);
+
+      const person = await storage.getPersonnel(req.params.id);
+      if (!person) return res.status(404).json({ error: "Сотрудник не найден" });
+
+      // Идемпотентность: если уже в нужном состоянии — вернуть без записи в журнал
+      if (Boolean(person.isDriver) === isDriver) {
+        return res.json({ success: true, person, changed: false });
+      }
+
+      // Защита: при снятии роли — проверить, нет ли закреплённых авто
+      if (!isDriver) {
+        const linked = await storage.getVehiclesAssignedToPersonnel(person.id);
+        const active = linked.filter((v) => v.status !== 'archived');
+        if (active.length > 0) {
+          return res.status(409).json({
+            error: "Сначала открепите сотрудника от автомобилей",
+            vehicles: active,
+          });
+        }
+      }
+
+      const updated = await storage.setPersonnelDriverRoleWithAudit(person.id, isDriver, {
+        action: isDriver ? 'grant_driver' : 'revoke_driver',
+        actorUserId: u.id,
+        details: {
+          actorName: u.name || u.username,
+          personnelName: `${person.lastName} ${person.firstName}`.trim(),
+        },
+      });
+      res.json({ success: true, person: updated, changed: true });
+    } catch (error: any) {
+      console.error("Failed to update driver role:", error);
+      res.status(400).json({ error: error?.message || "Bad request" });
+    }
+  });
+
+  // Журнал изменений роли «Водитель» по сотруднику (директор/админ)
+  app.get("/api/personnel/:id/role-audit-log", requireAuth, requireAdminOrForeman, async (req, res) => {
+    try {
+      const log = await storage.getPersonnelRoleAuditLog(req.params.id);
+      res.json(log);
+    } catch (error) {
+      console.error("Failed to get role audit log:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get personnel documents (Admin & Foreman can view)
   app.get("/api/personnel/:personnelId/documents", requireAuth, requireAdminOrForeman, async (req, res) => {
     try {
@@ -3874,6 +3933,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         createdBy: req.session.user.id,
       });
+      // Проверка: закреплённый сотрудник должен иметь роль «Водитель»
+      if (data.assignedPersonnelId) {
+        const person = await storage.getPersonnel(data.assignedPersonnelId);
+        if (!person) return res.status(400).json({ error: "Сотрудник не найден" });
+        if (!person.isDriver) {
+          return res.status(400).json({
+            error: "Сотрудник без роли «Водитель» не может быть закреплён за автомобилем",
+          });
+        }
+      }
       const created = await storage.createVehicle(data);
       await storage.createVehicleAuditLog({
         vehicleId: created.id,
@@ -3900,6 +3969,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = insertVehicleSchema.partial().parse(req.body);
       const before = await storage.getVehicle(req.params.id);
       if (!before) return res.status(404).json({ error: "Not found" });
+
+      // Проверка: при назначении/смене сотрудника требуется роль «Водитель»
+      if ('assignedPersonnelId' in (data as any) && (data as any).assignedPersonnelId) {
+        const person = await storage.getPersonnel((data as any).assignedPersonnelId);
+        if (!person) return res.status(400).json({ error: "Сотрудник не найден" });
+        if (!person.isDriver) {
+          return res.status(400).json({
+            error: "Сотрудник без роли «Водитель» не может быть закреплён за автомобилем",
+          });
+        }
+      }
 
       const updated = await storage.updateVehicle(req.params.id, data);
 

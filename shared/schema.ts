@@ -274,9 +274,20 @@ export const personnel = pgTable("personnel", {
   salary: decimal("salary", { precision: 12, scale: 2 }), // AED amount
   status: text("status").default("active"), // 'active' | 'dismissed' | 'vacation'
   photoUrl: text("photo_url"), // Main photo
+  isDriver: boolean("is_driver").default(false).notNull(), // Признак роли «Водитель» (доступ к фотоконтролю авто)
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Журнал изменения роли «Водитель» у сотрудника (директор назначает/снимает)
+export const personnelRoleAuditLog = pgTable("personnel_role_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  personnelId: varchar("personnel_id").references(() => personnel.id, { onDelete: "cascade" }).notNull(),
+  action: text("action").notNull(), // 'grant_driver' | 'revoke_driver'
+  actorUserId: varchar("actor_user_id").references(() => users.id),
+  details: jsonb("details"), // { actorName, personnelName, ... }
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const personnelDocuments = pgTable("personnel_documents", {
@@ -944,6 +955,17 @@ export const personnelDocumentsRelations = relations(personnelDocuments, ({ one 
   }),
 }));
 
+export const personnelRoleAuditLogRelations = relations(personnelRoleAuditLog, ({ one }) => ({
+  personnel: one(personnel, {
+    fields: [personnelRoleAuditLog.personnelId],
+    references: [personnel.id],
+  }),
+  actor: one(users, {
+    fields: [personnelRoleAuditLog.actorUserId],
+    references: [users.id],
+  }),
+}));
+
 export const implementationChangeLogsRelations = relations(implementationChangeLogs, ({ one }) => ({
   item: one(implementationItems, {
     fields: [implementationChangeLogs.itemId],
@@ -1153,6 +1175,12 @@ export type Personnel = typeof personnel.$inferSelect;
 export type InsertPersonnel = z.infer<typeof insertPersonnelSchema>;
 export type PersonnelDocument = typeof personnelDocuments.$inferSelect;
 export type InsertPersonnelDocument = z.infer<typeof insertPersonnelDocumentSchema>;
+export type PersonnelRoleAuditLog = typeof personnelRoleAuditLog.$inferSelect;
+export const insertPersonnelRoleAuditLogSchema = createInsertSchema(personnelRoleAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPersonnelRoleAuditLog = z.infer<typeof insertPersonnelRoleAuditLogSchema>;
 export type ImplementationItemComment = typeof implementationItemComments.$inferSelect;
 export type InsertImplementationItemComment = z.infer<typeof insertImplementationItemCommentSchema>;
 

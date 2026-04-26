@@ -38,6 +38,7 @@ interface Personnel {
   salary?: string;
   status?: string;
   photoUrl?: string;
+  isDriver?: boolean;
   documents?: PersonnelDocument[];
 }
 
@@ -51,6 +52,7 @@ export function Personnel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [specializationFilter, setSpecializationFilter] = useState<string>("all");
+  const [driverFilter, setDriverFilter] = useState<string>("all");
   const [showForm, setShowForm] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Personnel | null>(null);
 
@@ -109,10 +111,11 @@ export function Personnel() {
       const matchesStatus = statusFilter === 'all' || person.status === statusFilter;
       const matchesSpecialization = specializationFilter === 'all' ||
         person.specialization === specializationFilter;
+      const matchesDriver = driverFilter === 'all' || (driverFilter === 'drivers' ? !!person.isDriver : !person.isDriver);
 
-      return matchesSearch && matchesStatus && matchesSpecialization;
+      return matchesSearch && matchesStatus && matchesSpecialization && matchesDriver;
     });
-  }, [personnel, searchQuery, statusFilter, specializationFilter]);
+  }, [personnel, searchQuery, statusFilter, specializationFilter, driverFilter]);
 
   const specializations = useMemo(() => {
     const specs = new Set(personnel.map(p => p.specialization));
@@ -252,6 +255,17 @@ export function Personnel() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Select value={driverFilter} onValueChange={setDriverFilter}>
+              <SelectTrigger className="h-9 text-[13px]" data-testid="filter-driver">
+                <SelectValue placeholder="Роль" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все роли</SelectItem>
+                <SelectItem value="drivers">Только водители</SelectItem>
+                <SelectItem value="non-drivers">Без роли «Водитель»</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -324,6 +338,19 @@ export function Personnel() {
                           {person.specialization}
                         </p>
                       </div>
+                      {person.isDriver && (
+                        <span
+                          className="text-[10px] font-bold uppercase px-2 py-0.5 rounded flex-shrink-0"
+                          style={{
+                            background: 'var(--corp-accent-soft, rgba(59,130,246,0.12))',
+                            color: 'var(--corp-accent, #3b82f6)',
+                            letterSpacing: '0.04em',
+                          }}
+                          data-testid={`badge-driver-${person.id}`}
+                        >
+                          Водитель
+                        </span>
+                      )}
                       {docStatus !== 'normal' && (() => {
                         const b = getDocBadge(docStatus);
                         return (
