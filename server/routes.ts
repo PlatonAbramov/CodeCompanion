@@ -123,16 +123,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  const requireDirector = (req: any, res: any, next: any) => {
-    console.log("requireDirector check - user:", req.session?.user ? { id: req.session.user.id, role: req.session.user.role } : null);
-    if (!req.session?.user || (req.session.user.role !== 'director' && req.session.user.role !== 'admin')) {
-      console.log("Access denied - role:", req.session?.user?.role);
-      return res.status(403).json({ error: "Director or admin access required" });
-    }
-    console.log("Access granted for role:", req.session.user.role);
-    next();
-  };
-
   // Запретить доступ для роли «Рабочий» к финансовым / административным разделам.
   const denyWorker = (req: any, res: any, next: any) => {
     if (req.session?.user?.role === 'worker') {
@@ -374,7 +364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User management routes (Director only)
-  app.get("/api/users", requireAuth, requireDirector, async (req, res) => {
+  app.get("/api/users", requireAuth, requirePermissionMiddleware("users.view"), async (req, res) => {
     try {
       const { role } = req.query;
       
@@ -409,7 +399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", requireAuth, requireDirector, async (req, res) => {
+  app.post("/api/users", requireAuth, requirePermissionMiddleware("users.create"), async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       
@@ -433,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get archived projects
-  app.get("/api/projects/archived", requireAuth, requireDirector, async (req, res) => {
+  app.get("/api/projects/archived", requireAuth, requirePermissionMiddleware("projects.view_all"), async (req, res) => {
     try {
       const user = req.session.user!;
       const fullUser = await storage.getUserById(user.id);
@@ -561,7 +551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Создание проектов - только директор
-  app.post("/api/projects", requireAuth, requireDirector, async (req, res) => {
+  app.post("/api/projects", requireAuth, requirePermissionMiddleware("projects.create"), async (req, res) => {
     try {
       const projectData = insertProjectSchema.parse({
         ...req.body,
@@ -579,7 +569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/projects/:id", requireAuth, requireDirector, async (req, res) => {
+  app.patch("/api/projects/:id", requireAuth, requirePermissionMiddleware("projects.update"), async (req, res) => {
     try {
       const projectData = insertProjectSchema.partial().parse(req.body);
       const updatedProject = await storage.updateProject(req.params.id, projectData);
@@ -762,7 +752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/documents", requireAuth, async (req, res) => {
+  app.post("/api/documents", requireAuth, requirePermissionMiddleware("documents.upload"), async (req, res) => {
     try {
       const documentData = insertDocumentSchema.parse({
         ...req.body,
@@ -792,7 +782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/documents/:id", requireAuth, async (req, res) => {
+  app.delete("/api/documents/:id", requireAuth, requirePermissionMiddleware("documents.delete"), async (req, res) => {
     try {
       const document = await storage.getDocument(req.params.id);
       
@@ -834,7 +824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Advance routes
-  app.get("/api/projects/:id/advances", requireAuth, requireDirector, async (req, res) => {
+  app.get("/api/projects/:id/advances", requireAuth, requirePermissionMiddleware("advances.manage"), async (req, res) => {
     try {
       const advances = await storage.getProjectAdvances(req.params.id);
       res.json(advances);
@@ -844,7 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/advances", requireAuth, requireDirector, async (req, res) => {
+  app.post("/api/advances", requireAuth, requirePermissionMiddleware("advances.manage"), async (req, res) => {
     try {
       const advanceData = insertAdvanceSchema.parse({
         ...req.body,
@@ -863,7 +853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Customer Advance routes
-  app.get("/api/projects/:id/customer-advances", requireAuth, requireDirector, async (req, res) => {
+  app.get("/api/projects/:id/customer-advances", requireAuth, requirePermissionMiddleware("customer_advances.manage"), async (req, res) => {
     try {
       const customerAdvances = await storage.getProjectCustomerAdvances(req.params.id);
       res.json(customerAdvances);
@@ -873,7 +863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customer-advances", requireAuth, requireDirector, async (req, res) => {
+  app.post("/api/customer-advances", requireAuth, requirePermissionMiddleware("customer_advances.manage"), async (req, res) => {
     try {
       const customerAdvanceData = insertCustomerAdvanceSchema.parse({
         ...req.body,
@@ -904,7 +894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Revenue routes
-  app.get("/api/projects/:id/revenues", requireAuth, requireDirector, async (req, res) => {
+  app.get("/api/projects/:id/revenues", requireAuth, requirePermissionMiddleware("revenues.manage"), async (req, res) => {
     try {
       const revenues = await storage.getProjectRevenues(req.params.id);
       res.json(revenues);
@@ -914,7 +904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/revenues", requireAuth, requireDirector, async (req, res) => {
+  app.post("/api/revenues", requireAuth, requirePermissionMiddleware("revenues.manage"), async (req, res) => {
     try {
       const revenueData = insertRevenueSchema.parse({
         ...req.body,
@@ -930,7 +920,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/revenues/:id", requireAuth, requireDirector, async (req, res) => {
+  app.put("/api/revenues/:id", requireAuth, requirePermissionMiddleware("revenues.manage"), async (req, res) => {
     try {
       const revenueData = {
         ...req.body,
@@ -945,7 +935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/advances/:id", requireAuth, requireDirector, async (req, res) => {
+  app.put("/api/advances/:id", requireAuth, requirePermissionMiddleware("advances.manage"), async (req, res) => {
     try {
       const advanceData = {
         ...req.body,
@@ -960,7 +950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/customer-advances/:id", requireAuth, requireDirector, async (req, res) => {
+  app.put("/api/customer-advances/:id", requireAuth, requirePermissionMiddleware("customer_advances.manage"), async (req, res) => {
     try {
       const oldAdvance = await storage.getCustomerAdvanceById(req.params.id);
       const customerAdvanceData = {
@@ -1009,7 +999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete endpoints
-  app.delete("/api/advances/:id", requireAuth, requireDirector, async (req, res) => {
+  app.delete("/api/advances/:id", requireAuth, requirePermissionMiddleware("advances.manage"), async (req, res) => {
     try {
       // Get the advance to find its project ID
       const advance = await storage.getAdvanceById(req.params.id);
@@ -1031,14 +1021,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/customer-advances/:id", requireAuth, async (req, res) => {
+  app.delete("/api/customer-advances/:id", requireAuth, requirePermissionMiddleware("customer_advances.manage"), async (req, res) => {
     try {
-      // Only admin and director can delete customer advances
-      const userRole = req.session.user!.role;
-      if (userRole !== 'admin' && userRole !== 'director') {
-        return res.status(403).json({ error: "Access denied" });
-      }
-      
       // Get the advance to find its project ID
       const advance = await storage.getCustomerAdvanceById(req.params.id);
       
@@ -1117,7 +1101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/revenues/:id", requireAuth, requireDirector, async (req, res) => {
+  app.delete("/api/revenues/:id", requireAuth, requirePermissionMiddleware("revenues.manage"), async (req, res) => {
     try {
       await storage.deleteRevenue(req.params.id);
       res.json({ message: "Revenue deleted successfully" });
@@ -1260,7 +1244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Documents routes
-  app.post("/api/projects/:projectId/documents", requireAuth, requireDirector, async (req, res) => {
+  app.post("/api/projects/:projectId/documents", requireAuth, requirePermissionMiddleware("documents.upload"), async (req, res) => {
     try {
       const documentData = insertDocumentSchema.parse({
         ...req.body,
@@ -1275,32 +1259,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(document);
     } catch (error) {
       console.error("Create document error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  app.delete("/api/documents/:id", requireAuth, requireDirector, async (req, res) => {
-    try {
-      const document = await storage.getDocument(req.params.id);
-      if (!document) {
-        return res.status(404).json({ error: "Document not found" });
-      }
-
-      // First delete all implementation sheets that reference this document
-      const sheets = await storage.getImplementationSheets(document.projectId);
-      for (const sheet of sheets) {
-        if (sheet.sourceDocumentId === req.params.id) {
-          // This will cascade delete all items, comments, photos, logs
-          await storage.deleteImplementationSheet(sheet.id);
-        }
-      }
-
-      // Delete document from database
-      await storage.deleteDocument(req.params.id);
-      
-      res.json({ message: "Document deleted successfully" });
-    } catch (error) {
-      console.error("Delete document error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -1466,7 +1424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/contractors", requireAuth, async (req, res) => {
+  app.post("/api/contractors", requireAuth, requirePermissionMiddleware("contractors.manage"), async (req, res) => {
     try {
       const contractorData = insertContractorSchema.parse({
         ...req.body,
@@ -1484,7 +1442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/contractors/:id", requireAuth, async (req, res) => {
+  app.put("/api/contractors/:id", requireAuth, requirePermissionMiddleware("contractors.manage"), async (req, res) => {
     try {
       const contractor = await storage.updateContractor(req.params.id, req.body);
       res.json(contractor);
@@ -1494,7 +1452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/contractors/:id", requireAuth, async (req, res) => {
+  app.delete("/api/contractors/:id", requireAuth, requirePermissionMiddleware("contractors.manage"), async (req, res) => {
     try {
       await storage.deleteContractor(req.params.id);
       res.json({ success: true });
@@ -1526,7 +1484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Contractor project assignment routes
-  app.get("/api/contractor-projects/:id", requireAuth, requireDirector, async (req, res) => {
+  app.get("/api/contractor-projects/:id", requireAuth, requirePermissionMiddleware("projects.update"), async (req, res) => {
     try {
       const assignment = await storage.getContractorProjectAssignment(req.params.id);
       if (!assignment) {
@@ -1539,7 +1497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/contractor-projects/:id", requireAuth, requireDirector, async (req, res) => {
+  app.put("/api/contractor-projects/:id", requireAuth, requirePermissionMiddleware("projects.update"), async (req, res) => {
     try {
       const updateData: Partial<InsertContractorProject> = {};
       
@@ -1567,7 +1525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/contractors/:contractorId/assign-project", requireAuth, async (req, res) => {
+  app.post("/api/contractors/:contractorId/assign-project", requireAuth, requirePermissionMiddleware("contractors.manage"), async (req, res) => {
     try {
       const contractorProjectData = insertContractorProjectSchema.parse({
         ...req.body,
@@ -1582,17 +1540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/contractor-projects/:id", requireAuth, async (req, res) => {
-    try {
-      const contractorProject = await storage.updateContractorProject(req.params.id, req.body);
-      res.json(contractorProject);
-    } catch (error) {
-      console.error("Failed to update contractor project:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  app.delete("/api/contractor-projects/:id", requireAuth, async (req, res) => {
+  app.delete("/api/contractor-projects/:id", requireAuth, requirePermissionMiddleware("projects.update"), async (req, res) => {
     try {
       await storage.removeContractorFromProject(req.params.id);
       res.json({ success: true });
@@ -1691,7 +1639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Restore client
-  app.post("/api/clients/:id/restore", requireAuth, async (req, res) => {
+  app.post("/api/clients/:id/restore", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       const client = await storage.restoreClient(req.params.id);
       
@@ -1751,7 +1699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients/:id/employees", requireAuth, async (req, res) => {
+  app.post("/api/clients/:id/employees", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       const { employeeIds } = req.body;
       const clientId = req.params.id;
@@ -1773,7 +1721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/clients/:id/employees/:userId", requireAuth, async (req, res) => {
+  app.delete("/api/clients/:id/employees/:userId", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       const { id: clientId, userId } = req.params;
       await storage.removeEmployeeFromClient(clientId, userId);
@@ -1795,7 +1743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients", requireAuth, async (req, res) => {
+  app.post("/api/clients", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       const clientData = insertClientSchema.parse({
         ...req.body,
@@ -1836,7 +1784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/clients/:id", requireAuth, async (req, res) => {
+  app.put("/api/clients/:id", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       const client = await storage.updateClient(req.params.id, req.body);
       
@@ -1870,7 +1818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/clients/:id", requireAuth, async (req, res) => {
+  app.delete("/api/clients/:id", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       await storage.deleteClient(req.params.id);
       
@@ -1897,7 +1845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients/:clientId/projects", requireAuth, async (req, res) => {
+  app.post("/api/clients/:clientId/projects", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       const clientProjectData = insertClientProjectSchema.parse({
         ...req.body,
@@ -1912,7 +1860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/clients/:clientId/projects/:id", requireAuth, async (req, res) => {
+  app.put("/api/clients/:clientId/projects/:id", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       const project = await storage.updateClientProject(req.params.id, req.body);
       res.json(project);
@@ -1922,7 +1870,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/client-projects/:id", requireAuth, async (req, res) => {
+  app.put("/api/client-projects/:id", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       const clientProject = await storage.updateClientProject(req.params.id, req.body);
       res.json(clientProject);
@@ -1932,7 +1880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/client-projects/:id", requireAuth, async (req, res) => {
+  app.delete("/api/client-projects/:id", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       await storage.removeClientFromProject(req.params.id);
       res.json({ success: true });
@@ -2011,7 +1959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tools", requireAuth, async (req, res) => {
+  app.post("/api/tools", requireAuth, requirePermissionMiddleware("tools.manage"), async (req, res) => {
     try {
       const validatedData = insertToolSchema.parse({
         ...req.body,
@@ -2025,7 +1973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/tools/:id", requireAuth, async (req, res) => {
+  app.patch("/api/tools/:id", requireAuth, requirePermissionMiddleware("tools.manage"), async (req, res) => {
     try {
       const tool = await storage.updateTool(req.params.id, req.body);
       res.json(tool);
@@ -2035,7 +1983,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/tools/:id", requireAuth, async (req, res) => {
+  app.delete("/api/tools/:id", requireAuth, requirePermissionMiddleware("tools.manage"), async (req, res) => {
     try {
       await storage.deleteTool(req.params.id);
       res.json({ success: true });
@@ -2056,7 +2004,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tools/:id/movements", requireAuth, upload.single('photo'), async (req, res) => {
+  app.post("/api/tools/:id/movements", requireAuth, requirePermissionMiddleware("tools.manage"), upload.single('photo'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "Photo is required" });
@@ -2164,10 +2112,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
-  // Специализированные middleware
+  // Специализированные middleware (для /api/admin/* остаётся admin-only)
   const requireAdmin = requireRole(["admin"]);
-  const requireDirectorOrAdmin = requireRole(["admin", "director"]);
-  const requireMasterOrAbove = requireRole(["admin", "director", "master"]);
   const requireAnyRole = requireRole(["admin", "director", "master", "client"]);
 
   // Админ-панель: статистика
@@ -2663,7 +2609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Parse invoice and create implementation sheet
-  app.post("/api/projects/:projectId/implementation-sheets/parse-invoice", requireDirector, async (req, res) => {
+  app.post("/api/projects/:projectId/implementation-sheets/parse-invoice", requireAuth, requirePermissionMiddleware("implementation_sheets.manage"), async (req, res) => {
     try {
       const { projectId } = req.params;
       const { name, documentId } = req.body;
@@ -3361,7 +3307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete project - Admin or Director (after requireAdmin is defined)
-  app.delete("/api/projects/:id", requireAuth, requireDirectorOrAdmin, async (req, res) => {
+  app.delete("/api/projects/:id", requireAuth, requirePermissionMiddleware("projects.delete"), async (req, res) => {
     try {
       const user = req.session.user!;
       const projectId = req.params.id;
@@ -3450,7 +3396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // 2. PROJECT ARCHIVING (Архивирование проектов)
-  app.patch("/api/projects/:id/archive", requireAuth, requireDirector, async (req, res) => {
+  app.patch("/api/projects/:id/archive", requireAuth, requirePermissionMiddleware("projects.archive"), async (req, res) => {
     try {
       const { id } = req.params;
       const { archive } = req.body; // true to archive, false to unarchive
@@ -3578,7 +3524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // 4. ANALYTICS DASHBOARD (Аналитика и отчеты)
-  app.get("/api/analytics/projects", requireAuth, requireDirector, async (req, res) => {
+  app.get("/api/analytics/projects", requireAuth, requirePermissionMiddleware("system.view_analytics"), async (req, res) => {
     try {
       const cacheKey = cacheKeys.analyticsProjects();
       
@@ -3607,7 +3553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/analytics/contractors", requireAuth, requireDirector, async (req, res) => {
+  app.get("/api/analytics/contractors", requireAuth, requirePermissionMiddleware("system.view_analytics"), async (req, res) => {
     try {
       const cacheKey = cacheKeys.analyticsContractors();
       
@@ -3630,7 +3576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/analytics/clients", requireAuth, requireDirector, async (req, res) => {
+  app.get("/api/analytics/clients", requireAuth, requirePermissionMiddleware("system.view_analytics"), async (req, res) => {
     try {
       const cacheKey = cacheKeys.analyticsClients();
       
@@ -3653,7 +3599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/analytics/tools", requireAuth, requireDirector, async (req, res) => {
+  app.get("/api/analytics/tools", requireAuth, requirePermissionMiddleware("system.view_analytics"), async (req, res) => {
     try {
       const cacheKey = cacheKeys.analyticsTools();
       
@@ -3699,17 +3645,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // 6. PERSONNEL MANAGEMENT (Управление персоналом)
-  // Middleware for Admin or Foreman access
-  const requireAdminOrForeman: RequestHandler = (req, res, next) => {
-    const user = req.session.user;
-    if (!user || (user.role !== 'admin' && user.role !== 'director')) {
-      return res.status(403).json({ error: "Access denied. Admin or Director role required." });
-    }
-    next();
-  };
-  
   // Get all personnel (Admin & Foreman can view)
-  app.get("/api/personnel", requireAuth, requireAdminOrForeman, async (req, res) => {
+  app.get("/api/personnel", requireAuth, requirePermissionMiddleware("personnel.view"), async (req, res) => {
     try {
       const personnel = await storage.getAllPersonnel();
       res.json(personnel);
@@ -3720,7 +3657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get single personnel (Admin & Foreman can view)
-  app.get("/api/personnel/:id", requireAuth, requireAdminOrForeman, async (req, res) => {
+  app.get("/api/personnel/:id", requireAuth, requirePermissionMiddleware("personnel.view"), async (req, res) => {
     try {
       const person = await storage.getPersonnel(req.params.id);
       if (!person) {
@@ -3734,7 +3671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Create personnel (Admin only)
-  app.post("/api/personnel", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/personnel", requireAuth, requirePermissionMiddleware("personnel.manage"), async (req, res) => {
     try {
       const person = await storage.createPersonnel({
         ...req.body,
@@ -3748,7 +3685,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Update personnel (Admin only)
-  app.put("/api/personnel/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.put("/api/personnel/:id", requireAuth, requirePermissionMiddleware("personnel.manage"), async (req, res) => {
     try {
       const person = await storage.updatePersonnel(req.params.id, req.body);
       res.json(person);
@@ -3759,7 +3696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Delete personnel (Admin only)
-  app.delete("/api/personnel/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/personnel/:id", requireAuth, requirePermissionMiddleware("personnel.manage"), async (req, res) => {
     try {
       await storage.deletePersonnel(req.params.id);
       res.json({ success: true });
@@ -3818,7 +3755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Журнал изменений роли «Водитель» по сотруднику (директор/админ)
-  app.get("/api/personnel/:id/role-audit-log", requireAuth, requireAdminOrForeman, async (req, res) => {
+  app.get("/api/personnel/:id/role-audit-log", requireAuth, requirePermissionMiddleware("personnel.view"), async (req, res) => {
     try {
       const log = await storage.getPersonnelRoleAuditLog(req.params.id);
       res.json(log);
@@ -3829,7 +3766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get personnel documents (Admin & Foreman can view)
-  app.get("/api/personnel/:personnelId/documents", requireAuth, requireAdminOrForeman, async (req, res) => {
+  app.get("/api/personnel/:personnelId/documents", requireAuth, requirePermissionMiddleware("personnel.view"), async (req, res) => {
     try {
       const documents = await storage.getPersonnelDocuments(req.params.personnelId);
       res.json(documents);
@@ -3840,7 +3777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Create personnel document (Admin only)
-  app.post("/api/personnel/:personnelId/documents", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/personnel/:personnelId/documents", requireAuth, requirePermissionMiddleware("personnel.manage"), async (req, res) => {
     try {
       const doc = await storage.createPersonnelDocument({
         ...req.body,
@@ -3855,7 +3792,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Update personnel document (Admin only)
-  app.put("/api/personnel/documents/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.put("/api/personnel/documents/:id", requireAuth, requirePermissionMiddleware("personnel.manage"), async (req, res) => {
     try {
       const doc = await storage.updatePersonnelDocument(req.params.id, req.body);
       res.json(doc);
@@ -3866,7 +3803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Delete personnel document (Admin only)
-  app.delete("/api/personnel/documents/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/personnel/documents/:id", requireAuth, requirePermissionMiddleware("personnel.manage"), async (req, res) => {
     try {
       await storage.deletePersonnelDocument(req.params.id);
       res.json({ success: true });
@@ -3877,7 +3814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Upload personnel photo
-  app.post("/api/personnel/:id/photo", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/personnel/:id/photo", requireAuth, requirePermissionMiddleware("personnel.manage"), async (req, res) => {
     try {
       const { photoUrl } = req.body;
       const person = await storage.updatePersonnel(req.params.id, { photoUrl });
@@ -3890,7 +3827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Personnel Advances routes
   // Get personnel advances (Admin and Foreman can view)
-  app.get("/api/personnel/:personnelId/advances", requireAuth, requireAdminOrForeman, async (req, res) => {
+  app.get("/api/personnel/:personnelId/advances", requireAuth, requirePermissionMiddleware("personnel.view"), async (req, res) => {
     try {
       const { month } = req.query;
       const monthDate = month ? new Date(month as string) : undefined;
@@ -3903,7 +3840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get personnel advances summary (Admin and Foreman can view)
-  app.get("/api/personnel/:personnelId/advances/summary", requireAuth, requireAdminOrForeman, async (req, res) => {
+  app.get("/api/personnel/:personnelId/advances/summary", requireAuth, requirePermissionMiddleware("personnel.view"), async (req, res) => {
     try {
       const { month } = req.query;
       if (!month) {
@@ -3919,7 +3856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create personnel advance (Admin and Foreman can add)
-  app.post("/api/personnel/:personnelId/advances", requireAuth, requireAdminOrForeman, async (req, res) => {
+  app.post("/api/personnel/:personnelId/advances", requireAuth, requirePermissionMiddleware("advances.manage"), async (req, res) => {
     try {
       const advance = await storage.createPersonnelAdvance({
         ...req.body,
@@ -4113,7 +4050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Создать (только директор/админ)
-  app.post("/api/vehicles", requireAuth, requireDirector, async (req: any, res) => {
+  app.post("/api/vehicles", requireAuth, requirePermissionMiddleware("vehicles.manage"), async (req: any, res) => {
     try {
       const data = insertVehicleSchema.parse({
         ...req.body,
@@ -4150,7 +4087,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Обновить (только директор/админ)
   // Распознаём специальные действия: archive/restore (по status), reassign (по assignedUserId).
-  app.patch("/api/vehicles/:id", requireAuth, requireDirector, async (req: any, res) => {
+  app.patch("/api/vehicles/:id", requireAuth, requirePermissionMiddleware("vehicles.manage"), async (req: any, res) => {
     try {
       const data = insertVehicleSchema.partial().parse(req.body);
       const before = await storage.getVehicle(req.params.id);
@@ -4217,7 +4154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch(
     "/api/vehicles/:id/photo-controls/:controlId/mileage",
     requireAuth,
-    requireDirector,
+    requirePermissionMiddleware("vehicles.manage"),
     async (req: any, res) => {
       try {
         const { id, controlId } = req.params;
@@ -4289,7 +4226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Журнал аудита автомобиля (только директор/админ).
-  app.get("/api/vehicles/:id/audit-log", requireAuth, requireDirector, async (req: any, res) => {
+  app.get("/api/vehicles/:id/audit-log", requireAuth, requirePermissionMiddleware("vehicles.audit_log"), async (req: any, res) => {
     try {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });

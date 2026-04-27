@@ -155,6 +155,13 @@ export const PERMISSIONS: PermissionDef[] = [
     defaults: adminAndDirector(),
   },
   {
+    key: "projects.delete",
+    category: "projects",
+    name: "Удалять проекты",
+    description: "Полное удаление проекта из системы (необратимо).",
+    defaults: adminAndDirector(),
+  },
+  {
     key: "projects.assign_users",
     category: "projects",
     name: "Назначать пользователей на проект",
