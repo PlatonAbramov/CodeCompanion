@@ -325,6 +325,47 @@ export const personnelDocuments = pgTable("personnel_documents", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// =============================================================================
+// Гибкие права (этап 1, аддитивно к существующим ролям)
+// rolePermissions хранит включён/выключен ли каждый ключ права для роли.
+// userPermissionOverrides хранит персональные исключения для конкретного
+// пользователя ('enabled' = принудительно включить, 'disabled' = принудительно
+// выключить). Отсутствие записи означает «наследовать от роли».
+// permissionAuditLog — журнал всех изменений настроек прав для админ-аудита.
+// Сами ключи прав (категории, названия, описания, дефолты) задаются в
+// shared/permissions.ts и используются на сервере и в UI.
+// =============================================================================
+export const rolePermissions = pgTable("role_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  role: text("role").notNull(), // 'admin' | 'director' | 'master' | 'worker' | 'client'
+  permissionKey: text("permission_key").notNull(),
+  enabled: boolean("enabled").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  uniqRoleKey: unique("role_permissions_role_key_unique").on(t.role, t.permissionKey),
+}));
+
+export const userPermissionOverrides = pgTable("user_permission_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  permissionKey: text("permission_key").notNull(),
+  state: text("state").notNull(), // 'enabled' | 'disabled'
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  uniqUserKey: unique("user_permission_overrides_user_key_unique").on(t.userId, t.permissionKey),
+}));
+
+export const permissionAuditLog = pgTable("permission_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+  changedBy: varchar("changed_by").references(() => users.id),
+  scope: text("scope").notNull(), // 'role' | 'user'
+  scopeId: text("scope_id").notNull(), // имя роли или userId
+  permissionKey: text("permission_key").notNull(),
+  prevValue: text("prev_value"), // 'enabled' | 'disabled' | 'inherit' | null
+  newValue: text("new_value").notNull(), // 'enabled' | 'disabled' | 'inherit'
+});
+
 // Personnel advances table for tracking employee advances
 export const personnelAdvances = pgTable("personnel_advances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1331,3 +1372,26 @@ export type VehiclePhotoControlPhoto = typeof vehiclePhotoControlPhotos.$inferSe
 export type InsertVehiclePhotoControlPhoto = z.infer<typeof insertVehiclePhotoControlPhotoSchema>;
 export type VehicleAuditLog = typeof vehicleAuditLog.$inferSelect;
 export type InsertVehicleAuditLog = z.infer<typeof insertVehicleAuditLogSchema>;
+
+// =============================================================================
+// Гибкие права (этап 1) — типы и Zod-схемы.
+// =============================================================================
+export const insertRolePermissionSchema = createInsertSchema(rolePermissions).omit({
+  id: true,
+  updatedAt: true,
+});
+export const insertUserPermissionOverrideSchema = createInsertSchema(userPermissionOverrides).omit({
+  id: true,
+  updatedAt: true,
+});
+export const insertPermissionAuditLogSchema = createInsertSchema(permissionAuditLog).omit({
+  id: true,
+  changedAt: true,
+});
+
+export type RolePermission = typeof rolePermissions.$inferSelect;
+export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
+export type UserPermissionOverride = typeof userPermissionOverrides.$inferSelect;
+export type InsertUserPermissionOverride = z.infer<typeof insertUserPermissionOverrideSchema>;
+export type PermissionAuditLog = typeof permissionAuditLog.$inferSelect;
+export type InsertPermissionAuditLog = z.infer<typeof insertPermissionAuditLogSchema>;

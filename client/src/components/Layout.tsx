@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import {
-  Home, Users, Building2, Wrench, UserCheck, Shield,
+  Home, Users, Building2, Wrench, UserCheck, Shield, ShieldCheck,
   TrendingUp, MoreHorizontal, LogOut, ChevronRight, Receipt, Car
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -239,6 +239,14 @@ export function Layout({ children }: LayoutProps) {
         path: '/admin',
         matches: (l) => l.startsWith('/admin'),
         testId: 'menu-staff',
+      });
+      extraItems.push({
+        key: 'permissions',
+        label: 'Права и доступ',
+        icon: ShieldCheck,
+        path: '/permissions',
+        matches: (l) => l.startsWith('/permissions'),
+        testId: 'menu-permissions',
       });
     }
   }

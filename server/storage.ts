@@ -30,6 +30,9 @@ import {
   type VehiclePhotoControl, type InsertVehiclePhotoControl,
   type VehiclePhotoControlPhoto, type InsertVehiclePhotoControlPhoto,
   type VehicleAuditLog, type InsertVehicleAuditLog,
+  rolePermissions, userPermissionOverrides, permissionAuditLog,
+  type RolePermission, type UserPermissionOverride, type PermissionAuditLog,
+  type InsertRolePermission, type InsertPermissionAuditLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
@@ -3479,6 +3482,149 @@ export class DatabaseStorage implements IStorage {
   async createVehicleAuditLog(entry: InsertVehicleAuditLog) {
     const [row] = await db.insert(vehicleAuditLog).values(entry as any).returning();
     return row;
+  }
+
+  // ===========================================================================
+  // Гибкие права (этап 1)
+  // ===========================================================================
+
+  async getRolePermissions(role: string): Promise<RolePermission[]> {
+    return await db
+      .select()
+      .from(rolePermissions)
+      .where(eq(rolePermissions.role, role));
+  }
+
+  async getAllRolePermissions(): Promise<RolePermission[]> {
+    return await db.select().from(rolePermissions);
+  }
+
+  async bulkInsertRolePermissions(rows: InsertRolePermission[]): Promise<void> {
+    if (rows.length === 0) return;
+    await db
+      .insert(rolePermissions)
+      .values(rows as any)
+      .onConflictDoNothing({
+        target: [rolePermissions.role, rolePermissions.permissionKey],
+      });
+  }
+
+  async upsertRolePermission(role: string, permissionKey: string, enabled: boolean): Promise<RolePermission> {
+    const [row] = await db
+      .insert(rolePermissions)
+      .values({ role, permissionKey, enabled } as any)
+      .onConflictDoUpdate({
+        target: [rolePermissions.role, rolePermissions.permissionKey],
+        set: { enabled, updatedAt: new Date() },
+      })
+      .returning();
+    return row;
+  }
+
+  async deleteRolePermissionsForRole(role: string): Promise<void> {
+    await db.delete(rolePermissions).where(eq(rolePermissions.role, role));
+  }
+
+  async getUserPermissionOverrides(userId: string): Promise<UserPermissionOverride[]> {
+    return await db
+      .select()
+      .from(userPermissionOverrides)
+      .where(eq(userPermissionOverrides.userId, userId));
+  }
+
+  async upsertUserPermissionOverride(userId: string, permissionKey: string, state: "enabled" | "disabled"): Promise<UserPermissionOverride> {
+    const [row] = await db
+      .insert(userPermissionOverrides)
+      .values({ userId, permissionKey, state } as any)
+      .onConflictDoUpdate({
+        target: [userPermissionOverrides.userId, userPermissionOverrides.permissionKey],
+        set: { state, updatedAt: new Date() },
+      })
+      .returning();
+    return row;
+  }
+
+  async deleteUserPermissionOverride(userId: string, permissionKey: string): Promise<void> {
+    await db
+      .delete(userPermissionOverrides)
+      .where(
+        and(
+          eq(userPermissionOverrides.userId, userId),
+          eq(userPermissionOverrides.permissionKey, permissionKey),
+        ),
+      );
+  }
+
+  async deleteAllUserPermissionOverrides(userId: string): Promise<void> {
+    await db
+      .delete(userPermissionOverrides)
+      .where(eq(userPermissionOverrides.userId, userId));
+  }
+
+  async createPermissionAuditEntry(entry: InsertPermissionAuditLog): Promise<PermissionAuditLog> {
+    const [row] = await db
+      .insert(permissionAuditLog)
+      .values(entry as any)
+      .returning();
+    return row;
+  }
+
+  async listPermissionAuditEntries(limit: number = 100): Promise<Array<PermissionAuditLog & { actor: { id: string; name: string; username: string } | null }>> {
+    const rows = await db
+      .select({ log: permissionAuditLog, u: users })
+      .from(permissionAuditLog)
+      .leftJoin(users, eq(users.id, permissionAuditLog.changedBy))
+      .orderBy(desc(permissionAuditLog.changedAt))
+      .limit(limit);
+    return rows.map(({ log, u }) => ({
+      ...log,
+      actor: u && u.id ? { id: u.id, name: u.name, username: u.username } : null,
+    }));
+  }
+
+  async countActiveAdminsWithPermission(permissionKey: string, registryDefaultForAdmin: boolean): Promise<number> {
+    // Базовый набор: активные не-заблокированные пользователи с ролью 'admin'.
+    const admins = await db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.role, "admin"),
+          eq(users.isActive, true as any),
+        ),
+      );
+    if (admins.length === 0) return 0;
+
+    // Эффективное значение для роли 'admin'.
+    const roleRows = await db
+      .select()
+      .from(rolePermissions)
+      .where(
+        and(
+          eq(rolePermissions.role, "admin"),
+          eq(rolePermissions.permissionKey, permissionKey),
+        ),
+      );
+    const roleEnabled = roleRows[0] ? roleRows[0].enabled === true : registryDefaultForAdmin;
+
+    // Учитываем персональные переопределения.
+    const overrides = await db
+      .select()
+      .from(userPermissionOverrides)
+      .where(eq(userPermissionOverrides.permissionKey, permissionKey));
+    const overrideByUser = new Map<string, "enabled" | "disabled">();
+    for (const ov of overrides) {
+      overrideByUser.set(ov.userId, ov.state as "enabled" | "disabled");
+    }
+
+    let count = 0;
+    for (const a of admins) {
+      if (a.isBlocked) continue;
+      const ov = overrideByUser.get(a.id);
+      const eff = ov ? ov === "enabled" : roleEnabled;
+      if (eff) count++;
+    }
+    return count;
   }
 }
 

@@ -13,6 +13,18 @@ import fs from "fs";
 import { fileURLToPath } from 'url';
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import PDFDocument from "pdfkit";
+import {
+  PERMISSIONS,
+  PERMISSION_BY_KEY,
+  PERMISSION_ROLES,
+  PERMISSION_ROLE_LABELS,
+  PERMISSION_CATEGORY_LABELS,
+  type PermissionRole,
+} from "@shared/permissions";
+import {
+  requirePermission as requirePermissionMiddleware,
+  getEffectivePermissions,
+} from "./lib/permissions";
 import { cache, cacheKeys, invalidateProjectCache, invalidateUserCache, invalidateContractorCache, invalidateClientCache, invalidateToolCache } from "./cache";
 import { notifyExpenseCreatedAsync, isTelegramConfigured } from "./telegramNotifier";
 
@@ -4703,6 +4715,309 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("get mileage stats error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
+  });
+
+  // ===========================================================================
+  // Гибкие права: реестр, настройки по ролям/сотрудникам, журнал.
+  // Все эндпоинты защищены правом `users.manage_permissions`. Системные права
+  // (isSystem=true) не показываются в UI и не подлежат редактированию.
+  // ===========================================================================
+  const requirePermsManage = requirePermissionMiddleware("users.manage_permissions");
+
+  const isKnownPermissionRole = (r: string): r is PermissionRole =>
+    (PERMISSION_ROLES as readonly string[]).includes(r);
+
+  // Реестр: список всех несистемных прав, сгруппированных по категориям, и
+  // список ролей с локализованными названиями.
+  app.get("/api/permissions/registry", requireAuth, requirePermsManage, async (_req, res) => {
+    const visible = PERMISSIONS.filter((p) => !p.isSystem);
+    res.json({
+      roles: PERMISSION_ROLES.map((r) => ({ key: r, label: PERMISSION_ROLE_LABELS[r] })),
+      categories: Object.entries(PERMISSION_CATEGORY_LABELS).map(([key, label]) => ({ key, label })),
+      permissions: visible.map((p) => ({
+        key: p.key,
+        category: p.category,
+        name: p.name,
+        description: p.description,
+        defaults: p.defaults,
+      })),
+    });
+  });
+
+  // Текущая конфигурация одной роли (только несистемные ключи).
+  app.get("/api/permissions/role/:role", requireAuth, requirePermsManage, async (req, res) => {
+    const role = req.params.role;
+    if (!isKnownPermissionRole(role)) {
+      return res.status(400).json({ error: "Неизвестная роль" });
+    }
+    const rows = await storage.getRolePermissions(role);
+    const map = new Map(rows.map((r) => [r.permissionKey, r.enabled === true]));
+    const result: Record<string, boolean> = {};
+    for (const p of PERMISSIONS) {
+      if (p.isSystem) continue;
+      result[p.key] = map.has(p.key) ? (map.get(p.key) as boolean) : (p.defaults[role] === true);
+    }
+    res.json({ role, label: PERMISSION_ROLE_LABELS[role], values: result });
+  });
+
+  // Обновить настройки роли. body: { updates: [{ key, enabled }] }
+  app.put("/api/permissions/role/:role", requireAuth, requirePermsManage, async (req, res) => {
+    const role = req.params.role;
+    if (!isKnownPermissionRole(role)) {
+      return res.status(400).json({ error: "Неизвестная роль" });
+    }
+    const schema = z.object({
+      updates: z.array(z.object({
+        key: z.string(),
+        enabled: z.boolean(),
+      })).min(1),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Некорректные данные" });
+
+    const actor = req.session.user!;
+    // Защита от выключения users.manage_permissions у роли admin без подтверждения.
+    for (const upd of parsed.data.updates) {
+      const def = PERMISSION_BY_KEY.get(upd.key);
+      if (!def) return res.status(400).json({ error: `Неизвестное право: ${upd.key}` });
+      if (def.isSystem) {
+        return res.status(400).json({ error: `Системное право не редактируется: ${upd.key}` });
+      }
+    }
+
+    // Снимаем предыдущие значения для аудита.
+    const before = await storage.getRolePermissions(role);
+    const beforeMap = new Map(before.map((r) => [r.permissionKey, r.enabled === true]));
+    const changed: Array<{ key: string; prev: boolean; next: boolean }> = [];
+    for (const upd of parsed.data.updates) {
+      const prev = beforeMap.has(upd.key)
+        ? (beforeMap.get(upd.key) as boolean)
+        : (PERMISSION_BY_KEY.get(upd.key)!.defaults[role] === true);
+      if (prev === upd.enabled) continue;
+      await storage.upsertRolePermission(role, upd.key, upd.enabled);
+      changed.push({ key: upd.key, prev, next: upd.enabled });
+    }
+
+    for (const c of changed) {
+      await storage.createPermissionAuditEntry({
+        changedBy: actor.id,
+        scope: "role",
+        scopeId: role,
+        permissionKey: c.key,
+        prevValue: c.prev ? "enabled" : "disabled",
+        newValue: c.next ? "enabled" : "disabled",
+      });
+    }
+
+    res.json({ ok: true, changed: changed.length });
+  });
+
+  // Сброс роли к дефолтам реестра.
+  app.post("/api/permissions/role/:role/reset", requireAuth, requirePermsManage, async (req, res) => {
+    const role = req.params.role;
+    if (!isKnownPermissionRole(role)) return res.status(400).json({ error: "Неизвестная роль" });
+    const actor = req.session.user!;
+
+    const before = await storage.getRolePermissions(role);
+    const beforeMap = new Map(before.map((r) => [r.permissionKey, r.enabled === true]));
+
+    let changed = 0;
+    for (const def of PERMISSIONS) {
+      if (def.isSystem) continue;
+      const dflt = def.defaults[role] === true;
+      const prev = beforeMap.has(def.key) ? (beforeMap.get(def.key) as boolean) : dflt;
+      if (prev !== dflt) {
+        await storage.upsertRolePermission(role, def.key, dflt);
+        await storage.createPermissionAuditEntry({
+          changedBy: actor.id,
+          scope: "role",
+          scopeId: role,
+          permissionKey: def.key,
+          prevValue: prev ? "enabled" : "disabled",
+          newValue: dflt ? "enabled" : "disabled",
+        });
+        changed++;
+      }
+    }
+    res.json({ ok: true, changed });
+  });
+
+  // Текущие персональные переопределения сотрудника + эффективные значения.
+  app.get("/api/permissions/user/:userId", requireAuth, requirePermsManage, async (req, res) => {
+    const target = await storage.getUser(req.params.userId);
+    if (!target) return res.status(404).json({ error: "Пользователь не найден" });
+
+    const overrides = await storage.getUserPermissionOverrides(target.id);
+    const overrideMap = new Map(overrides.map((o) => [o.permissionKey, o.state]));
+
+    const role = target.role;
+    const knownRole = isKnownPermissionRole(role);
+    const roleRows = knownRole ? await storage.getRolePermissions(role) : [];
+    const roleMap = new Map(roleRows.map((r) => [r.permissionKey, r.enabled === true]));
+
+    const items = PERMISSIONS.filter((p) => !p.isSystem).map((p) => {
+      const roleValue = roleMap.has(p.key)
+        ? (roleMap.get(p.key) as boolean)
+        : knownRole ? (p.defaults[role as PermissionRole] === true) : false;
+      const ov = overrideMap.get(p.key) as ("enabled" | "disabled" | undefined);
+      const effective = ov ? (ov === "enabled") : roleValue;
+      return {
+        key: p.key,
+        roleValue,
+        override: ov ?? null, // null | 'enabled' | 'disabled'
+        effective,
+      };
+    });
+
+    res.json({
+      user: { id: target.id, name: target.name, username: target.username, role: target.role },
+      items,
+    });
+  });
+
+  // Обновить персональные переопределения сотрудника.
+  // body: { updates: [{ key, state: 'enabled' | 'disabled' | null }], confirmSelfLock?: boolean }
+  app.put("/api/permissions/user/:userId", requireAuth, requirePermsManage, async (req, res) => {
+    const target = await storage.getUser(req.params.userId);
+    if (!target) return res.status(404).json({ error: "Пользователь не найден" });
+
+    const schema = z.object({
+      updates: z.array(z.object({
+        key: z.string(),
+        state: z.union([z.literal("enabled"), z.literal("disabled"), z.null()]),
+      })).min(1),
+      confirmSelfLock: z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Некорректные данные" });
+
+    const actor = req.session.user!;
+
+    for (const upd of parsed.data.updates) {
+      const def = PERMISSION_BY_KEY.get(upd.key);
+      if (!def) return res.status(400).json({ error: `Неизвестное право: ${upd.key}` });
+
+      // Доп. защита для критического права «Управлять правами» — выполняется ДО
+      // проверки isSystem, чтобы код был достижим даже когда этот флаг будет снят.
+      if (upd.key === "users.manage_permissions" && upd.state === "disabled") {
+        // Самоблокировка: нельзя самому себе снять управление правами без явного подтверждения.
+        if (target.id === actor.id && parsed.data.confirmSelfLock !== true) {
+          return res.status(409).json({
+            error: "selfLockConfirmationRequired",
+            message: "Вы пытаетесь снять у себя право на управление правами. Подтвердите действие.",
+          });
+        }
+        // «Последний админ»: нельзя снять право у единственного активного держателя.
+        const adminDefault = PERMISSION_BY_KEY.get("users.manage_permissions")!.defaults.admin === true;
+        const holders = await storage.countActiveAdminsWithPermission(
+          "users.manage_permissions",
+          adminDefault,
+        );
+        if (holders <= 1) {
+          return res.status(409).json({
+            error: "lastAdminProtection",
+            message: "Нельзя снять право «Управлять правами» у последнего держателя.",
+          });
+        }
+      }
+
+      if (def.isSystem) {
+        return res.status(400).json({ error: `Системное право не редактируется: ${upd.key}` });
+      }
+    }
+
+    const before = await storage.getUserPermissionOverrides(target.id);
+    const beforeMap = new Map(before.map((o) => [o.permissionKey, o.state]));
+
+    const changed: Array<{ key: string; prev: string; next: string }> = [];
+    for (const upd of parsed.data.updates) {
+      const prev = beforeMap.get(upd.key) ?? "inherit";
+      const next = upd.state ?? "inherit";
+      if (prev === next) continue;
+
+      if (upd.state === null) {
+        await storage.deleteUserPermissionOverride(target.id, upd.key);
+      } else {
+        await storage.upsertUserPermissionOverride(target.id, upd.key, upd.state);
+      }
+      changed.push({ key: upd.key, prev: String(prev), next });
+    }
+
+    for (const c of changed) {
+      await storage.createPermissionAuditEntry({
+        changedBy: actor.id,
+        scope: "user",
+        scopeId: target.id,
+        permissionKey: c.key,
+        prevValue: c.prev,
+        newValue: c.next,
+      });
+    }
+
+    res.json({ ok: true, changed: changed.length });
+  });
+
+  // Сбросить ВСЕ персональные переопределения сотрудника.
+  app.post("/api/permissions/user/:userId/reset", requireAuth, requirePermsManage, async (req, res) => {
+    const target = await storage.getUser(req.params.userId);
+    if (!target) return res.status(404).json({ error: "Пользователь не найден" });
+    const actor = req.session.user!;
+
+    const before = await storage.getUserPermissionOverrides(target.id);
+    if (before.length === 0) return res.json({ ok: true, changed: 0 });
+
+    await storage.deleteAllUserPermissionOverrides(target.id);
+    for (const ov of before) {
+      await storage.createPermissionAuditEntry({
+        changedBy: actor.id,
+        scope: "user",
+        scopeId: target.id,
+        permissionKey: ov.permissionKey,
+        prevValue: ov.state,
+        newValue: "inherit",
+      });
+    }
+    res.json({ ok: true, changed: before.length });
+  });
+
+  // Журнал последних изменений настроек прав.
+  app.get("/api/permissions/audit", requireAuth, requirePermsManage, async (req, res) => {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "100"), 10) || 100, 1), 500);
+    const entries = await storage.listPermissionAuditEntries(limit);
+
+    // Обогатим имена для scope='user'.
+    const userIds = Array.from(new Set(
+      entries.filter((e) => e.scope === "user").map((e) => e.scopeId),
+    ));
+    const userById = new Map<string, { id: string; name: string; username: string }>();
+    for (const id of userIds) {
+      const u = await storage.getUser(id);
+      if (u) userById.set(u.id, { id: u.id, name: u.name, username: u.username });
+    }
+
+    res.json(entries.map((e) => ({
+      id: e.id,
+      changedAt: e.changedAt,
+      actor: e.actor,
+      scope: e.scope,
+      scopeId: e.scopeId,
+      scopeLabel: e.scope === "role"
+        ? (PERMISSION_ROLE_LABELS as any)[e.scopeId] ?? e.scopeId
+        : userById.get(e.scopeId)?.name ?? e.scopeId,
+      permissionKey: e.permissionKey,
+      permissionName: PERMISSION_BY_KEY.get(e.permissionKey)?.name ?? e.permissionKey,
+      prevValue: e.prevValue,
+      newValue: e.newValue,
+    })));
+  });
+
+  // Текущие эффективные права авторизованного пользователя — для UI, чтобы
+  // frontend мог скрывать пункты меню заранее. Не требует прав на управление.
+  app.get("/api/permissions/me", requireAuth, async (req: any, res) => {
+    const map = await getEffectivePermissions(req.session.user);
+    const out: Record<string, boolean> = {};
+    map.forEach((v, k) => { out[k] = v; });
+    res.json({ permissions: out });
   });
 
   const httpServer = createServer(app);

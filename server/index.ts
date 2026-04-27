@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { seedDefaultRolePermissions } from "./lib/permissions";
 
 // Set default object storage environment variables if not already set
 // These are the standard values when object storage is configured in Replit
@@ -80,6 +81,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Идемпотентно засеять дефолты прав ролей до старта роутов.
+  try {
+    await seedDefaultRolePermissions();
+  } catch (err) {
+    console.error("[permissions] seed failed", err);
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

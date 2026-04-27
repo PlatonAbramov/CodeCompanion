@@ -40,6 +40,7 @@ const Clients = lazy(() => import("@/pages/Clients"));
 const ClientDetail = lazy(() => import("@/pages/ClientDetail"));
 const Tools = lazy(() => import("@/pages/Tools"));
 const AdminPanel = lazy(() => import("@/pages/AdminPanel"));
+const PermissionsAndAccess = lazy(() => import("@/pages/PermissionsAndAccess"));
 const ImplementationSheets = lazy(() => import("@/pages/ImplementationSheets"));
 const ImplementationSheetView = lazy(() => import("@/pages/ImplementationSheetView"));
 const Analytics = lazy(() => import("@/pages/Analytics"));
@@ -161,6 +162,7 @@ function AuthenticatedApp() {
         <Route path="/personnel" component={(user.role === 'admin' || user.role === 'director') ? Personnel : NotFound} />
         <Route path="/personnel/:id" component={(user.role === 'admin' || user.role === 'director') ? PersonnelDetail : NotFound} />
         <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />
+        <Route path="/permissions" component={user.role === 'admin' ? PermissionsAndAccess : NotFound} />
         <Route path="/projects/:projectId/implementation-sheets" component={ImplementationSheets} />
         <Route path="/implementation-sheets/:sheetId" component={ImplementationSheetView} />
         <Route path="/analytics" component={(user.role === 'admin' || user.role === 'director') ? Analytics : NotFound} />

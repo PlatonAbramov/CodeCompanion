@@ -42,6 +42,15 @@ Preferred communication style: Simple, everyday language.
 - **Supported Files**: Images, PDFs, and videos (up to 100MB per file).
 - **Storage Integration**: Direct-to-cloud uploads using presigned URLs.
 
+## Permissions Framework (Phase 1, additive)
+- **Tables**: `role_permissions`, `user_permission_overrides`, `permission_audit_log`.
+- **Registry**: `shared/permissions.ts` defines 46 permission keys across 7 categories with RU labels and per-role defaults that exactly mirror the current behavior of the role-based middleware. Phase 1 release is a no-op for all existing users.
+- **Server framework**: `server/lib/permissions.ts` exposes `getEffectivePermissions(user)` (override > role row > registry default), `userHasPermission`, and a `requirePermission(key)` middleware. Per-request cache via `req._permissionsCache`. Defaults are seeded idempotently at startup.
+- **Admin endpoints**: `GET/PUT /api/permissions/role/:role`, `POST /api/permissions/role/:role/reset`, `GET/PUT /api/permissions/user/:userId`, `POST /api/permissions/user/:userId/reset`, `GET /api/permissions/registry`, `GET /api/permissions/audit?limit=100`. All gated by `users.manage_permissions`. `GET /api/permissions/me` returns the caller's effective map (no manage perm needed).
+- **Safety**: `users.manage_permissions` is `isSystem` and rejected on write. Last-admin protection and self-lock confirmation (`confirmSelfLock`) are also enforced as defensive layers in case `isSystem` is ever lifted.
+- **Admin UI**: `/permissions` (admin only) — three tabs «По ролям», «По сотрудникам», «Журнал». Per-role on/off toggles, per-user three-state override (По умолчанию / Включено / Выключено), audit table.
+- **Phase 2 (future, separate task)**: migrate existing role middleware (`requireDirector`, `requireMaster`, `denyWorker`, etc.) to `requirePermission(...)`.
+
 ## Key Features
 - **Project Management**: Creation, tracking, budget oversight.
 - **Expense Tracking**: Mobile-friendly entry with mandatory receipt uploads.
