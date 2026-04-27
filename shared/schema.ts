@@ -280,6 +280,21 @@ export const personnel = pgTable("personnel", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Журнал отправки чеков расходов в Telegram (idempotency + аудит).
+// Любая запись здесь означает, что для конкретного (expense, fileUrl) уже была попытка
+// отправки — повторно не отправляем.
+export const telegramNotifications = pgTable("telegram_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  expenseId: varchar("expense_id").references(() => expenses.id, { onDelete: "cascade" }).notNull(),
+  fileUrl: text("file_url").notNull(),
+  status: text("status").notNull(), // 'sent' | 'failed' | 'too_large' | 'skipped'
+  telegramMessageId: text("telegram_message_id"),
+  telegramChatId: text("telegram_chat_id"),
+  error: text("error"),
+  attempts: integer("attempts").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Журнал изменения роли «Водитель» у сотрудника (директор назначает/снимает)
 export const personnelRoleAuditLog = pgTable("personnel_role_audit_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import PDFDocument from "pdfkit";
 import { cache, cacheKeys, invalidateProjectCache, invalidateUserCache, invalidateContractorCache, invalidateClientCache, invalidateToolCache } from "./cache";
+import { notifyExpenseCreatedAsync } from "./telegramNotifier";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -629,7 +630,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userRole: user.role,
         projectId: expenseData.projectId
       });
-      
+
+      // Telegram-уведомление о новом чеке (fire-and-forget, не блокирует ответ).
+      // Если интеграция выключена/не сконфигурирована — модуль молча no-op.
+      if (expense.receiptUrl) {
+        try {
+          const project = await storage.getProject(expenseData.projectId);
+          notifyExpenseCreatedAsync({
+            expenseId: expense.id,
+            receiptUrl: expense.receiptUrl,
+            projectName: project?.name || null,
+            category: expense.category,
+            amount: expense.amount,
+            currency: 'AED',
+            description: expense.description,
+            uploaderName: user.name || user.username,
+            createdAt: expense.createdAt || new Date(),
+          });
+        } catch (e) {
+          // Сама постановка задачи не должна никогда падать наружу.
+          console.error('telegram dispatch error (non-fatal):', e);
+        }
+      }
+
       res.status(201).json(expense);
     } catch (error) {
       console.error("Create expense error:", error);

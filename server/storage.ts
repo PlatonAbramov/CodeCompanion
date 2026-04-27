@@ -24,6 +24,7 @@ import {
   type Personnel, type InsertPersonnel, type PersonnelDocument, type InsertPersonnelDocument,
   type PersonnelAdvance, type InsertPersonnelAdvance,
   personnelRoleAuditLog,
+  telegramNotifications,
   vehicles, vehiclePhotoControls, vehiclePhotoControlPhotos, vehicleAuditLog,
   type Vehicle, type InsertVehicle,
   type VehiclePhotoControl, type InsertVehiclePhotoControl,
@@ -349,6 +350,18 @@ export interface IStorage {
   getVehiclesAssignedToPersonnel(personnelId: string): Promise<Array<{ id: string; brand: string; model: string; plateNumber: string; status: string }>>;
   createPersonnelRoleAuditEntry(data: { personnelId: string; action: 'grant_driver' | 'revoke_driver'; actorUserId: string | null; details?: any }): Promise<void>;
   getPersonnelRoleAuditLog(personnelId: string): Promise<Array<{ id: string; action: string; actorName: string | null; createdAt: Date | null; details: any }>>;
+
+  // Telegram notifications (отправка чеков расходов)
+  getTelegramNotification(expenseId: string, fileUrl: string): Promise<{ id: string; status: string } | undefined>;
+  createTelegramNotification(data: {
+    expenseId: string;
+    fileUrl: string;
+    status: string;
+    telegramMessageId?: string | null;
+    telegramChatId?: string | null;
+    error?: string | null;
+    attempts: number;
+  }): Promise<void>;
   
   // Personnel Documents
   getPersonnelDocuments(personnelId: string): Promise<PersonnelDocument[]>;
@@ -2959,6 +2972,35 @@ export class DatabaseStorage implements IStorage {
       action: data.action,
       actorUserId: data.actorUserId,
       details: data.details ?? null,
+    });
+  }
+
+  async getTelegramNotification(expenseId: string, fileUrl: string): Promise<{ id: string; status: string } | undefined> {
+    const [row] = await db
+      .select({ id: telegramNotifications.id, status: telegramNotifications.status })
+      .from(telegramNotifications)
+      .where(and(eq(telegramNotifications.expenseId, expenseId), eq(telegramNotifications.fileUrl, fileUrl)))
+      .limit(1);
+    return row || undefined;
+  }
+
+  async createTelegramNotification(data: {
+    expenseId: string;
+    fileUrl: string;
+    status: string;
+    telegramMessageId?: string | null;
+    telegramChatId?: string | null;
+    error?: string | null;
+    attempts: number;
+  }): Promise<void> {
+    await db.insert(telegramNotifications).values({
+      expenseId: data.expenseId,
+      fileUrl: data.fileUrl,
+      status: data.status,
+      telegramMessageId: data.telegramMessageId ?? null,
+      telegramChatId: data.telegramChatId ?? null,
+      error: data.error ?? null,
+      attempts: data.attempts,
     });
   }
 
