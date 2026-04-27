@@ -88,7 +88,17 @@ export default function CategoryExpenses() {
   const categoryLabel = CATEGORY_LABELS[category] || category;
 
   const openReceipt = (receiptUrl: string) => {
-    if (receiptUrl.startsWith('/api/files/')) {
+    if (!receiptUrl) {
+      toast({ title: "Ошибка", description: "Файл не найден или повреждён", variant: "destructive" });
+      return;
+    }
+    // Поддерживаем оба варианта хранения: локальный /api/files/... и облачный /objects/...
+    if (
+      receiptUrl.startsWith('/api/files/') ||
+      receiptUrl.startsWith('/objects/') ||
+      receiptUrl.startsWith('http://') ||
+      receiptUrl.startsWith('https://')
+    ) {
       window.open(receiptUrl, '_blank');
     } else {
       toast({ title: "Ошибка", description: "Файл не найден или повреждён", variant: "destructive" });

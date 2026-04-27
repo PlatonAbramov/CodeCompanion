@@ -2322,6 +2322,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Админ-диагностика Telegram-интеграции.
+  // Никаких секретов в ответе — только статус, описание ошибки от Telegram и id чата (для самопроверки).
+  app.post("/api/admin/telegram/test", requireAdmin, async (req, res) => {
+    try {
+      const token = process.env.TELEGRAM_BOT_TOKEN || "";
+      const chatId = process.env.TELEGRAM_CHAT_ID || "";
+      if (!token || !chatId) {
+        return res.status(400).json({
+          ok: false,
+          stage: "config",
+          error: "Не заданы TELEGRAM_BOT_TOKEN и/или TELEGRAM_CHAT_ID",
+          tokenPresent: !!token,
+          chatIdPresent: !!chatId,
+        });
+      }
+
+      // 1) Проверяем, что токен валиден.
+      const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+      const meBody: any = await meRes.json().catch(() => ({}));
+      if (!meRes.ok || meBody?.ok === false) {
+        return res.status(400).json({
+          ok: false,
+          stage: "getMe",
+          error: meBody?.description || `HTTP ${meRes.status}`,
+          chatIdProvided: chatId,
+        });
+      }
+      const botUsername = meBody?.result?.username || null;
+
+      // 2) Проверяем, что бот видит этот чат.
+      const chatRes = await fetch(
+        `https://api.telegram.org/bot${token}/getChat?chat_id=${encodeURIComponent(chatId)}`,
+      );
+      const chatBody: any = await chatRes.json().catch(() => ({}));
+      if (!chatRes.ok || chatBody?.ok === false) {
+        return res.status(400).json({
+          ok: false,
+          stage: "getChat",
+          bot: botUsername,
+          chatIdProvided: chatId,
+          error: chatBody?.description || `HTTP ${chatRes.status}`,
+          hint:
+            "Telegram не видит этот чат. Проверьте: (1) бот добавлен в группу/канал; " +
+            "(2) для группы ID должен быть отрицательным числом, для супергруппы/канала с префиксом -100…; " +
+            "(3) для личной переписки пользователь должен сначала написать боту /start.",
+        });
+      }
+
+      // 3) Отправляем пробное сообщение.
+      const text =
+        `✅ Тест связи pagcrm.com → Telegram.\n` +
+        `Бот: @${botUsername || "?"}\n` +
+        `Чат: ${chatBody?.result?.title || chatBody?.result?.username || chatBody?.result?.first_name || chatId}\n` +
+        `Время: ${new Date().toISOString()}`;
+      const sendForm = new FormData();
+      sendForm.append("chat_id", chatId);
+      sendForm.append("text", text);
+      const sendRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        body: sendForm,
+      });
+      const sendBody: any = await sendRes.json().catch(() => ({}));
+      if (!sendRes.ok || sendBody?.ok === false) {
+        return res.status(400).json({
+          ok: false,
+          stage: "sendMessage",
+          bot: botUsername,
+          chatIdProvided: chatId,
+          error: sendBody?.description || `HTTP ${sendRes.status}`,
+        });
+      }
+
+      return res.json({
+        ok: true,
+        bot: botUsername,
+        chat: {
+          id: chatBody?.result?.id,
+          type: chatBody?.result?.type,
+          title: chatBody?.result?.title || chatBody?.result?.username || chatBody?.result?.first_name || null,
+        },
+        messageId: sendBody?.result?.message_id ?? null,
+      });
+    } catch (error: any) {
+      console.error("[telegram] admin test failed:", error);
+      return res.status(500).json({ ok: false, stage: "exception", error: error?.message || "unknown" });
+    }
+  });
+
   // Админ-панель: логи входов
   app.get("/api/admin/login-attempts", requireAdmin, async (req, res) => {
     try {

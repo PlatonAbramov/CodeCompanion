@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Users, UserPlus, Shield, ShieldOff, RotateCcw, LogOut,
   Activity, Search, AlertTriangle, CheckCircle, XCircle,
-  Clock, Edit, Trash2
+  Clock, Edit, Trash2, Send
 } from "lucide-react";
 import { CorpHeader, fmtDateRu } from "@/components/corp-ui";
 
@@ -254,6 +254,36 @@ export default function AdminPanel() {
     },
   });
 
+  // Диагностика Telegram-интеграции — отправляет тестовое сообщение и показывает,
+  // на какой стадии Telegram отказал, без раскрытия секретов.
+  const testTelegramMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('/api/admin/telegram/test', { method: 'POST' });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data?.ok) {
+        toast({
+          title: "Telegram работает",
+          description: `Бот @${data.bot} отправил тест в чат «${data.chat?.title || data.chat?.id}». Проверьте сообщение в Telegram.`,
+        });
+      } else {
+        toast({
+          title: `Ошибка Telegram (${data?.stage || '?'})`,
+          description: `${data?.error || 'Неизвестная ошибка'}${data?.hint ? '\n\n' + data.hint : ''}`,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Не удалось проверить Telegram",
+        description: error?.message || 'Ошибка запроса',
+        variant: "destructive",
+      });
+    },
+  });
+
   const onCreateUser = (data: CreateUser) => {
     createUserMutation.mutate(data);
   };
@@ -309,6 +339,29 @@ export default function AdminPanel() {
             <StatCard label="Ошибки входа сегодня" value={stats.failedLoginsToday} icon={<AlertTriangle className="h-5 w-5" />} tone="warn" />
           </div>
         )}
+
+        {/* Системные интеграции */}
+        <div className="p-4" style={SECTION_STYLE}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Telegram-уведомления о чеках</h3>
+              <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+                Отправить тестовое сообщение в настроенный чат. Если бот не доставит сообщение — на экране появится точная причина.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => testTelegramMutation.mutate()}
+              disabled={testTelegramMutation.isPending}
+              className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold transition-colors flex-shrink-0 disabled:opacity-60"
+              style={PRIMARY_BTN}
+              data-testid="button-test-telegram"
+            >
+              <Send className="w-4 h-4" />
+              {testTelegramMutation.isPending ? 'Проверяем…' : 'Проверить связь'}
+            </button>
+          </div>
+        </div>
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-4">
