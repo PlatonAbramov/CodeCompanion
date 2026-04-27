@@ -201,30 +201,34 @@ async function notifyExpenseCreated(input: {
   const { token, chatId, enabled } = getConfig();
   if (!enabled) return;
   if (!input.receiptUrl) return;
+  const fileUrl = input.receiptUrl;
 
-  // Идемпотентность: если для этой пары (expense, file) уже была отправка — выходим.
+  // Атомарная идемпотентность: одна запись = одна попытка отправки.
+  // При гонке двух dispatch-ов второй получит null и тихо выйдет.
+  let claim: { id: string } | null = null;
   try {
-    const already = await storage.getTelegramNotification(input.expenseId, input.receiptUrl);
-    if (already) return;
+    claim = await storage.claimTelegramNotification({
+      expenseId: input.expenseId,
+      fileUrl,
+      telegramChatId: chatId,
+    });
   } catch (e) {
-    console.error("[telegram] idempotency check failed:", e);
-    // Если упала проверка — лучше не дублировать; выходим.
+    console.error("[telegram] claim failed:", e);
     return;
   }
+  if (!claim) return; // уже застолблено другим процессом
+  const recordId = claim.id;
 
   // Скачиваем файл
   let download: { buffer: Buffer; contentType: string; filename: string };
   try {
-    download = await downloadReceipt(input.receiptUrl);
+    download = await downloadReceipt(fileUrl);
   } catch (e: any) {
     console.error(`[telegram] failed to download receipt for expense ${input.expenseId}:`, e?.message || e);
-    await safeRecord({
-      expenseId: input.expenseId,
-      fileUrl: input.receiptUrl,
+    await safeUpdate(recordId, {
       status: "failed",
       error: `download_failed: ${e?.message || "unknown"}`,
       attempts: 0,
-      telegramChatId: chatId,
     });
     return;
   }
@@ -232,13 +236,10 @@ async function notifyExpenseCreated(input: {
   // Если файл больше 50 МБ — отправляем уведомление и помечаем too_large
   if (download.buffer.length > DOCUMENT_MAX_BYTES) {
     const msgId = await notifyTooLarge(token, chatId, input.expenseId, download.buffer.length);
-    await safeRecord({
-      expenseId: input.expenseId,
-      fileUrl: input.receiptUrl,
+    await safeUpdate(recordId, {
       status: "too_large",
       error: `file_too_large: ${download.buffer.length} bytes`,
       attempts: 0,
-      telegramChatId: chatId,
       telegramMessageId: msgId,
     });
     return;
@@ -270,12 +271,9 @@ async function notifyExpenseCreated(input: {
         filename: download.filename,
       });
       console.log(`[telegram] sent expense=${input.expenseId} mode=${sent.mode} msg_id=${sent.messageId}`);
-      await safeRecord({
-        expenseId: input.expenseId,
-        fileUrl: input.receiptUrl,
+      await safeUpdate(recordId, {
         status: "sent",
         telegramMessageId: sent.messageId,
-        telegramChatId: chatId,
         attempts,
       });
       return;
@@ -289,28 +287,22 @@ async function notifyExpenseCreated(input: {
   }
 
   console.error(`[telegram] FAILED to send expense=${input.expenseId} after ${attempts} attempts: ${lastError?.message || lastError}`);
-  await safeRecord({
-    expenseId: input.expenseId,
-    fileUrl: input.receiptUrl,
+  await safeUpdate(recordId, {
     status: "failed",
     error: `send_failed: ${lastError?.message || "unknown"}`,
     attempts,
-    telegramChatId: chatId,
   });
 }
 
-async function safeRecord(data: {
-  expenseId: string;
-  fileUrl: string;
+async function safeUpdate(id: string, data: {
   status: string;
   telegramMessageId?: string | null;
-  telegramChatId?: string | null;
   error?: string | null;
-  attempts: number;
+  attempts?: number;
 }): Promise<void> {
   try {
-    await storage.createTelegramNotification(data);
+    await storage.updateTelegramNotification(id, data);
   } catch (e) {
-    console.error("[telegram] failed to record notification:", e);
+    console.error("[telegram] failed to update notification:", e);
   }
 }

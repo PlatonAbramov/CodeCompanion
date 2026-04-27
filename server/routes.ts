@@ -14,7 +14,7 @@ import { fileURLToPath } from 'url';
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import PDFDocument from "pdfkit";
 import { cache, cacheKeys, invalidateProjectCache, invalidateUserCache, invalidateContractorCache, invalidateClientCache, invalidateToolCache } from "./cache";
-import { notifyExpenseCreatedAsync } from "./telegramNotifier";
+import { notifyExpenseCreatedAsync, isTelegramConfigured } from "./telegramNotifier";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -632,8 +632,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Telegram-уведомление о новом чеке (fire-and-forget, не блокирует ответ).
-      // Если интеграция выключена/не сконфигурирована — модуль молча no-op.
-      if (expense.receiptUrl) {
+      // Если интеграция выключена/не сконфигурирована — пропускаем вообще всё, чтобы
+      // поведение было идентично прежнему (никаких лишних DB-обращений).
+      if (expense.receiptUrl && isTelegramConfigured()) {
         try {
           const project = await storage.getProject(expenseData.projectId);
           notifyExpenseCreatedAsync({

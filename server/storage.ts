@@ -352,15 +352,18 @@ export interface IStorage {
   getPersonnelRoleAuditLog(personnelId: string): Promise<Array<{ id: string; action: string; actorName: string | null; createdAt: Date | null; details: any }>>;
 
   // Telegram notifications (отправка чеков расходов)
-  getTelegramNotification(expenseId: string, fileUrl: string): Promise<{ id: string; status: string } | undefined>;
-  createTelegramNotification(data: {
+  // Атомарно «застолбить» отправку. Если запись уже существует — возвращает null
+  // (значит, другой процесс уже занялся этим чеком).
+  claimTelegramNotification(data: {
     expenseId: string;
     fileUrl: string;
+    telegramChatId?: string | null;
+  }): Promise<{ id: string } | null>;
+  updateTelegramNotification(id: string, data: {
     status: string;
     telegramMessageId?: string | null;
-    telegramChatId?: string | null;
     error?: string | null;
-    attempts: number;
+    attempts?: number;
   }): Promise<void>;
   
   // Personnel Documents
@@ -2975,33 +2978,40 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getTelegramNotification(expenseId: string, fileUrl: string): Promise<{ id: string; status: string } | undefined> {
-    const [row] = await db
-      .select({ id: telegramNotifications.id, status: telegramNotifications.status })
-      .from(telegramNotifications)
-      .where(and(eq(telegramNotifications.expenseId, expenseId), eq(telegramNotifications.fileUrl, fileUrl)))
-      .limit(1);
-    return row || undefined;
-  }
-
-  async createTelegramNotification(data: {
+  async claimTelegramNotification(data: {
     expenseId: string;
     fileUrl: string;
+    telegramChatId?: string | null;
+  }): Promise<{ id: string } | null> {
+    // Атомарное «застолбить»: insert ... on conflict do nothing returning id.
+    // Если строка уже была — returning вернёт пустой массив.
+    const inserted = await db
+      .insert(telegramNotifications)
+      .values({
+        expenseId: data.expenseId,
+        fileUrl: data.fileUrl,
+        status: "pending",
+        telegramChatId: data.telegramChatId ?? null,
+        attempts: 0,
+      })
+      .onConflictDoNothing({
+        target: [telegramNotifications.expenseId, telegramNotifications.fileUrl],
+      })
+      .returning({ id: telegramNotifications.id });
+    return inserted[0] ?? null;
+  }
+
+  async updateTelegramNotification(id: string, data: {
     status: string;
     telegramMessageId?: string | null;
-    telegramChatId?: string | null;
     error?: string | null;
-    attempts: number;
+    attempts?: number;
   }): Promise<void> {
-    await db.insert(telegramNotifications).values({
-      expenseId: data.expenseId,
-      fileUrl: data.fileUrl,
-      status: data.status,
-      telegramMessageId: data.telegramMessageId ?? null,
-      telegramChatId: data.telegramChatId ?? null,
-      error: data.error ?? null,
-      attempts: data.attempts,
-    });
+    const patch: any = { status: data.status };
+    if (data.telegramMessageId !== undefined) patch.telegramMessageId = data.telegramMessageId;
+    if (data.error !== undefined) patch.error = data.error;
+    if (data.attempts !== undefined) patch.attempts = data.attempts;
+    await db.update(telegramNotifications).set(patch).where(eq(telegramNotifications.id, id));
   }
 
   async getPersonnelRoleAuditLog(personnelId: string): Promise<Array<{ id: string; action: string; actorName: string | null; createdAt: Date | null; details: any }>> {

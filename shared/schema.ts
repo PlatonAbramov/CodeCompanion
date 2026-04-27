@@ -287,13 +287,17 @@ export const telegramNotifications = pgTable("telegram_notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   expenseId: varchar("expense_id").references(() => expenses.id, { onDelete: "cascade" }).notNull(),
   fileUrl: text("file_url").notNull(),
-  status: text("status").notNull(), // 'sent' | 'failed' | 'too_large' | 'skipped'
+  status: text("status").notNull(), // 'pending' | 'sent' | 'failed' | 'too_large' | 'skipped'
   telegramMessageId: text("telegram_message_id"),
   telegramChatId: text("telegram_chat_id"),
   error: text("error"),
   attempts: integer("attempts").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => ({
+  // Атомарная идемпотентность: один и тот же чек одного и того же расхода — только одна запись.
+  // Параллельные dispatch-ы конкурируют за вставку через ON CONFLICT DO NOTHING.
+  uniqExpenseFile: unique("telegram_notifications_expense_file_unique").on(t.expenseId, t.fileUrl),
+}));
 
 // Журнал изменения роли «Водитель» у сотрудника (директор назначает/снимает)
 export const personnelRoleAuditLog = pgTable("personnel_role_audit_log", {
