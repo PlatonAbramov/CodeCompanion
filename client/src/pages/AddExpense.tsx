@@ -114,6 +114,14 @@ export default function AddExpense() {
       toast({ title: "Ошибка", description: "Выберите подрядчика для оплаты", variant: "destructive" });
       return;
     }
+    if (!formData.receiptUrl) {
+      toast({
+        title: "Прикрепите чек",
+        description: "Расход без фото чека сохранить нельзя. Дождитесь окончания загрузки.",
+        variant: "destructive",
+      });
+      return;
+    }
     const dataToSubmit = {
       ...formData,
       contractorId: formData.category === 'contractor_payments' ? formData.contractorId : undefined,
