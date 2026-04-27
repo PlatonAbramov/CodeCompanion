@@ -275,6 +275,11 @@ export const personnel = pgTable("personnel", {
   status: text("status").default("active"), // 'active' | 'dismissed' | 'vacation'
   photoUrl: text("photo_url"), // Main photo
   isDriver: boolean("is_driver").default(false).notNull(), // Признак роли «Водитель» (доступ к фотоконтролю авто)
+  // Привязка к учётной записи (для гибких прав через раздел «Права и доступ» → «По персоналу»).
+  // NULL = у сотрудника нет логина в системе. UNIQUE с поведением Postgres NULLS DISTINCT —
+  // несколько персонал-карточек могут быть без юзера, но один юзер = одна карточка персонала.
+  // ON DELETE SET NULL: если удаляют учётку, у персонала просто остаётся пустая привязка.
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }).unique(),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -999,6 +1004,12 @@ export const personnelRelations = relations(personnel, ({ one, many }) => ({
   createdByUser: one(users, {
     fields: [personnel.createdBy],
     references: [users.id],
+    relationName: "personnel_createdBy",
+  }),
+  user: one(users, {
+    fields: [personnel.userId],
+    references: [users.id],
+    relationName: "personnel_user",
   }),
   documents: many(personnelDocuments),
   advances: many(personnelAdvances),

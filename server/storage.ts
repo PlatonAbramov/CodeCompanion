@@ -346,6 +346,7 @@ export interface IStorage {
   // Personnel
   getAllPersonnel(): Promise<(Personnel & { documents?: PersonnelDocument[] })[]>;
   getPersonnel(id: string): Promise<Personnel | undefined>;
+  getPersonnelByUserId(userId: string): Promise<Personnel | undefined>;
   createPersonnel(data: InsertPersonnel): Promise<Personnel>;
   updatePersonnel(id: string, data: Partial<InsertPersonnel>): Promise<Personnel>;
   deletePersonnel(id: string): Promise<void>;
@@ -2913,12 +2914,18 @@ export class DatabaseStorage implements IStorage {
     if (data.salary !== undefined) updateData.salary = data.salary ? String(data.salary) : null;
     if (data.status !== undefined) updateData.status = data.status;
     if (data.photoUrl !== undefined) updateData.photoUrl = data.photoUrl;
+    if (data.userId !== undefined) updateData.userId = data.userId; // null = отвязать
     
     const [person] = await db
       .update(personnel)
       .set(updateData)
       .where(eq(personnel.id, id))
       .returning();
+    return person;
+  }
+
+  async getPersonnelByUserId(userId: string): Promise<Personnel | undefined> {
+    const [person] = await db.select().from(personnel).where(eq(personnel.userId, userId));
     return person;
   }
   

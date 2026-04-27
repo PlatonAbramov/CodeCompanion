@@ -6,8 +6,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Edit, Trash2, Plus, User, Phone, Mail,
   Calendar, FileText, AlertTriangle, Download,
-  Upload, DollarSign, Eye, X
+  Upload, DollarSign, Eye, X, KeyRound, Link2, Unlink
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { format, differenceInDays, differenceInYears, differenceInMonths } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { PersonnelForm } from "@/components/PersonnelForm";
@@ -44,8 +50,17 @@ interface Personnel {
   status?: string;
   photoUrl?: string;
   isDriver?: boolean;
+  userId?: string | null;
   createdAt: string;
   updatedAt?: string;
+}
+
+interface UserLite {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  isActive?: boolean | null;
 }
 
 interface RoleAuditEntry {
@@ -253,6 +268,96 @@ export function PersonnelDetail() {
     queryKey: [`/api/personnel/${personnelId}/role-audit-log`],
     enabled: !!personnelId && canView,
   });
+
+  // ===== Учётная запись (link / create / unlink) =====
+  // Показываем UI только админу: создание/привязка учёток — ответственность админа.
+  // (`isAdmin` уже объявлен выше — переиспользуем)
+
+  // Все пользователи системы — нужны и для выбора «привязать существующую»,
+  // и для отображения данных уже привязанной учётки (находим её в этом списке).
+  // Endpoint /api/admin/users доступен только админам.
+  const { data: allUsers = [] } = useQuery<UserLite[]>({
+    queryKey: ['/api/admin/users'],
+    enabled: isAdmin,
+  });
+  const linkedUser = person?.userId ? allUsers.find((u) => u.id === person.userId) : undefined;
+
+  // Все personnel — чтобы понять, какие userId уже заняты другими карточками.
+  const { data: allPersonnelForLink = [] } = useQuery<Array<{ id: string; userId?: string | null }>>({
+    queryKey: ['/api/personnel'],
+    enabled: isAdmin,
+  });
+  const usedUserIds = new Set(
+    allPersonnelForLink
+      .filter((p) => p.userId && p.id !== personnelId)
+      .map((p) => p.userId as string),
+  );
+  const availableUsers = allUsers.filter((u) => !usedUserIds.has(u.id));
+
+  // UI-стейт для секции «Учётная запись»
+  const [accountMode, setAccountMode] = useState<'idle' | 'create' | 'link'>('idle');
+  const [linkUserId, setLinkUserId] = useState<string>('');
+  const [createUsername, setCreateUsername] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  // Создание роли `admin` через карточку персонала запрещено на бэке —
+  // новые админы должны создаваться через админ-панель.
+  const [createRole, setCreateRole] = useState<'director' | 'master' | 'worker' | 'client'>('worker');
+
+  // Сбрасываем форму, как только меняется сотрудник или появляется привязка.
+  useEffect(() => {
+    setAccountMode('idle');
+    setLinkUserId('');
+    setCreateUsername('');
+    setCreatePassword('');
+    setCreateRole('worker');
+  }, [personnelId, person?.userId]);
+
+  const linkUserMutation = useMutation({
+    mutationFn: async (userId: string | null) => {
+      return await apiRequest(`/api/personnel/${personnelId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ userId }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Готово', description: 'Привязка учётной записи обновлена' });
+      queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/personnel'] });
+      setAccountMode('idle');
+    },
+    onError: (error: any) => {
+      toast({ title: 'Ошибка', description: error?.message || 'Не удалось обновить привязку', variant: 'destructive' });
+    },
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest(`/api/personnel/${personnelId}/create-user`, {
+        method: 'POST',
+        body: JSON.stringify({
+          username: createUsername.trim(),
+          password: createPassword,
+          role: createRole,
+        }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Готово', description: 'Учётная запись создана и привязана' });
+      queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/personnel'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      setAccountMode('idle');
+    },
+    onError: (error: any) => {
+      toast({ title: 'Ошибка', description: error?.message || 'Не удалось создать учётку', variant: 'destructive' });
+    },
+  });
+
+  const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
+
+  const roleLabel = (r: string) => ({
+    admin: 'Админ', director: 'Директор', master: 'Мастер', worker: 'Рабочий', client: 'Клиент',
+  } as Record<string, string>)[r] || r;
 
   const deleteDocMutation = useMutation({
     mutationFn: async (docId: string) => {
@@ -628,6 +733,189 @@ export function PersonnelDetail() {
               </div>
             )}
           </div>
+
+          {/* Учётная запись (только для админа) */}
+          {isAdmin && (
+            <div className="p-4" style={SECTION_STYLE} data-testid="card-account">
+              <h3 className="text-[14px] font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--corp-ink)' }}>
+                <KeyRound className="w-4 h-4" />
+                Учётная запись
+              </h3>
+
+              {person.userId ? (
+                <div className="space-y-3">
+                  {linkedUser ? (
+                    <div className="space-y-1 text-[13px]">
+                      <div className="flex justify-between gap-2">
+                        <span style={{ color: 'var(--corp-muted)' }}>Логин:</span>
+                        <span style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }} data-testid="text-account-username">
+                          {linkedUser.username}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span style={{ color: 'var(--corp-muted)' }}>Имя:</span>
+                        <span style={{ color: 'var(--corp-ink)' }}>{linkedUser.name}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span style={{ color: 'var(--corp-muted)' }}>Роль:</span>
+                        <StatusBadge tone="accent">{roleLabel(linkedUser.role)}</StatusBadge>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+                      Учётка привязана, но не найдена в списке (возможно, заблокирована).
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 pt-2" style={{ borderTop: '1px solid var(--corp-line)' }}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setLocation('/permissions-and-access')}
+                      data-testid="button-manage-permissions"
+                    >
+                      Настроить права
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setConfirmUnlinkOpen(true)}
+                      disabled={linkUserMutation.isPending}
+                      data-testid="button-unlink-account"
+                    >
+                      <Unlink className="w-3 h-3 mr-1" />
+                      Отвязать
+                    </Button>
+                  </div>
+                </div>
+              ) : accountMode === 'idle' ? (
+                <div className="space-y-3">
+                  <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
+                    У сотрудника нет учётной записи в системе. Без неё нельзя
+                    настраивать индивидуальные права.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => setAccountMode('create')} data-testid="button-create-account">
+                      <Plus className="w-3 h-3 mr-1" />
+                      Создать учётку
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAccountMode('link')}
+                      disabled={availableUsers.length === 0}
+                      data-testid="button-link-account"
+                    >
+                      <Link2 className="w-3 h-3 mr-1" />
+                      Привязать существующую
+                    </Button>
+                  </div>
+                  {availableUsers.length === 0 && (
+                    <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
+                      Свободных учёток без привязки нет.
+                    </p>
+                  )}
+                </div>
+              ) : accountMode === 'create' ? (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-[12px]">Логин (например, email)</Label>
+                    <Input
+                      value={createUsername}
+                      onChange={(e) => setCreateUsername(e.target.value)}
+                      placeholder="ivanov@company.ae"
+                      autoComplete="off"
+                      data-testid="input-new-username"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[12px]">Пароль (мин. 6 символов)</Label>
+                    <Input
+                      type="text"
+                      value={createPassword}
+                      onChange={(e) => setCreatePassword(e.target.value)}
+                      placeholder="временный пароль"
+                      autoComplete="new-password"
+                      data-testid="input-new-password"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[12px]">Роль</Label>
+                    <Select value={createRole} onValueChange={(v) => setCreateRole(v as any)}>
+                      <SelectTrigger data-testid="select-new-role">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="worker">Рабочий</SelectItem>
+                        <SelectItem value="master">Мастер</SelectItem>
+                        <SelectItem value="director">Директор</SelectItem>
+                        <SelectItem value="client">Клиент</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      onClick={() => createUserMutation.mutate()}
+                      disabled={
+                        createUserMutation.isPending ||
+                        createUsername.trim().length < 3 ||
+                        createPassword.length < 6
+                      }
+                      data-testid="button-submit-create-account"
+                    >
+                      {createUserMutation.isPending ? 'Создание...' : 'Создать и привязать'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setAccountMode('idle')}
+                      disabled={createUserMutation.isPending}
+                    >
+                      Отмена
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                /* link mode */
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-[12px]">Свободные учётные записи</Label>
+                    <Select value={linkUserId} onValueChange={setLinkUserId}>
+                      <SelectTrigger data-testid="select-link-user">
+                        <SelectValue placeholder="Выберите учётку..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableUsers.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.username} · {u.name} ({roleLabel(u.role)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => linkUserMutation.mutate(linkUserId)}
+                      disabled={!linkUserId || linkUserMutation.isPending}
+                      data-testid="button-submit-link-account"
+                    >
+                      {linkUserMutation.isPending ? 'Привязка...' : 'Привязать'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setAccountMode('idle')}
+                      disabled={linkUserMutation.isPending}
+                    >
+                      Отмена
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right column */}
@@ -1026,6 +1314,30 @@ export function PersonnelDetail() {
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteDoc} style={{ background: 'var(--corp-neg)', color: '#fff' }}>
               Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmUnlinkOpen} onOpenChange={setConfirmUnlinkOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Отвязать учётную запись?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Сама учётная запись не удаляется — она просто перестанет быть привязанной
+              к этому сотруднику. Индивидуальные права учётки сохраняются.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmUnlinkOpen(false);
+                linkUserMutation.mutate(null);
+              }}
+              data-testid="button-confirm-unlink"
+            >
+              Отвязать
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

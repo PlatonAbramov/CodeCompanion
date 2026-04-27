@@ -16,7 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ShieldCheck, RotateCcw, Save, Search, History as HistoryIcon, ArrowLeft } from "lucide-react";
+import { ShieldCheck, RotateCcw, Save, Search, History as HistoryIcon, ArrowLeft, Users as UsersIcon, UserCog } from "lucide-react";
 
 interface RegistryPermission {
   key: string;
@@ -206,6 +206,101 @@ export default function PermissionsAndAccess() {
     onError: (e: any) => toast({ title: "Ошибка", description: String(e?.message ?? e), variant: "destructive" }),
   });
 
+  // ===== Tab "По персоналу" =====
+  // Все карточки персонала (HR-записи). Те, у кого userId === null, не имеют логина —
+  // их нельзя выбрать для настройки прав, но они показываются в списке с подсказкой
+  // «создать учётку прямо в карточке персонала».
+  interface PersonnelLite {
+    id: string;
+    firstName: string;
+    lastName: string;
+    middleName?: string | null;
+    specialization?: string | null;
+    status?: string | null;
+    userId?: string | null;
+  }
+  const { data: allPersonnel } = useQuery<PersonnelLite[]>({
+    queryKey: ["/api/personnel"],
+    enabled: user?.role === "admin",
+  });
+
+  const [personnelQuery, setPersonnelQuery] = useState("");
+  const [selectedPersonnelId, setSelectedPersonnelId] = useState<string | null>(null);
+
+  const filteredPersonnel = useMemo(() => {
+    const list = allPersonnel ?? [];
+    const q = personnelQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((p) => {
+      const fullName = `${p.lastName} ${p.firstName} ${p.middleName ?? ""}`.toLowerCase();
+      const spec = (p.specialization ?? "").toLowerCase();
+      return fullName.includes(q) || spec.includes(q);
+    });
+  }, [allPersonnel, personnelQuery]);
+
+  const selectedPersonnel = useMemo(
+    () => (allPersonnel ?? []).find((p) => p.id === selectedPersonnelId) ?? null,
+    [allPersonnel, selectedPersonnelId],
+  );
+
+  // Когда выбран персонал с привязанным userId — переиспользуем тот же endpoint,
+  // что и для вкладки «По сотрудникам» (общий стейт `draftUser` и мутации не пересекаются —
+  // selectedUserId один на всю страницу).
+  const personnelLinkedUserId = selectedPersonnel?.userId ?? null;
+
+  const { data: personnelUserPerms, isLoading: personnelUserPermsLoading } = useQuery<UserPermResponse>({
+    queryKey: ["/api/permissions/user", personnelLinkedUserId],
+    enabled: user?.role === "admin" && !!personnelLinkedUserId,
+  });
+
+  const [draftPersonnelUser, setDraftPersonnelUser] = useState<Record<string, "enabled" | "disabled" | null>>({});
+  useEffect(() => {
+    if (personnelUserPerms) {
+      const m: Record<string, "enabled" | "disabled" | null> = {};
+      for (const it of personnelUserPerms.items) m[it.key] = it.override;
+      setDraftPersonnelUser(m);
+    } else {
+      setDraftPersonnelUser({});
+    }
+  }, [personnelUserPerms]);
+
+  const personnelUserDirty = useMemo(() => {
+    if (!personnelUserPerms) return [] as Array<[string, "enabled" | "disabled" | null]>;
+    const orig = new Map(personnelUserPerms.items.map((it) => [it.key, it.override]));
+    return Object.entries(draftPersonnelUser).filter(([k, v]) => orig.get(k) !== v) as Array<[string, "enabled" | "disabled" | null]>;
+  }, [draftPersonnelUser, personnelUserPerms]);
+
+  const [confirmPersonnelSaveOpen, setConfirmPersonnelSaveOpen] = useState(false);
+  const [confirmPersonnelResetOpen, setConfirmPersonnelResetOpen] = useState(false);
+
+  const savePersonnelUserMut = useMutation({
+    mutationFn: async () => {
+      const updates = personnelUserDirty.map(([key, state]) => ({ key, state }));
+      return apiRequest(`/api/permissions/user/${personnelLinkedUserId}`, {
+        method: "PUT",
+        body: JSON.stringify({ updates }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Сохранено", description: `Изменено прав: ${personnelUserDirty.length}` });
+      qc.invalidateQueries({ queryKey: ["/api/permissions/user", personnelLinkedUserId] });
+      qc.invalidateQueries({ queryKey: ["/api/permissions/audit"] });
+      qc.invalidateQueries({ queryKey: ["/api/permissions/me"] });
+    },
+    onError: (e: any) => toast({ title: "Ошибка", description: String(e?.message ?? e), variant: "destructive" }),
+  });
+
+  const resetPersonnelUserMut = useMutation({
+    mutationFn: async () => apiRequest(`/api/permissions/user/${personnelLinkedUserId}/reset`, { method: "POST" }),
+    onSuccess: () => {
+      toast({ title: "Персональные настройки сброшены" });
+      qc.invalidateQueries({ queryKey: ["/api/permissions/user", personnelLinkedUserId] });
+      qc.invalidateQueries({ queryKey: ["/api/permissions/audit"] });
+      qc.invalidateQueries({ queryKey: ["/api/permissions/me"] });
+    },
+    onError: (e: any) => toast({ title: "Ошибка", description: String(e?.message ?? e), variant: "destructive" }),
+  });
+
   // ===== Tab "Журнал" =====
   const { data: auditEntries } = useQuery<AuditEntry[]>({
     queryKey: ["/api/permissions/audit"],
@@ -245,9 +340,16 @@ export default function PermissionsAndAccess() {
       </p>
 
       <Tabs defaultValue="by-role" className="w-full">
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 flex-wrap h-auto">
           <TabsTrigger value="by-role" data-testid="tab-by-role">По ролям</TabsTrigger>
-          <TabsTrigger value="by-user" data-testid="tab-by-user">По сотрудникам</TabsTrigger>
+          <TabsTrigger value="by-user" data-testid="tab-by-user">
+            <UsersIcon className="w-4 h-4 mr-1" />
+            По сотрудникам
+          </TabsTrigger>
+          <TabsTrigger value="by-personnel" data-testid="tab-by-personnel">
+            <UserCog className="w-4 h-4 mr-1" />
+            По персоналу
+          </TabsTrigger>
           <TabsTrigger value="audit" data-testid="tab-audit">
             <HistoryIcon className="w-4 h-4 mr-1" />
             Журнал
@@ -526,6 +628,198 @@ export default function PermissionsAndAccess() {
           </div>
         </TabsContent>
 
+        {/* ===================== По персоналу ===================== */}
+        <TabsContent value="by-personnel">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="md:col-span-1">
+              <CardHeader>
+                <CardTitle>Персонал</CardTitle>
+                <p className="text-xs text-slate-500 mt-1">
+                  Права настраиваются для привязанной учётной записи. Если её нет —
+                  откройте карточку сотрудника и создайте/привяжите учётку.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="relative mb-3">
+                  <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={personnelQuery}
+                    onChange={(e) => setPersonnelQuery(e.target.value)}
+                    placeholder="ФИО или должность..."
+                    className="pl-8"
+                    data-testid="input-personnel-search"
+                  />
+                </div>
+                <div className="max-h-[480px] overflow-y-auto divide-y border rounded-md">
+                  {filteredPersonnel.map((p) => {
+                    const linked = !!p.userId;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSelectedPersonnelId(p.id)}
+                        className={`w-full text-left p-2 hover:bg-slate-50 ${
+                          selectedPersonnelId === p.id ? "bg-slate-100" : ""
+                        }`}
+                        data-testid={`row-personnel-${p.id}`}
+                      >
+                        <div className="text-sm font-medium truncate">
+                          {p.lastName} {p.firstName}{p.middleName ? ` ${p.middleName}` : ""}
+                        </div>
+                        <div className="text-xs text-slate-500 truncate flex items-center gap-2">
+                          <span>{p.specialization || "—"}</span>
+                          {linked ? (
+                            <Badge variant="default" className="text-[10px] py-0 h-4">есть учётка</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px] py-0 h-4">без учётки</Badge>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {filteredPersonnel.length === 0 && (
+                    <div className="p-3 text-sm text-slate-500">Нет совпадений</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>
+                  {selectedPersonnel ? (
+                    <>
+                      Права: {selectedPersonnel.lastName} {selectedPersonnel.firstName}
+                      {personnelUserPerms && (
+                        <span className="text-sm font-normal text-slate-500"> ({personnelUserPerms.user.role})</span>
+                      )}
+                    </>
+                  ) : (
+                    "Выберите сотрудника"
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!selectedPersonnel && (
+                  <div className="text-sm text-slate-500">
+                    Выберите сотрудника слева, чтобы настроить его права.
+                  </div>
+                )}
+                {selectedPersonnel && !personnelLinkedUserId && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm">
+                    <div className="font-medium text-amber-900 mb-1">У этого сотрудника нет учётной записи</div>
+                    <p className="text-amber-800 mb-3">
+                      Чтобы настроить права для {selectedPersonnel.lastName} {selectedPersonnel.firstName},
+                      нужно сначала создать или привязать учётную запись в карточке персонала.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => setLocation(`/personnel/${selectedPersonnel.id}`)}
+                      data-testid="button-open-personnel-card"
+                    >
+                      Открыть карточку сотрудника
+                    </Button>
+                  </div>
+                )}
+                {selectedPersonnel && personnelLinkedUserId && personnelUserPermsLoading && (
+                  <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                )}
+                {selectedPersonnel && personnelLinkedUserId && personnelUserPerms && (
+                  <>
+                    <div className="space-y-6">
+                      {groupedPermissions.map(({ category, perms }) => (
+                        <div key={category.key}>
+                          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                            {category.label}
+                          </h3>
+                          <div className="divide-y border rounded-md">
+                            {perms.map((p) => {
+                              const item = personnelUserPerms.items.find((i) => i.key === p.key);
+                              if (!item) return null;
+                              const draft = draftPersonnelUser[p.key] ?? null;
+                              const valueStr = draft ?? "inherit";
+                              const effective = draft
+                                ? (draft === "enabled")
+                                : item.roleValue;
+                              return (
+                                <div key={p.key} className="p-3">
+                                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="font-medium text-sm">{p.name}</div>
+                                      <div className="text-xs text-slate-500">{p.description}</div>
+                                      <div className="text-xs mt-1">
+                                        <span className="text-slate-500">Сейчас действует:</span>{" "}
+                                        <Badge variant={effective ? "default" : "secondary"}>
+                                          {effective ? "Включено" : "Выключено"}
+                                        </Badge>{" "}
+                                        <span className="text-slate-400">
+                                          (наследуется от роли: {item.roleValue ? "включено" : "выключено"})
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <Select
+                                      value={valueStr}
+                                      onValueChange={(v) =>
+                                        setDraftPersonnelUser((s) => ({
+                                          ...s,
+                                          [p.key]: v === "inherit" ? null : (v as "enabled" | "disabled"),
+                                        }))
+                                      }
+                                    >
+                                      <SelectTrigger className="w-[180px]" data-testid={`select-personnel-perm-${p.key}`}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="inherit">По умолчанию</SelectItem>
+                                        <SelectItem value="enabled">Включено</SelectItem>
+                                        <SelectItem value="disabled">Выключено</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="text-sm text-slate-600">
+                        {personnelUserDirty.length > 0
+                          ? <>Несохранённых изменений: <b>{personnelUserDirty.length}</b></>
+                          : "Изменений нет"}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setConfirmPersonnelResetOpen(true)}
+                          disabled={resetPersonnelUserMut.isPending}
+                          data-testid="button-reset-personnel"
+                        >
+                          <RotateCcw className="w-4 h-4 mr-1" />
+                          Сбросить персональные
+                        </Button>
+                        <Button
+                          onClick={() => setConfirmPersonnelSaveOpen(true)}
+                          disabled={personnelUserDirty.length === 0 || savePersonnelUserMut.isPending}
+                          data-testid="button-save-personnel"
+                        >
+                          <Save className="w-4 h-4 mr-1" />
+                          Сохранить
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
         {/* ===================== Журнал ===================== */}
         <TabsContent value="audit">
           <Card>
@@ -632,6 +926,39 @@ export default function PermissionsAndAccess() {
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction onClick={() => resetUserMut.mutate()}>Сбросить</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmPersonnelSaveOpen} onOpenChange={setConfirmPersonnelSaveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Сохранить персональные настройки?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы изменили {personnelUserDirty.length}{" "}
+              {personnelUserDirty.length === 1 ? "право" : personnelUserDirty.length < 5 ? "права" : "прав"}{" "}
+              для {selectedPersonnel?.lastName} {selectedPersonnel?.firstName}. Сохранить?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={() => savePersonnelUserMut.mutate()}>Сохранить</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmPersonnelResetOpen} onOpenChange={setConfirmPersonnelResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Сбросить персональные настройки?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Все индивидуальные переопределения для {selectedPersonnel?.lastName} {selectedPersonnel?.firstName} будут сняты.
+              Сотрудник снова будет работать строго по правам своей роли.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={() => resetPersonnelUserMut.mutate()}>Сбросить</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

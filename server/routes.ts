@@ -3687,14 +3687,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update personnel (Admin only)
   app.put("/api/personnel/:id", requireAuth, requirePermissionMiddleware("personnel.manage"), async (req, res) => {
     try {
+      // Если меняется привязка к учётной записи (userId) — даём дружелюбные ошибки
+      // ещё до DB FK / UNIQUE: «такой учётки нет» или «уже привязана к другому сотруднику».
+      if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'userId')) {
+        const newUserId: string | null = req.body.userId ?? null;
+        if (newUserId) {
+          const targetUser = await storage.getUser(newUserId);
+          if (!targetUser) {
+            return res.status(400).json({ error: "Учётная запись не найдена" });
+          }
+          const existing = await storage.getPersonnelByUserId(newUserId);
+          if (existing && existing.id !== req.params.id) {
+            return res.status(400).json({
+              error: `Эта учётная запись уже привязана к сотруднику: ${existing.lastName} ${existing.firstName}`,
+            });
+          }
+        }
+      }
       const person = await storage.updatePersonnel(req.params.id, req.body);
       res.json(person);
-    } catch (error) {
+    } catch (error: any) {
+      // Защита от гонки: если второй запрос успел занять userId — отдадим 409.
+      if (error?.code === '23505' || String(error?.message ?? '').toLowerCase().includes('unique')) {
+        return res.status(409).json({ error: "Эта учётная запись уже привязана к другому сотруднику" });
+      }
       console.error("Failed to update personnel:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
-  
+
+  // Создать учётную запись прямо из карточки персонала и сразу её привязать.
+  // Только админ — это создание пользователя, и оно зеркалит /api/admin/users.
+  // Создавать роль `admin` через этот endpoint запрещено: новые админы — только
+  // через админ-панель, чтобы исключить privilege escalation.
+  app.post("/api/personnel/:id/create-user", requireAdmin, async (req: any, res) => {
+    try {
+      const bodySchema = z.object({
+        username: z.string().min(3, "Логин слишком короткий").max(64),
+        password: z.string().min(6, "Пароль минимум 6 символов").max(128),
+        role: z.enum(["director", "master", "worker", "client"]),
+      });
+      const { username, password, role } = bodySchema.parse(req.body);
+
+      const person = await storage.getPersonnel(req.params.id);
+      if (!person) return res.status(404).json({ error: "Сотрудник не найден" });
+      if (person.userId) {
+        return res.status(409).json({ error: "У сотрудника уже есть привязанная учётная запись" });
+      }
+
+      const exists = await storage.getUserByUsername(username);
+      if (exists) {
+        return res.status(409).json({ error: "Пользователь с таким логином уже существует" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const fullName = `${person.lastName} ${person.firstName}${person.middleName ? ' ' + person.middleName : ''}`.trim();
+
+      const user = await storage.createUser({
+        username,
+        name: fullName,
+        password: hashedPassword,
+        role,
+        isActive: true,
+        isBlocked: false,
+        tempPassword: null,
+        mustChangePassword: false,
+        createdBy: req.session.user!.id,
+      } as any);
+
+      // create+link не в одной транзакции (storage не предоставляет txn), поэтому
+      // если линковка упала — откатываем созданного user, чтобы не оставлять «сирот».
+      try {
+        const updated = await storage.updatePersonnel(person.id, { userId: user.id } as any);
+        return res.status(201).json({
+          user: { id: user.id, username: user.username, name: user.name, role: user.role },
+          personnel: updated,
+        });
+      } catch (linkErr: any) {
+        try { await storage.deleteUser(user.id); } catch (cleanupErr) {
+          console.error("Cleanup of orphan user failed:", cleanupErr);
+        }
+        // Параллельная привязка / FK / UNIQUE
+        const msg = String(linkErr?.message ?? "");
+        if (msg.includes("personnel_user_id") || msg.toLowerCase().includes("unique")) {
+          return res.status(409).json({ error: "Эта учётная запись уже была привязана к другому сотруднику" });
+        }
+        throw linkErr;
+      }
+    } catch (error: any) {
+      if (error?.name === "ZodError") {
+        return res.status(400).json({ error: error.errors?.[0]?.message ?? "Неверные данные" });
+      }
+      // Гонка по уникальности username (или другому unique-индексу users)
+      if (error?.code === '23505' || String(error?.message ?? '').toLowerCase().includes('unique')) {
+        return res.status(409).json({ error: "Пользователь с таким логином уже существует" });
+      }
+      console.error("Failed to create user from personnel:", { personnelId: req.params.id, error });
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Delete personnel (Admin only)
   app.delete("/api/personnel/:id", requireAuth, requirePermissionMiddleware("personnel.manage"), async (req, res) => {
     try {
