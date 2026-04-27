@@ -517,18 +517,21 @@ export default function ProjectDetail() {
     queryKey: ['/api/projects', projectId],
   });
 
+  const isWorker = user?.role === 'worker';
+
   const { data: financialSummary } = useQuery<FinancialSummary>({
     queryKey: ['/api/projects', projectId, 'financial-summary'],
-    enabled: user?.role === 'admin' || user?.role === 'director',
+    enabled: !!projectId && !isWorker,
   });
 
   const { data: expenses = [] } = useQuery<Expense[]>({
     queryKey: ['/api/projects', projectId, 'expenses'],
-    enabled: user?.role === 'admin' || user?.role === 'director',
+    enabled: !!projectId && !isWorker,
   });
 
   const { data: documents = [] } = useQuery<Document[]>({
     queryKey: ['/api/projects', projectId, 'documents'],
+    enabled: !!projectId && !isWorker,
   });
 
   const { data: clientPayments = [] } = useQuery<Array<{
@@ -774,6 +777,46 @@ export default function ProjectDetail() {
 
   if (!project) {
     return <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }} />;
+  }
+
+  // Минимальный экран карточки проекта для роли «Рабочий»:
+  // имя, статус и кнопка «Листы реализации». Никаких финансов, документов и т.п.
+  if (user?.role === 'worker') {
+    return (
+      <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }}>
+        <CorpHeader title={project.name} subtitle={project.location || undefined} onBack={goBack} />
+        <div className="p-4 space-y-3">
+          <div className="p-4" style={SECTION_STYLE}>
+            <div className="flex items-center justify-between">
+              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>Статус</span>
+              <span
+                className="text-[11px] font-bold uppercase px-2 py-1"
+                style={{
+                  background: project.status === 'active' ? 'rgba(16,185,129,0.10)' : 'rgba(148,163,184,0.10)',
+                  color: project.status === 'active' ? 'var(--corp-pos)' : 'var(--corp-muted)',
+                  borderRadius: 'var(--corp-r-sm)',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {project.status === 'active' ? 'Активный' : project.status === 'archived' ? 'В архиве' : project.status}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
+            className="w-full p-4 text-left flex items-center justify-between"
+            style={SECTION_STYLE}
+            data-testid="button-implementation-sheets-worker"
+          >
+            <span className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>
+              Листы реализации
+            </span>
+            <ChevronRight size={18} style={{ color: 'var(--corp-muted)' }} />
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const totalPaid = clientPayments.reduce((sum, p) => sum + p.amount, 0);

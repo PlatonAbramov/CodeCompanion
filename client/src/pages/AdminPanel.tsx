@@ -455,6 +455,7 @@ export default function AdminPanel() {
                                 </FormControl>
                                 <SelectContent>
                                   <SelectItem value="master">Прораб</SelectItem>
+                                  <SelectItem value="worker">Рабочий</SelectItem>
                                   <SelectItem value="director">Директор</SelectItem>
                                 </SelectContent>
                               </Select>

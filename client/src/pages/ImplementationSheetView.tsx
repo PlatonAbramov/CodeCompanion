@@ -119,11 +119,13 @@ export default function ImplementationSheetView() {
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
   const canManageItems = user?.role === 'admin' || user?.role === 'director' || user?.role === 'master';
   const isClient = user?.role === 'client';
-  const canManagePhotos = canManageItems || isClient;
+  const isWorker = user?.role === 'worker';
+  // Рабочий может загружать фото и удалять только свои.
+  const canManagePhotos = canManageItems || isClient || isWorker;
 
   const canDeletePhoto = (photo: ImplementationPhoto) => {
     if (canManageItems) return true;
-    if (isClient && photo.uploadedBy === user?.id) return true;
+    if ((isClient || isWorker) && photo.uploadedBy === user?.id) return true;
     return false;
   };
   const objectStorageService = new ObjectStorageService();

@@ -120,6 +120,7 @@ export function Layout({ children }: LayoutProps) {
   const homePath =
     user?.role === 'client' ? '/client-projects' :
     user?.role === 'master' ? '/master' :
+    user?.role === 'worker' ? '/worker' :
     '/director';
 
   // === Сборка пунктов навигации ===
@@ -129,7 +130,7 @@ export function Layout({ children }: LayoutProps) {
     label: 'Обзор',
     icon: Home,
     path: homePath,
-    matches: (l) => l === '/' || l === '/director' || l === '/master' || l === '/admin' || l === '/client-projects',
+    matches: (l) => l === '/' || l === '/director' || l === '/master' || l === '/worker' || l === '/admin' || l === '/client-projects',
     testId: 'tab-overview',
   };
 
@@ -183,7 +184,7 @@ export function Layout({ children }: LayoutProps) {
 
   // Дополнительные пункты для «Ещё» / боковой панели
   const extraItems: NavItem[] = [];
-  if (user && user.role !== 'client') {
+  if (user && user.role !== 'client' && user.role !== 'worker') {
     if (user.role !== 'master') {
       extraItems.push({
         key: 'clients',
@@ -267,6 +268,7 @@ export function Layout({ children }: LayoutProps) {
     user?.role === 'admin' ? 'Администратор' :
     user?.role === 'director' ? 'Директор' :
     user?.role === 'master' ? 'Мастер' :
+    user?.role === 'worker' ? 'Рабочий' :
     user?.role === 'client' ? 'Заказчик' : '';
 
   const renderNavItem = (item: NavItem, active: boolean, variant: 'sidebar' | 'sheet') => {

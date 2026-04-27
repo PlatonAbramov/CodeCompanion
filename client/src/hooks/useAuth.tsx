@@ -8,7 +8,7 @@ interface User {
   username: string;
   email?: string;
   name: string;
-  role: 'admin' | 'director' | 'master' | 'client';
+  role: 'admin' | 'director' | 'master' | 'worker' | 'client';
 }
 
 interface LoginData {
@@ -70,6 +70,8 @@ export function useAuth() {
           window.location.href = '/director';
         } else if (data.user.role === 'master') {
           window.location.href = '/master';
+        } else if (data.user.role === 'worker') {
+          window.location.href = '/worker';
         } else if (data.user.role === 'client') {
           window.location.href = '/client'; // На случай, если будет страница клиента
         }

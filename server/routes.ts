@@ -121,6 +121,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Запретить доступ для роли «Рабочий» к финансовым / административным разделам.
+  const denyWorker = (req: any, res: any, next: any) => {
+    if (req.session?.user?.role === 'worker') {
+      return res.status(403).json({ error: "Доступ запрещён для роли «Рабочий»" });
+    }
+    next();
+  };
+
+  // Защита разделов, к которым «Рабочий» не имеет доступа по ТЗ.
+  // Должно быть зарегистрировано ДО соответствующих маршрутов.
+  app.use("/api/expenses", denyWorker);
+  app.use("/api/revenues", denyWorker);
+  app.use("/api/advances", denyWorker);
+  app.use("/api/customer-advances", denyWorker);
+  app.use("/api/owner-investments", denyWorker);
+  app.use("/api/financial-overview", denyWorker);
+  app.use("/api/dashboard-stats", denyWorker);
+  app.use("/api/contractors", denyWorker);
+  app.use("/api/clients", denyWorker);
+  app.use("/api/personnel", denyWorker);
+  app.use("/api/tools", denyWorker);
+  app.use("/api/employees", denyWorker);
+  app.use("/api/analytics", denyWorker);
+  app.use("/api/history", denyWorker);
+  app.use("/api/admin", denyWorker);
+  app.use("/api/documents", denyWorker);
+
 
 
   // Auth routes
@@ -444,6 +471,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const allProjects = await storage.getAllProjects();
         projects = allProjects.filter(p => p.status === 'active');
       }
+      // Рабочий видит все активные проекты, но только безопасный набор полей
+      // (без финансов, бюджетов, заказчика и т.п.).
+      else if (fullUser.role === 'worker') {
+        const allProjects = await storage.getAllProjects();
+        projects = allProjects
+          .filter(p => p.status === 'active')
+          .map(p => ({
+            id: p.id,
+            name: p.name,
+            status: p.status,
+            location: p.location,
+            startDate: p.startDate,
+            endDate: p.endDate,
+          }));
+      }
       // Заказчик видит только свои активные проекты (где он заказчик)
       else if (fullUser.role === 'client') {
         const userProjects = await storage.getUserProjects(user.id);
@@ -487,6 +529,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Рабочий получает только безопасные поля проекта (без финансов).
+      if (user.role === 'worker') {
+        return res.json({
+          id: project.id,
+          name: project.name,
+          status: project.status,
+          location: project.location,
+          startDate: project.startDate,
+          endDate: project.endDate,
+        });
+      }
+
       res.json(project);
     } catch (error) {
       console.error("Get project error:", error);
@@ -528,7 +582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/projects/:id/financial-summary", requireAuth, async (req, res) => {
+  app.get("/api/projects/:id/financial-summary", requireAuth, denyWorker, async (req, res) => {
     try {
       const user = req.session.user!;
       const projectId = req.params.id;
@@ -570,7 +624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/projects/:id/expenses", requireAuth, async (req, res) => {
+  app.get("/api/projects/:id/expenses", requireAuth, denyWorker, async (req, res) => {
     try {
       const user = req.session.user!;
       const projectId = req.params.id;
@@ -662,7 +716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Document routes
-  app.get("/api/projects/:id/documents", requireAuth, async (req, res) => {
+  app.get("/api/projects/:id/documents", requireAuth, denyWorker, async (req, res) => {
     try {
       const user = req.session.user!;
       const projectId = req.params.id;
@@ -3017,15 +3071,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/implementation-photos/:photoId", requireAuth, async (req, res) => {
     try {
       const { photoId } = req.params;
-      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
-      
-      if (!isAdminOrDirector) {
-        return res.status(403).json({ error: "Только администраторы и директора могут удалять фотографии" });
-      }
-      
-      // Get photo info before deletion for audit log
+      const currentUser = req.session.user!;
+      const isAdminOrDirector = currentUser.role === 'admin' || currentUser.role === 'director';
+
+      // Get photo info before deletion for audit log + ownership check
       const photo = await storage.getImplementationPhoto(photoId);
-      await storage.deleteImplementationPhoto(photoId, req.session.user!.id);
+
+      // Worker / master / client могут удалять только свои фотографии.
+      if (!isAdminOrDirector) {
+        if (!photo || photo.uploadedBy !== currentUser.id) {
+          return res.status(403).json({ error: "Можно удалять только свои фотографии" });
+        }
+      }
+
+      await storage.deleteImplementationPhoto(photoId, currentUser.id);
       
       // Create audit log for photo deletion
       const user = req.session.user!;

@@ -30,10 +30,11 @@ Preferred communication style: Simple, everyday language.
 
 ## Authentication & Authorization
 - **Session Management**: Express-session.
-- **Role-Based Access Control**: Four tiers (Admin, Director, Master, Client) with specific permissions enforced via middleware.
+- **Role-Based Access Control**: Five tiers (Admin, Director, Master, Worker, Client) with specific permissions enforced via middleware.
 - **User Creation**: Admin-only user creation; no public registration.
 - **Password Security**: Bcrypt hashing.
 - **Client User Permissions**: Client users have standardized read-only access to assigned projects, implementation sheets, and photos, but cannot edit content or change completion status.
+- **Worker (Рабочий) Permissions**: Sees a list of all active projects (name + status only, no financials) and can open any project to view implementation sheets, view all photos, upload new photos, and delete only own photos. No access to finance, expenses, documents, contractors, clients, personnel, tools, analytics, or admin sections. Vehicles section is reserved for users with the personnel «Водитель» flag (wiring pending). Enforced server-side via a `denyWorker` middleware bundle plus inline checks on `/api/projects/:id/{expenses,documents,financial-summary}`.
 
 ## File Management
 - **Upload System**: Uppy integrated with Google Cloud Storage for receipts, documents, and implementation sheet photos/videos.
