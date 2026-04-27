@@ -114,14 +114,8 @@ export default function AddExpense() {
       toast({ title: "Ошибка", description: "Выберите подрядчика для оплаты", variant: "destructive" });
       return;
     }
-    if (!formData.receiptUrl) {
-      toast({
-        title: "Прикрепите чек",
-        description: "Расход без фото чека сохранить нельзя. Дождитесь окончания загрузки.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Чек необязателен. Если он есть — сервер отправит его в Telegram-чат, если нет — расход
+    // всё равно сохраняется, просто без уведомления.
     const dataToSubmit = {
       ...formData,
       contractorId: formData.category === 'contractor_payments' ? formData.contractorId : undefined,
