@@ -217,9 +217,9 @@ export default function PhotoControl() {
     if (vehicle.status === 'archived') return 'Этот автомобиль в архиве.';
     if (!canPerform) {
       if (timeWin?.windowStartsAtUtcMs) {
-        return `Фотоконтроль доступен по воскресеньям с 08:00 до 20:00 (GST). Следующее окно: ${formatDateRu(timeWin.windowStartsAtUtcMs)}.`;
+        return `Фотоконтроль доступен ежедневно с 08:00 до 18:00 (GST). Следующее окно: ${formatDateRu(timeWin.windowStartsAtUtcMs)}.`;
       }
-      return 'Окно фотоконтроля закрыто. Доступно по воскресеньям с 08:00 до 20:00 (GST).';
+      return 'Окно фотоконтроля закрыто. Доступно ежедневно с 08:00 до 18:00 (GST).';
     }
     return null;
   }, [vehicle, canPerform, timeWin]);

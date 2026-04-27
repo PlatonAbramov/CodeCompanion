@@ -3856,35 +3856,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Vehicles (Автомобили / фотоконтроль) — Phase 1: список + CRUD
   // ============================================================
 
-  // Серверное окно для фотоконтроля: GST = UTC+4, воскресенье 08:00–20:00
+  // Серверное окно для фотоконтроля: GST = UTC+4, ежедневно 08:00–18:00
   app.get("/api/vehicles/server-time-window", requireAuth, async (_req, res) => {
     try {
       const now = new Date();
       const GST_OFFSET_MS = 4 * 60 * 60 * 1000;
       const gst = new Date(now.getTime() + GST_OFFSET_MS);
-      const dayOfWeek = gst.getUTCDay(); // 0 = Sunday
       const hour = gst.getUTCHours();
-      const isSunday = dayOfWeek === 0;
-      const inWindow = isSunday && hour >= 8 && hour < 20;
+      const inWindow = hour >= 8 && hour < 18;
 
-      // Следующее «закрытие окна» (Sunday 20:00 GST):
-      // если сейчас воскресенье ≤20:00 — это сегодня, иначе — следующее воскресенье.
-      const endOfWindow = new Date(gst);
-      let daysUntilSunday = (7 - dayOfWeek) % 7;
-      if (isSunday && hour >= 20) daysUntilSunday = 7;
-      endOfWindow.setUTCDate(endOfWindow.getUTCDate() + daysUntilSunday);
-      endOfWindow.setUTCHours(20, 0, 0, 0);
+      // Окна «открытие/закрытие» по GST.
+      // Если сейчас в окне или до 08:00 — окно сегодняшнее (08:00–18:00).
+      // Если уже после 18:00 — следующее окно завтра.
+      const startOfToday = new Date(Date.UTC(
+        gst.getUTCFullYear(), gst.getUTCMonth(), gst.getUTCDate(), 8, 0, 0, 0,
+      ));
+      const endOfToday = new Date(Date.UTC(
+        gst.getUTCFullYear(), gst.getUTCMonth(), gst.getUTCDate(), 18, 0, 0, 0,
+      ));
+      let startOfWindow: Date;
+      let endOfWindow: Date;
+      if (hour >= 18) {
+        // Сегодня окно уже закрыто — берём завтрашнее
+        startOfWindow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+        endOfWindow = new Date(endOfToday.getTime() + 24 * 60 * 60 * 1000);
+      } else {
+        startOfWindow = startOfToday;
+        endOfWindow = endOfToday;
+      }
+      const startsUtc = new Date(startOfWindow.getTime() - GST_OFFSET_MS);
       const untilUtc = new Date(endOfWindow.getTime() - GST_OFFSET_MS);
 
-      // Следующее «открытие окна» (Sunday 08:00 GST)
-      const startOfWindow = new Date(gst);
-      let daysUntilOpen = (7 - dayOfWeek) % 7;
-      if (isSunday && hour >= 20) daysUntilOpen = 7;
-      startOfWindow.setUTCDate(startOfWindow.getUTCDate() + daysUntilOpen);
-      startOfWindow.setUTCHours(8, 0, 0, 0);
-      const startsUtc = new Date(startOfWindow.getTime() - GST_OFFSET_MS);
-
-      // weekKey формата YYYY-W## по GST
+      // weekKey формата YYYY-W## по GST (один фотоконтроль на машину в неделю)
       const yStart = new Date(Date.UTC(gst.getUTCFullYear(), 0, 1));
       const dayOfYear = Math.floor((gst.getTime() - yStart.getTime()) / 86400000) + 1;
       const weekNum = Math.ceil((dayOfYear + ((yStart.getUTCDay() + 6) % 7)) / 7);
@@ -4382,16 +4385,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const isAdmin = u.role === 'admin';
 
-      // Серверная проверка окна (Воскресенье 08:00–20:00 GST)
+      // Серверная проверка окна (ежедневно 08:00–18:00 GST)
       const now = new Date();
       const GST_OFFSET_MS = 4 * 60 * 60 * 1000;
       const gst = new Date(now.getTime() + GST_OFFSET_MS);
-      const dayOfWeek = gst.getUTCDay();
       const hour = gst.getUTCHours();
-      const inWindow = dayOfWeek === 0 && hour >= 8 && hour < 20;
+      const inWindow = hour >= 8 && hour < 18;
       if (!inWindow && !isAdmin) {
         return res.status(403).json({
-          error: "Окно фотоконтроля закрыто. Доступно по воскресеньям с 08:00 до 20:00 (GST).",
+          error: "Окно фотоконтроля закрыто. Доступно ежедневно с 08:00 до 18:00 (GST).",
         });
       }
 
