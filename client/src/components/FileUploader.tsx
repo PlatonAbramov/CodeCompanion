@@ -155,6 +155,7 @@ export function FileUploader({
     <div className="space-y-4">
       <div className="flex gap-2">
         <Button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
           variant="outline"
           disabled={isUploading}

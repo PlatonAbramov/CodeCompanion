@@ -55,6 +55,7 @@ export function ObjectUploader({
   return (
     <div>
       <Button 
+        type="button"
         onClick={() => setShowModal(true)} 
         className={buttonClassName}
         variant="outline"
