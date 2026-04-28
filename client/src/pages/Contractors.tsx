@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/components/LanguageProvider";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,8 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CorpEmpty, fmtDateRu, fmtNum } from "@/components/corp-ui";
+import { CorpEmpty, fmtNum } from "@/components/corp-ui";
+import { fmtDate } from "@/lib/locale";
 
 interface Contractor {
   id: string;
@@ -62,6 +64,7 @@ function ContractorTableRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useLanguage();
   const { data: stats } = useQuery<ContractorStats>({
     queryKey: ['/api/contractors', contractor.id, 'stats'],
   });
@@ -162,18 +165,18 @@ function ContractorTableRow({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onOpen}>
               <ChevronRight className="h-4 w-4 mr-2" />
-              Открыть
+              {t("openLabel")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onEdit}>
               <Edit2 className="h-4 w-4 mr-2" />
-              Редактировать
+              {t("edit")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={onDelete}
               style={{ color: 'var(--corp-neg)' }}
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              Удалить
+              {t("delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -183,6 +186,7 @@ function ContractorTableRow({
 }
 
 function ContractorStatsRow({ contractorId }: { contractorId: string }) {
+  const { t } = useLanguage();
   const { data: stats } = useQuery<ContractorStats>({
     queryKey: ['/api/contractors', contractorId, 'stats'],
   });
@@ -210,15 +214,16 @@ function ContractorStatsRow({ contractorId }: { contractorId: string }) {
       className="grid grid-cols-3 gap-2 mt-3 pt-3"
       style={{ borderTop: '1px solid var(--corp-line)' }}
     >
-      {tile('Выплачено', `${fmtNum(stats.totalExpenses)}`, 'var(--corp-pos)')}
-      {tile('Проектов', String(stats.totalProjects), 'var(--corp-ink)')}
-      {tile('Осталось', `${fmtNum(stats.remainingBudget)}`, 'var(--corp-accent)')}
+      {tile(t('headerPaid'), `${fmtNum(stats.totalExpenses)}`, 'var(--corp-pos)')}
+      {tile(t('headerProjects'), String(stats.totalProjects), 'var(--corp-ink)')}
+      {tile(t('headerRemaining'), `${fmtNum(stats.remainingBudget)}`, 'var(--corp-accent)')}
     </div>
   );
 }
 
 export default function Contractors() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -246,10 +251,10 @@ export default function Contractors() {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
       setIsCreateModalOpen(false);
       setContractorForm({ name: '', company: '', phone: '', email: '', specialization: '' });
-      toast({ title: "Подрядчик добавлен", description: "Новый подрядчик успешно добавлен" });
+      toast({ title: t("contractorAddedTitle"), description: t("contractorAddedDesc") });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось добавить подрядчика", variant: "destructive" });
+      toast({ title: t("errorToastTitle"), description: t("contractorAddFailed"), variant: "destructive" });
     },
   });
 
@@ -262,10 +267,10 @@ export default function Contractors() {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
       setIsEditModalOpen(false);
       setSelectedContractor(null);
-      toast({ title: "Подрядчик обновлён", description: "Данные подрядчика успешно обновлены" });
+      toast({ title: t("contractorUpdatedTitle"), description: t("contractorUpdatedDesc") });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось обновить данные", variant: "destructive" });
+      toast({ title: t("errorToastTitle"), description: t("contractorUpdateFailed"), variant: "destructive" });
     },
   });
 
@@ -276,10 +281,10 @@ export default function Contractors() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
-      toast({ title: "Подрядчик удалён", description: "Подрядчик успешно удалён" });
+      toast({ title: t("contractorDeletedTitle"), description: t("contractorDeletedDesc") });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось удалить подрядчика", variant: "destructive" });
+      toast({ title: t("errorToastTitle"), description: t("contractorDeleteFailed"), variant: "destructive" });
     },
   });
 
@@ -291,7 +296,7 @@ export default function Contractors() {
         className="min-h-screen flex items-center justify-center"
         style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)' }}
       >
-        <p className="text-[14px]" style={{ color: 'var(--corp-muted)' }}>Доступ запрещён</p>
+        <p className="text-[14px]" style={{ color: 'var(--corp-muted)' }}>{t("accessForbidden")}</p>
       </div>
     );
   }
@@ -321,7 +326,7 @@ export default function Contractors() {
   };
 
   const handleDeleteContractor = (id: string) => {
-    if (confirm("Вы уверены, что хотите удалить этого подрядчика?")) {
+    if (confirm(t("confirmDeleteContractor"))) {
       deleteContractorMutation.mutate(id);
     }
   };
@@ -329,7 +334,7 @@ export default function Contractors() {
   const renderForm = (mode: 'create' | 'edit') => (
     <form onSubmit={mode === 'create' ? handleCreateContractor : handleEditContractor} className="space-y-4">
       <div>
-        <Label htmlFor={`${mode}-name`}>Имя *</Label>
+        <Label htmlFor={`${mode}-name`}>{t("nameStarLabel")}</Label>
         <Input
           id={`${mode}-name`}
           value={contractorForm.name}
@@ -339,7 +344,7 @@ export default function Contractors() {
         />
       </div>
       <div>
-        <Label htmlFor={`${mode}-company`}>Компания</Label>
+        <Label htmlFor={`${mode}-company`}>{t("companyLabel")}</Label>
         <Input
           id={`${mode}-company`}
           value={contractorForm.company}
@@ -348,7 +353,7 @@ export default function Contractors() {
         />
       </div>
       <div>
-        <Label htmlFor={`${mode}-spec`}>Специализация *</Label>
+        <Label htmlFor={`${mode}-spec`}>{t("specStarLabel")}</Label>
         <Input
           id={`${mode}-spec`}
           value={contractorForm.specialization}
@@ -358,7 +363,7 @@ export default function Contractors() {
         />
       </div>
       <div>
-        <Label htmlFor={`${mode}-phone`}>Телефон</Label>
+        <Label htmlFor={`${mode}-phone`}>{t("phoneLabel")}</Label>
         <Input
           id={`${mode}-phone`}
           value={contractorForm.phone}
@@ -383,8 +388,8 @@ export default function Contractors() {
         data-testid={`button-submit-${mode}-contractor`}
       >
         {mode === 'create'
-          ? (createContractorMutation.isPending ? "Добавление…" : "Добавить подрядчика")
-          : (updateContractorMutation.isPending ? "Сохранение…" : "Сохранить изменения")}
+          ? (createContractorMutation.isPending ? t("addingDots") : t("addContractorBtn"))
+          : (updateContractorMutation.isPending ? t("savingDots") : t("saveChangesBtn"))}
       </Button>
     </form>
   );
@@ -412,13 +417,13 @@ export default function Contractors() {
                 className="text-[16px] font-bold leading-tight truncate"
                 style={{ color: 'var(--corp-ink)', letterSpacing: '-0.3px' }}
               >
-                Подрядчики
+                {t("contractorsTitle")}
               </h1>
               <p
                 className="text-[10px] uppercase font-bold leading-tight"
                 style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)', letterSpacing: '0.06em' }}
               >
-                Всего: {contractors?.length || 0}
+                {t("totalColon")} {contractors?.length || 0}
               </p>
             </div>
           </div>
@@ -431,12 +436,12 @@ export default function Contractors() {
                   style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
                   data-testid="button-add-contractor"
                 >
-                  <Plus size={14} /> <span className="hidden sm:inline">Подрядчик</span>
+                  <Plus size={14} /> <span className="hidden sm:inline">{t("contractorShort")}</span>
                 </button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Добавить нового подрядчика</DialogTitle>
+                  <DialogTitle>{t("addNewContractorTitle")}</DialogTitle>
                 </DialogHeader>
                 {renderForm('create')}
               </DialogContent>
@@ -456,7 +461,7 @@ export default function Contractors() {
             className="text-[15px] font-semibold"
             style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
           >
-            Подрядчики
+            {t("contractorsTitle")}
           </h2>
 
           <div className="flex-1" />
@@ -469,7 +474,7 @@ export default function Contractors() {
             />
             <input
               type="text"
-              placeholder="Поиск по проектам, расходам..."
+              placeholder={t('searchProjectsExpenses')}
               className="w-full h-9 pl-9 pr-12 text-[13px] outline-none"
               style={{
                 background: 'var(--corp-surface-2)',
@@ -510,7 +515,7 @@ export default function Contractors() {
             data-testid="button-topbar-add-expense-contractors"
           >
             <Plus size={14} />
-            Расход
+            {t("expenseShort")}
           </button>
         </div>
 
@@ -520,7 +525,7 @@ export default function Contractors() {
             className="text-[28px] font-bold leading-tight"
             style={{ color: 'var(--corp-ink)', letterSpacing: '-0.6px' }}
           >
-            Подрядчики
+            {t("contractorsTitle")}
             <span
               className="ml-2 text-[20px] font-semibold"
               style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}
@@ -542,7 +547,7 @@ export default function Contractors() {
               data-testid="button-filters-contractors"
             >
               <SlidersHorizontal size={14} />
-              Фильтры
+              {t("filtersBtn")}
             </button>
 
             {isAdminOrDirector && (
@@ -556,7 +561,7 @@ export default function Contractors() {
                 data-testid="button-add-contractor-desktop"
               >
                 <Plus size={14} />
-                Добавить
+                {t("addLabelShort")}
               </button>
             )}
           </div>
@@ -567,7 +572,7 @@ export default function Contractors() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Редактировать подрядчика</DialogTitle>
+            <DialogTitle>{t("editContractorTitle")}</DialogTitle>
           </DialogHeader>
           {renderForm('edit')}
         </DialogContent>
@@ -578,9 +583,9 @@ export default function Contractors() {
         {isLoading ? null : !contractors || contractors.length === 0 ? (
           <CorpEmpty
             icon={<Users size={28} />}
-            title="Подрядчики не найдены"
-            description="Добавьте первого подрядчика, чтобы начать работу"
-            actionLabel={isAdminOrDirector ? "Добавить подрядчика" : undefined}
+            title={t("contractorsNotFound")}
+            description={t("addFirstContractor")}
+            actionLabel={isAdminOrDirector ? t("addContractorBtn") : undefined}
             onAction={isAdminOrDirector ? () => setIsCreateModalOpen(true) : undefined}
           />
         ) : (
@@ -596,13 +601,13 @@ export default function Contractors() {
               <thead>
                 <tr style={{ background: 'var(--corp-surface)' }}>
                   {[
-                    { label: 'Компания', align: 'left' },
-                    { label: 'Контакт', align: 'left' },
-                    { label: 'Специализация', align: 'left' },
-                    { label: 'Телефон', align: 'left' },
-                    { label: 'Проектов', align: 'right' },
-                    { label: 'Выплачено', align: 'right' },
-                    { label: 'Осталось', align: 'right' },
+                    { label: t('headerCompany'), align: 'left' },
+                    { label: t('headerContact'), align: 'left' },
+                    { label: t('headerSpec'), align: 'left' },
+                    { label: t('headerPhone'), align: 'left' },
+                    { label: t('headerProjects'), align: 'right' },
+                    { label: t('headerPaid'), align: 'right' },
+                    { label: t('headerRemaining'), align: 'right' },
                     { label: '', align: 'right' },
                   ].map((h, i) => (
                     <th
@@ -640,9 +645,9 @@ export default function Contractors() {
         {isLoading ? null : !contractors || contractors.length === 0 ? (
           <CorpEmpty
             icon={<Users size={28} />}
-            title="Подрядчики не найдены"
-            description="Добавьте первого подрядчика, чтобы начать работу"
-            actionLabel={isAdminOrDirector ? "Добавить подрядчика" : undefined}
+            title={t("contractorsNotFound")}
+            description={t("addFirstContractor")}
+            actionLabel={isAdminOrDirector ? t("addContractorBtn") : undefined}
             onAction={isAdminOrDirector ? () => setIsCreateModalOpen(true) : undefined}
           />
         ) : (
@@ -728,7 +733,7 @@ export default function Contractors() {
                   {contractor.licenseUrl && (
                     <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--corp-pos)' }}>
                       <File size={11} />
-                      <span>Лицензия загружена</span>
+                      <span>{t("licenseUploaded")}</span>
                     </div>
                   )}
                 </div>
@@ -744,7 +749,7 @@ export default function Contractors() {
                     letterSpacing: '0.05em',
                   }}
                 >
-                  Добавлен: {fmtDateRu(contractor.createdAt)}
+                  {t("addedColon")} {fmtDate(contractor.createdAt, language)}
                 </div>
               </div>
             ))}

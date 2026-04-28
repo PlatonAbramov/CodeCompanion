@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { fmtToday, fmtDate } from "@/lib/locale";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
@@ -60,15 +61,6 @@ function fmtShort(n: number): string {
   if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace('.0', '')}M`;
   if (abs >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
   return fmtNum(n);
-}
-
-function fmtDateRu(s: string) {
-  if (!s) return '—';
-  return new Date(s).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function fmtTodayRu() {
-  return new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
 }
 
 function MoneyAED({
@@ -162,7 +154,13 @@ function PeriodSegment({
   value: string;
   onChange: (v: string) => void;
 }) {
-  const items = ['День', 'Неделя', 'Месяц', 'Год'];
+  const { t } = useLanguage();
+  const items = [
+    { key: 'День', label: t('periodDay') },
+    { key: 'Неделя', label: t('periodWeek') },
+    { key: 'Месяц', label: t('periodMonth') },
+    { key: 'Год', label: t('periodYear') },
+  ];
   return (
     <div
       className="inline-flex items-center p-1 gap-0.5"
@@ -172,12 +170,12 @@ function PeriodSegment({
       }}
     >
       {items.map(item => {
-        const active = item === value;
+        const active = item.key === value;
         return (
           <button
-            key={item}
+            key={item.key}
             type="button"
-            onClick={() => onChange(item)}
+            onClick={() => onChange(item.key)}
             className="px-3 py-1.5 text-[12px] font-semibold transition-all"
             style={{
               background: active ? 'var(--corp-surface)' : 'transparent',
@@ -186,9 +184,9 @@ function PeriodSegment({
               boxShadow: active ? '0 1px 2px rgba(10,10,11,0.06)' : 'none',
               cursor: 'pointer',
             }}
-            data-testid={`period-${item}`}
+            data-testid={`period-${item.key}`}
           >
-            {item}
+            {item.label}
           </button>
         );
       })}
@@ -205,6 +203,7 @@ function MobileHero({
   awaitingPayment: number;
   growthPct: number;
 }) {
+  const { t } = useLanguage();
   const positive = totalProfit >= 0;
   const heights = [16, 22, 18, 26, 24, 30, 36, 42];
   return (
@@ -223,7 +222,7 @@ function MobileHero({
             className="text-[11px] font-bold uppercase"
             style={{ letterSpacing: '0.06em', color: 'rgba(255,255,255,0.55)' }}
           >
-            Общая прибыль
+            {t('totalProfit')}
           </p>
           <div
             className="mt-2"
@@ -269,7 +268,7 @@ function MobileHero({
       <div className="grid grid-cols-3 gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em' }}>
-            Активные
+            {t('active')}
           </p>
           <div className="mt-1.5" style={{ fontFamily: 'var(--corp-mono)', fontSize: 20, fontWeight: 700 }}>
             {activeCount}
@@ -277,7 +276,7 @@ function MobileHero({
         </div>
         <div>
           <p className="text-[10px] font-bold uppercase" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em' }}>
-            Ожидает
+            {t('awaitingPayment')}
           </p>
           <div className="mt-1.5" style={{ fontFamily: 'var(--corp-mono)', fontSize: 20, fontWeight: 700 }}>
             {fmtShort(awaitingPayment)}
@@ -285,7 +284,7 @@ function MobileHero({
         </div>
         <div>
           <p className="text-[10px] font-bold uppercase" style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em' }}>
-            Маржа
+            {t('margin')}
           </p>
           <div
             className="mt-1.5"
@@ -344,6 +343,7 @@ function MobileProjectCardNew({
   onClick: () => void;
   clientsById: Map<string, Client>;
 }) {
+  const { t, language } = useLanguage();
   const { fin, totalCost, usedRatio, currentProfit, profitable } = useProjectRowData(project);
   const clientName = (project as any).clientId
     ? clientsById.get((project as any).clientId)?.name || ''
@@ -355,7 +355,7 @@ function MobileProjectCardNew({
       : project.name.replace(/\s/g, '').slice(0, 2);
     return letters.toUpperCase();
   })();
-  const endDate = project.endDate ? fmtDateRu(project.endDate) : '';
+  const endDate = project.endDate ? fmtDate(project.endDate, language) : '';
 
   return (
     <div
@@ -387,7 +387,7 @@ function MobileProjectCardNew({
           <div className="text-[12px] mt-1" style={{ color: 'var(--corp-muted)' }}>
             {clientName && <>{clientName} · </>}
             {endDate && (
-              <>до <span style={{ fontFamily: 'var(--corp-mono)' }}>{endDate}</span></>
+              <>{t('until')} <span style={{ fontFamily: 'var(--corp-mono)' }}>{endDate}</span></>
             )}
           </div>
         </div>
@@ -434,6 +434,7 @@ function ProjectsTableRow({
   showEdit: boolean;
   clientsById: Map<string, Client>;
 }) {
+  const { language } = useLanguage();
   const { fin, totalCost, usedRatio, currentProfit, profitable } = useProjectRowData(project);
   const clientName = (project as any).clientId
     ? clientsById.get((project as any).clientId)?.name || '—'
@@ -483,7 +484,7 @@ function ProjectsTableRow({
           : <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>—</span>}
       </td>
       <td className="px-4 py-3.5 text-[12px]" style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)' }}>
-        {project.endDate ? fmtDateRu(project.endDate) : '—'}
+        {project.endDate ? fmtDate(project.endDate, language) : '—'}
       </td>
       <td className="px-2 py-3.5 text-right">
         {showEdit && (
@@ -521,6 +522,7 @@ function ProjectsMobileCard({
   showEdit: boolean;
   clientsById: Map<string, Client>;
 }) {
+  const { t, language } = useLanguage();
   const { fin, totalCost, usedRatio, currentProfit, profitable } = useProjectRowData(project);
   const clientName = (project as any).clientId
     ? clientsById.get((project as any).clientId)?.name || '—'
@@ -538,7 +540,7 @@ function ProjectsMobileCard({
             {project.name}
           </div>
           <div className="text-[11px] mt-0.5" style={{ color: 'var(--corp-muted)' }}>
-            {clientName} · до {project.endDate ? fmtDateRu(project.endDate) : '—'}
+            {clientName} · {t('until')} {project.endDate ? fmtDate(project.endDate, language) : '—'}
           </div>
         </div>
         {showEdit && (
@@ -569,12 +571,12 @@ function ProjectsMobileCard({
       </div>
       <div className="flex items-center justify-between text-[12px]">
         <div className="flex items-center gap-1.5">
-          <span style={{ color: 'var(--corp-muted)' }}>Бюджет</span>
+          <span style={{ color: 'var(--corp-muted)' }}>{t('budget')}</span>
           <MoneyAED amount={totalCost} size={12} weight={600} />
         </div>
         {fin && (
           <div className="flex items-center gap-1.5">
-            <span style={{ color: 'var(--corp-muted)' }}>Прибыль</span>
+            <span style={{ color: 'var(--corp-muted)' }}>{t('profit')}</span>
             <MoneyAED amount={currentProfit} size={12} weight={700} tone={profitable ? 'pos' : 'neg'} />
           </div>
         )}
@@ -586,7 +588,7 @@ function ProjectsMobileCard({
 // === Page ===================================================================
 export default function DirectorDashboard() {
   const { user, logout } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -626,10 +628,10 @@ export default function DirectorDashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       setIsCreateModalOpen(false);
       setProjectForm({ name: '', location: '', clientId: '', totalCost: '', startDate: '', endDate: '' });
-      toast({ title: "Успешно", description: "Проект создан" });
+      toast({ title: t('success'), description: t('projectCreated') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось создать проект", variant: "destructive" });
+      toast({ title: t('error'), description: t('failedToCreateProject'), variant: "destructive" });
     },
   });
 
@@ -646,17 +648,17 @@ export default function DirectorDashboard() {
       setIsEditModalOpen(false);
       setEditingProject(null);
       setProjectForm({ name: '', location: '', clientId: '', totalCost: '', startDate: '', endDate: '' });
-      toast({ title: "Успешно", description: "Проект обновлен" });
+      toast({ title: t('success'), description: t('projectUpdated') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось обновить проект", variant: "destructive" });
+      toast({ title: t('error'), description: t('failedToUpdateProject'), variant: "destructive" });
     },
   });
 
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectForm.clientId) {
-      toast({ title: "Ошибка", description: "Необходимо выбрать заказчика", variant: "destructive" });
+      toast({ title: t('error'), description: t('selectClientFirst'), variant: "destructive" });
       return;
     }
     createProjectMutation.mutate({
@@ -725,13 +727,13 @@ export default function DirectorDashboard() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-              Добрый день,
+              {t('goodDay')},
             </p>
             <p
               className="text-[16px] font-bold leading-tight truncate"
               style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
             >
-              {user?.name || 'Пользователь'}
+              {user?.name || t('userFallback')}
             </p>
           </div>
           <LanguageSwitcher />
@@ -740,7 +742,7 @@ export default function DirectorDashboard() {
             className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'var(--corp-surface)', border: '1px solid var(--corp-line)', color: 'var(--corp-ink-2)' }}
             data-testid="button-notifications-mobile"
-            aria-label="Уведомления"
+            aria-label={t('notifications')}
           >
             <Bell size={17} />
           </button>
@@ -751,7 +753,7 @@ export default function DirectorDashboard() {
               className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ background: 'var(--corp-surface)', border: '1px solid var(--corp-line)', color: 'var(--corp-ink-2)' }}
               data-testid="button-settings-mobile"
-              aria-label="Настройки"
+              aria-label={t('settings')}
             >
               <Settings size={17} />
             </button>
@@ -772,7 +774,7 @@ export default function DirectorDashboard() {
             className="text-[14px] font-bold flex-shrink-0"
             style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
           >
-            Обзор
+            {t('overview')}
           </h2>
 
           <div
@@ -784,7 +786,7 @@ export default function DirectorDashboard() {
             }}
           >
             <Search size={14} />
-            <span className="text-[12px] flex-1 truncate">Поиск по проектам, расходам…</span>
+            <span className="text-[12px] flex-1 truncate">{t('searchPlaceholder')}</span>
           </div>
 
           <div className="flex-1 md:hidden" />
@@ -794,12 +796,12 @@ export default function DirectorDashboard() {
               <HeaderIconButton
                 onClick={() => setLocation('/analytics')}
                 testId="button-analytics"
-                title="Аналитика"
+                title={t('analytics')}
               >
                 <BarChart3 size={17} />
               </HeaderIconButton>
             )}
-            <HeaderIconButton title="Уведомления">
+            <HeaderIconButton title={t('notifications')}>
               <Bell size={17} />
             </HeaderIconButton>
             <LanguageSwitcher />
@@ -807,7 +809,7 @@ export default function DirectorDashboard() {
               <HeaderIconButton
                 onClick={() => setLocation('/admin')}
                 testId="button-admin-panel"
-                title="Админ-панель"
+                title={t('adminPanel')}
               >
                 <Settings size={17} />
               </HeaderIconButton>
@@ -827,10 +829,10 @@ export default function DirectorDashboard() {
               data-testid="button-quick-expense"
             >
               <Plus size={13} />
-              <span className="hidden sm:inline">Расход</span>
+              <span className="hidden sm:inline">{t('expense')}</span>
             </button>
 
-            <HeaderIconButton onClick={() => logout()} testId="button-logout" title="Выйти">
+            <HeaderIconButton onClick={() => logout()} testId="button-logout" title={t('logout')}>
               <LogOut size={17} />
             </HeaderIconButton>
           </div>
@@ -853,33 +855,33 @@ export default function DirectorDashboard() {
             {canEdit ? (
               <MobileQuickActionTile
                 icon={Building2}
-                label="Проект"
+                label={t('project')}
                 onClick={() => setIsCreateModalOpen(true)}
                 testId="mobile-action-project"
               />
             ) : (
               <MobileQuickActionTile
                 icon={Building2}
-                label="Проекты"
+                label={t('projects')}
                 onClick={() => setLocation('/director')}
                 testId="mobile-action-project"
               />
             )}
             <MobileQuickActionTile
               icon={DollarSign}
-              label="Расход"
+              label={t('expense')}
               onClick={() => setLocation('/add-expense')}
               testId="mobile-action-expense"
             />
             <MobileQuickActionTile
               icon={UserIcon}
-              label="Заказч."
+              label={t('customerShort')}
               onClick={() => setLocation('/clients')}
               testId="mobile-action-clients"
             />
             <MobileQuickActionTile
               icon={UsersIcon}
-              label="Подряд."
+              label={t('contractorShort')}
               onClick={() => setLocation('/contractors')}
               testId="mobile-action-contractors"
             />
@@ -890,19 +892,19 @@ export default function DirectorDashboard() {
           <div className="lg:hidden grid grid-cols-3 gap-2 mb-5">
             <MobileQuickActionTile
               icon={Building2}
-              label="Проекты"
+              label={t('projects')}
               onClick={() => setLocation('/master')}
               testId="mobile-action-project"
             />
             <MobileQuickActionTile
               icon={DollarSign}
-              label="Расход"
+              label={t('expense')}
               onClick={() => setLocation('/add-expense')}
               testId="mobile-action-expense"
             />
             <MobileQuickActionTile
               icon={UsersIcon}
-              label="Подряд."
+              label={t('contractorShort')}
               onClick={() => setLocation('/contractors')}
               testId="mobile-action-contractors"
             />
@@ -916,7 +918,7 @@ export default function DirectorDashboard() {
               className="text-[10px] lg:text-[11px] font-bold uppercase"
               style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
             >
-              Рабочее пространство · {fmtTodayRu()}
+              {t('workspace')} · {fmtToday(language)}
             </p>
             <h1
               className="mt-1.5 font-bold"
@@ -926,7 +928,7 @@ export default function DirectorDashboard() {
                 color: 'var(--corp-ink)',
               }}
             >
-              Добрый день, {user?.name?.split(' ')[0] || 'друг'}
+              {t('goodDay')}, {user?.name?.split(' ')[0] || t('friendFallback')}
             </h1>
           </div>
           {!isMaster && (
@@ -939,54 +941,54 @@ export default function DirectorDashboard() {
           {!isMaster && (
             <KpiCard
               dark
-              label="Чистая прибыль"
+              label={t('netProfit')}
               value={
                 <>
                   {fmtNum(totalProfit)}
                   <span style={{ fontSize: '0.55em', opacity: 0.55, marginLeft: 6, fontWeight: 500 }}>AED</span>
                 </>
               }
-              badge={totalProfit >= 0 ? 'Положительный' : 'Минус'}
+              badge={totalProfit >= 0 ? t('positive') : t('negative')}
             />
           )}
           <KpiCard
-            label="Активные проекты"
+            label={t('activeProjects')}
             value={activeProjectsCount}
-            badge={`${activeProjectsCount} в работе`}
+            badge={`${activeProjectsCount} ${t('inWork')}`}
             badgeTone="pos"
             onClick={() => setLocation('/director')}
           />
           {!isMaster && (
             <KpiCard
-              label="Ожидает оплаты"
+              label={t('pendingPayment')}
               value={
                 <>
                   {fmtShort(awaitingPayment)}
                   <span style={{ fontSize: '0.55em', opacity: 0.55, marginLeft: 6, fontWeight: 500 }}>AED</span>
                 </>
               }
-              badge={`Аванс: ${fmtShort(totalCustomerAdvances)}`}
+              badge={`${t('advanceShort')}: ${fmtShort(totalCustomerAdvances)}`}
               badgeTone="neutral"
             />
           )}
           {!isMaster && (
             <KpiCard
-              label="Расходы · всего"
+              label={t('expensesTotal')}
               value={
                 <>
                   {fmtNum(totalExpenses)}
                   <span style={{ fontSize: '0.55em', opacity: 0.55, marginLeft: 6, fontWeight: 500 }}>AED</span>
                 </>
               }
-              badge={`Авансы: ${fmtShort(totalAdvances)}`}
+              badge={`${t('advancesShort')}: ${fmtShort(totalAdvances)}`}
               badgeTone="neg"
             />
           )}
           {isMaster && (
             <KpiCard
-              label="Архив"
+              label={t('archive')}
               value={archivedProjectsCount}
-              badge="завершённые"
+              badge={t('completedLabel')}
               badgeTone="neutral"
               onClick={() => setLocation('/archived-projects')}
             />
@@ -1014,9 +1016,9 @@ export default function DirectorDashboard() {
               <Archive size={16} />
             </span>
             <div className="flex-1 text-left min-w-0">
-              <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>Архив</p>
+              <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>{t('archive')}</p>
               <p className="text-[14px] font-semibold" style={{ color: 'var(--corp-ink)' }}>
-                Архивные проекты ·{' '}
+                {t('archivedProjectsLabel')} ·{' '}
                 <span style={{ fontFamily: 'var(--corp-mono)' }}>{archivedProjectsCount}</span>
               </p>
             </div>
@@ -1030,7 +1032,7 @@ export default function DirectorDashboard() {
             className="text-[11px] font-bold uppercase"
             style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
           >
-            Проекты
+            {t('projects')}
           </h3>
           <button
             type="button"
@@ -1039,7 +1041,7 @@ export default function DirectorDashboard() {
             style={{ color: 'var(--corp-accent)' }}
             data-testid="button-all-projects-mobile"
           >
-            Все <span style={{ fontFamily: 'var(--corp-mono)' }}>{activeProjectsCount}</span>
+            {t('allLabel')} <span style={{ fontFamily: 'var(--corp-mono)' }}>{activeProjectsCount}</span>
             <ChevronRight size={14} />
           </button>
         </div>
@@ -1050,7 +1052,7 @@ export default function DirectorDashboard() {
             className="text-[14px] font-bold"
             style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
           >
-            Последние проекты
+            {t('recentProjects')}
           </h3>
           {canEdit && (
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
@@ -1068,7 +1070,7 @@ export default function DirectorDashboard() {
                   data-testid="button-create-project"
                 >
                   <Plus size={13} />
-                  Новый проект
+                  {t('newProject')}
                 </button>
               </DialogTrigger>
               <DialogContent>
@@ -1077,23 +1079,23 @@ export default function DirectorDashboard() {
                 </DialogHeader>
                 <form onSubmit={handleCreateProject} className="space-y-4">
                   <div>
-                    <Label htmlFor="name">Название проекта *</Label>
+                    <Label htmlFor="name">{t('projectName')} *</Label>
                     <Input
                       id="name"
-                      placeholder="Введите название проекта"
+                      placeholder={t('enterProjectName')}
                       value={projectForm.name}
                       onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
                       required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="clientId">Заказчик *</Label>
+                    <Label htmlFor="clientId">{t('customer')} *</Label>
                     <Select
                       value={projectForm.clientId}
                       onValueChange={(value) => setProjectForm({ ...projectForm, clientId: value })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите заказчика" />
+                        <SelectValue placeholder={t('selectClient')} />
                       </SelectTrigger>
                       <SelectContent>
                         {clients.map((client) => (
@@ -1105,18 +1107,18 @@ export default function DirectorDashboard() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="totalCost">Общая стоимость (AED) *</Label>
+                    <Label htmlFor="totalCost">{t('totalCost')} (AED) *</Label>
                     <Input
                       id="totalCost"
                       type="number"
-                      placeholder="Введите общую стоимость"
+                      placeholder={t('enterTotalCost')}
                       value={projectForm.totalCost}
                       onChange={(e) => setProjectForm({ ...projectForm, totalCost: e.target.value })}
                       required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="startDate">Дата начала *</Label>
+                    <Label htmlFor="startDate">{t('startDate')} *</Label>
                     <Input
                       id="startDate"
                       type="date"
@@ -1126,7 +1128,7 @@ export default function DirectorDashboard() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="endDate">Срок завершения (опционально)</Label>
+                    <Label htmlFor="endDate">{t('endDateOptional')}</Label>
                     <Input
                       id="endDate"
                       type="date"
@@ -1151,11 +1153,11 @@ export default function DirectorDashboard() {
         <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Редактировать проект</DialogTitle>
+              <DialogTitle>{t('editProject')}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleEditProject} className="space-y-4">
               <div>
-                <Label htmlFor="edit-name">Название проекта</Label>
+                <Label htmlFor="edit-name">{t('projectName')}</Label>
                 <Input
                   id="edit-name"
                   value={projectForm.name}
@@ -1164,7 +1166,7 @@ export default function DirectorDashboard() {
                 />
               </div>
               <div>
-                <Label htmlFor="edit-location">Местоположение</Label>
+                <Label htmlFor="edit-location">{t('locationLabel')}</Label>
                 <Input
                   id="edit-location"
                   value={projectForm.location}
@@ -1172,7 +1174,7 @@ export default function DirectorDashboard() {
                 />
               </div>
               <div>
-                <Label htmlFor="edit-totalCost">Общая стоимость</Label>
+                <Label htmlFor="edit-totalCost">{t('totalCost')}</Label>
                 <Input
                   id="edit-totalCost"
                   type="number"
@@ -1183,7 +1185,7 @@ export default function DirectorDashboard() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="edit-startDate">Дата начала</Label>
+                  <Label htmlFor="edit-startDate">{t('startDate')}</Label>
                   <Input
                     id="edit-startDate"
                     type="date"
@@ -1192,7 +1194,7 @@ export default function DirectorDashboard() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="edit-endDate">Дата окончания</Label>
+                  <Label htmlFor="edit-endDate">{t('endDateLabel')}</Label>
                   <Input
                     id="edit-endDate"
                     type="date"
@@ -1213,14 +1215,14 @@ export default function DirectorDashboard() {
                     }
                   }}
                 >
-                  Назначить заказчика
+                  {t('assignCustomer')}
                 </Button>
                 <Button
                   type="submit"
                   className="w-full bg-primary text-white"
                   disabled={editProjectMutation.isPending}
                 >
-                  {editProjectMutation.isPending ? "Сохранение..." : "Сохранить изменения"}
+                  {editProjectMutation.isPending ? t('saving') : t('saveChanges')}
                 </Button>
               </div>
             </form>
@@ -1239,10 +1241,10 @@ export default function DirectorDashboard() {
             }}
           >
             <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--corp-ink-2)' }}>
-              Пока нет активных проектов
+              {t('noActiveProjects')}
             </p>
             <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-              Создайте первый проект, чтобы начать работу
+              {t('createProjectToStart')}
             </p>
           </div>
         ) : (
@@ -1261,12 +1263,12 @@ export default function DirectorDashboard() {
                 <thead>
                   <tr style={{ background: 'var(--corp-surface-2)' }}>
                     {[
-                      { label: 'Проект', align: 'left' },
-                      { label: 'Заказчик', align: 'left' },
-                      { label: 'Прогресс', align: 'left' },
-                      { label: 'Бюджет', align: 'right' },
-                      { label: 'Прибыль', align: 'right' },
-                      { label: 'Срок', align: 'left' },
+                      { label: t('project'), align: 'left' },
+                      { label: t('customer'), align: 'left' },
+                      { label: t('progress'), align: 'left' },
+                      { label: t('budget'), align: 'right' },
+                      { label: t('profit'), align: 'right' },
+                      { label: t('deadline'), align: 'left' },
                       { label: '', align: 'right' },
                     ].map((h, i) => (
                       <th

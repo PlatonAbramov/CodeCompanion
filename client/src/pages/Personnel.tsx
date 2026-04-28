@@ -10,8 +10,9 @@ import {
   Plus, Search, User as UserIcon, Calendar, Briefcase,
   AlertTriangle, Users,
 } from "lucide-react";
-import { format, differenceInDays, differenceInYears, differenceInMonths } from "date-fns";
+import { differenceInDays, differenceInYears, differenceInMonths } from "date-fns";
 import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDate, fmtNumber } from "@/lib/locale";
 import { useAuth } from "@/hooks/useAuth";
 import { PersonnelForm } from "@/components/PersonnelForm";
 import { CorpEmpty } from "@/components/corp-ui";
@@ -47,7 +48,7 @@ function formatPhotoUrl(photoUrl: string) {
 }
 
 export function Personnel() {
-  useLanguage();
+  const { t, language } = useLanguage();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -70,9 +71,13 @@ export function Personnel() {
     const years = differenceInYears(now, start);
     const months = differenceInMonths(now, start) % 12;
     if (years > 0) {
-      return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'}${months > 0 ? ` ${months} мес.` : ''}`;
+      const yearWord =
+        language === 'ru'
+          ? (years === 1 ? t('yearOne') : years < 5 ? t('yearFew') : t('yearMany'))
+          : t('yearMany');
+      return `${years} ${yearWord}${months > 0 ? ` ${months} ${t('monthShort')}` : ''}`;
     }
-    return `${months} мес.`;
+    return `${months} ${t('monthShort')}`;
   };
 
   const getDocumentStatus = (person: Personnel): 'normal' | 'warning' | 'critical' | 'expired' => {
@@ -142,7 +147,7 @@ export function Personnel() {
           }}
         >
           <p className="text-[14px]" style={{ color: 'var(--corp-muted)' }}>
-            Нет доступа к разделу «Персонал»
+            {t('noAccessSection')} «{t('sectionPersonnel')}»
           </p>
         </div>
       </div>
@@ -151,12 +156,12 @@ export function Personnel() {
 
   const getDocBadge = (status: 'warning' | 'critical' | 'expired') => {
     if (status === 'expired') {
-      return { label: 'Истёк', bg: 'var(--corp-neg-soft)', fg: 'var(--corp-neg)' };
+      return { label: t('expiredBadge'), bg: 'var(--corp-neg-soft)', fg: 'var(--corp-neg)' };
     }
     if (status === 'critical') {
-      return { label: '≤14 дней', bg: 'rgba(249, 115, 22, 0.12)', fg: '#c2410c' };
+      return { label: t('days14Badge'), bg: 'rgba(249, 115, 22, 0.12)', fg: '#c2410c' };
     }
-    return { label: '≤30 дней', bg: 'rgba(245, 158, 11, 0.12)', fg: '#b45309' };
+    return { label: t('days30Badge'), bg: 'rgba(245, 158, 11, 0.12)', fg: '#b45309' };
   };
 
   return (
@@ -183,13 +188,13 @@ export function Personnel() {
                 className="text-[16px] font-bold leading-tight truncate"
                 style={{ color: 'var(--corp-ink)', letterSpacing: '-0.3px' }}
               >
-                Персонал
+                {t('personnelTitle')}
               </h1>
               <p
                 className="text-[10px] uppercase font-bold leading-tight"
                 style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)', letterSpacing: '0.06em' }}
               >
-                Всего: {filteredPersonnel.length}
+                {t('totalLabel')}: {filteredPersonnel.length}
               </p>
             </div>
           </div>
@@ -201,7 +206,7 @@ export function Personnel() {
               style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-add-personnel"
             >
-              <Plus size={14} /> <span className="hidden sm:inline">Сотрудник</span>
+              <Plus size={14} /> <span className="hidden sm:inline">{t('employeeShort')}</span>
             </button>
           )}
         </div>
@@ -224,7 +229,7 @@ export function Personnel() {
                 style={{ color: 'var(--corp-muted)' }}
               />
               <Input
-                placeholder="Поиск ФИО, Emirates ID…"
+                placeholder={t('personnelSearchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 h-9 text-[13px]"
@@ -234,22 +239,22 @@ export function Personnel() {
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-9 text-[13px]" data-testid="filter-status">
-                <SelectValue placeholder="Статус" />
+                <SelectValue placeholder={t('statusFilterLabel')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все статусы</SelectItem>
-                <SelectItem value="active">Активен</SelectItem>
-                <SelectItem value="dismissed">Уволен</SelectItem>
-                <SelectItem value="vacation">Отпуск</SelectItem>
+                <SelectItem value="all">{t('allStatusesFilter')}</SelectItem>
+                <SelectItem value="active">{t('statusActiveOption')}</SelectItem>
+                <SelectItem value="dismissed">{t('statusDismissed')}</SelectItem>
+                <SelectItem value="vacation">{t('statusVacation')}</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={specializationFilter} onValueChange={setSpecializationFilter}>
               <SelectTrigger className="h-9 text-[13px]" data-testid="filter-specialization">
-                <SelectValue placeholder="Специализация" />
+                <SelectValue placeholder={t('specializationFilterLabel')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все специализации</SelectItem>
+                <SelectItem value="all">{t('allSpecializationsFilter')}</SelectItem>
                 {specializations.map(spec => (
                   <SelectItem key={spec} value={spec}>{spec}</SelectItem>
                 ))}
@@ -258,12 +263,12 @@ export function Personnel() {
 
             <Select value={driverFilter} onValueChange={setDriverFilter}>
               <SelectTrigger className="h-9 text-[13px]" data-testid="filter-driver">
-                <SelectValue placeholder="Роль" />
+                <SelectValue placeholder={t('roleFilterLabel')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все роли</SelectItem>
-                <SelectItem value="drivers">Только водители</SelectItem>
-                <SelectItem value="non-drivers">Без роли «Водитель»</SelectItem>
+                <SelectItem value="all">{t('allRolesFilter')}</SelectItem>
+                <SelectItem value="drivers">{t('driversOnlyFilter')}</SelectItem>
+                <SelectItem value="non-drivers">{t('nonDriversFilter')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -274,12 +279,12 @@ export function Personnel() {
           <CorpEmpty
             icon={<Users size={28} />}
             title={searchQuery || statusFilter !== 'all' || specializationFilter !== 'all'
-              ? 'Сотрудники не найдены'
-              : 'Нет сотрудников'}
+              ? t('personnelNotFound')
+              : t('noPersonnelTitle')}
             description={searchQuery || statusFilter !== 'all' || specializationFilter !== 'all'
-              ? 'Попробуйте изменить фильтры'
-              : 'Добавьте первого сотрудника'}
-            actionLabel={isAdmin ? 'Добавить сотрудника' : undefined}
+              ? t('tryDifferentFilters')
+              : t('addFirstPersonnel')}
+            actionLabel={isAdmin ? t('addPersonnelLabel') : undefined}
             onAction={isAdmin ? handleCreate : undefined}
           />
         ) : (
@@ -348,7 +353,7 @@ export function Personnel() {
                           }}
                           data-testid={`badge-driver-${person.id}`}
                         >
-                          Водитель
+                          {t('driverRoleBadge')}
                         </span>
                       )}
                       {docStatus !== 'normal' && (() => {
@@ -394,7 +399,7 @@ export function Personnel() {
                           className="text-[9px] uppercase font-bold flex items-center gap-1"
                           style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                         >
-                          <Briefcase size={9} /> Стаж
+                          <Briefcase size={9} /> {t('experienceShortLabel')}
                         </p>
                         <p
                           className="text-[12px] font-semibold"
@@ -409,15 +414,15 @@ export function Personnel() {
                             className="text-[9px] uppercase font-bold flex items-center gap-1"
                             style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                           >
-                            <Calendar size={9} /> Срок ID
+                            <Calendar size={9} /> {t('idTermLabel')}
                           </p>
                           <p
                             className="text-[11px]"
                             style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)' }}
                           >
                             {person.emiratesIdIssueDate &&
-                              `${format(new Date(person.emiratesIdIssueDate), 'dd.MM.yyyy')} — `}
-                            {format(new Date(person.emiratesIdExpiryDate), 'dd.MM.yyyy')}
+                              `${fmtDate(person.emiratesIdIssueDate, language)} — `}
+                            {fmtDate(person.emiratesIdExpiryDate, language)}
                           </p>
                         </div>
                       )}
@@ -427,13 +432,13 @@ export function Personnel() {
                             className="text-[9px] uppercase font-bold"
                             style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                           >
-                            Оклад
+                            {t('salaryShortLabel')}
                           </p>
                           <p
                             className="text-[12px] font-bold"
                             style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}
                           >
-                            {parseFloat(person.salary).toLocaleString('ru-RU')}
+                            {fmtNumber(parseFloat(person.salary), language)}
                             <span style={{ fontSize: 9, marginLeft: 2, color: 'var(--corp-muted)' }}>{'\u00A0AED'}</span>
                           </p>
                         </div>
@@ -448,8 +453,8 @@ export function Personnel() {
                               letterSpacing: '0.04em',
                             }}
                           >
-                            {person.status === 'dismissed' ? 'Уволен' :
-                             person.status === 'vacation' ? 'Отпуск' : person.status}
+                            {person.status === 'dismissed' ? t('statusDismissed') :
+                             person.status === 'vacation' ? t('statusVacation') : person.status}
                           </span>
                         </div>
                       )}

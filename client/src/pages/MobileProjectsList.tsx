@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { fmtDateRu } from "@/components/corp-ui";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDate } from "@/lib/locale";
 
 interface Project {
   id: string;
@@ -79,6 +80,7 @@ function ProjectListItem({
   clientsById: Map<string, Client>;
   onClick: () => void;
 }) {
+  const { t, language } = useLanguage();
   const { data: fin } = useQuery<FinancialSummary>({
     queryKey: ['/api/projects', project.id, 'financial-summary'],
   });
@@ -91,7 +93,7 @@ function ProjectListItem({
 
   const clientName = project.clientId ? (clientsById.get(project.clientId)?.name || '') : '';
   const initials = ProjectInitials(project.name);
-  const endDate = project.endDate ? fmtDateRu(project.endDate) : '';
+  const endDate = project.endDate ? fmtDate(project.endDate, language) : '';
   const sid = shortId(project.id);
 
   return (
@@ -133,7 +135,7 @@ function ProjectListItem({
             {clientName && <>{clientName}</>}
             {clientName && endDate && <> · </>}
             {endDate && (
-              <>до <span style={{ fontFamily: 'var(--corp-mono)' }}>{endDate}</span></>
+              <>{t('untilLabel')} <span style={{ fontFamily: 'var(--corp-mono)' }}>{endDate}</span></>
             )}
           </div>
         </div>
@@ -167,6 +169,7 @@ function ProjectListItem({
 
 export default function MobileProjectsList() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -222,17 +225,17 @@ export default function MobileProjectsList() {
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       setIsCreateOpen(false);
       setForm({ name: '', clientId: '', totalCost: '', startDate: '', endDate: '' });
-      toast({ title: 'Успешно', description: 'Проект создан' });
+      toast({ title: t('success'), description: t('projectCreated') });
     },
     onError: () => {
-      toast({ title: 'Ошибка', description: 'Не удалось создать проект', variant: 'destructive' });
+      toast({ title: t('error'), description: t('projectCreateFailed'), variant: 'destructive' });
     },
   });
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.clientId) {
-      toast({ title: 'Ошибка', description: 'Необходимо выбрать заказчика', variant: 'destructive' });
+      toast({ title: t('error'), description: t('selectClientRequired'), variant: 'destructive' });
       return;
     }
     createMutation.mutate({
@@ -258,7 +261,7 @@ export default function MobileProjectsList() {
           onClick={() => window.history.length > 1 ? window.history.back() : setLocation(canEdit ? '/director' : '/master')}
           className="w-9 h-9 rounded-full flex items-center justify-center"
           style={{ background: 'var(--corp-surface)', border: '1px solid var(--corp-line)', color: 'var(--corp-ink)' }}
-          aria-label="Назад"
+          aria-label={t('backLabel')}
           data-testid="button-back"
         >
           <ChevronLeft size={18} />
@@ -267,7 +270,7 @@ export default function MobileProjectsList() {
           type="button"
           className="w-9 h-9 rounded-full flex items-center justify-center"
           style={{ background: 'var(--corp-surface)', border: '1px solid var(--corp-line)', color: 'var(--corp-ink)' }}
-          aria-label="Меню"
+          aria-label={t('menuLabel')}
           data-testid="button-more"
         >
           <MoreHorizontal size={18} />
@@ -281,10 +284,10 @@ export default function MobileProjectsList() {
             className="font-bold leading-tight"
             style={{ fontSize: 28, color: 'var(--corp-ink)', letterSpacing: '-0.6px' }}
           >
-            Проекты
+            {t('projectsTitle')}
           </h1>
           <p className="text-[13px] mt-1" style={{ color: 'var(--corp-muted)' }}>
-            Активных: <span style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-ink-2)', fontWeight: 600 }}>
+            {t('activeColon')}: <span style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-ink-2)', fontWeight: 600 }}>
               {inProgress.length}
             </span>
           </p>
@@ -303,16 +306,16 @@ export default function MobileProjectsList() {
                 data-testid="button-create-project-mobile"
               >
                 <Plus size={14} />
-                Создать
+                {t('createLabel')}
               </button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Новый проект</DialogTitle>
+                <DialogTitle>{t('newProjectTitle')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div>
-                  <Label htmlFor="np-name">Название</Label>
+                  <Label htmlFor="np-name">{t('nameLabel')}</Label>
                   <Input
                     id="np-name"
                     value={form.name}
@@ -322,13 +325,13 @@ export default function MobileProjectsList() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="np-client">Заказчик</Label>
+                  <Label htmlFor="np-client">{t('clientLabel')}</Label>
                   <Select
                     value={form.clientId}
                     onValueChange={(v) => setForm({ ...form, clientId: v })}
                   >
                     <SelectTrigger id="np-client" data-testid="select-client">
-                      <SelectValue placeholder="Выберите заказчика" />
+                      <SelectValue placeholder={t('selectClient')} />
                     </SelectTrigger>
                     <SelectContent>
                       {clients.map(c => (
@@ -340,7 +343,7 @@ export default function MobileProjectsList() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="np-cost">Стоимость (AED)</Label>
+                  <Label htmlFor="np-cost">{t('costAedLabel')}</Label>
                   <Input
                     id="np-cost"
                     type="number"
@@ -353,7 +356,7 @@ export default function MobileProjectsList() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="np-start">Старт</Label>
+                    <Label htmlFor="np-start">{t('startLabel')}</Label>
                     <Input
                       id="np-start"
                       type="date"
@@ -364,7 +367,7 @@ export default function MobileProjectsList() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="np-end">Окончание</Label>
+                    <Label htmlFor="np-end">{t('endLabel')}</Label>
                     <Input
                       id="np-end"
                       type="date"
@@ -380,7 +383,7 @@ export default function MobileProjectsList() {
                   className="w-full"
                   data-testid="button-submit"
                 >
-                  {createMutation.isPending ? 'Создание…' : 'Создать проект'}
+                  {createMutation.isPending ? t('creatingDots') : t('createProjectButton')}
                 </Button>
               </form>
             </DialogContent>
@@ -403,7 +406,7 @@ export default function MobileProjectsList() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск проекта"
+            placeholder={t('searchProjectPlaceholder')}
             className="flex-1 bg-transparent outline-none text-[14px] placeholder:opacity-60"
             style={{ color: 'var(--corp-ink)' }}
             data-testid="input-search"
@@ -418,7 +421,7 @@ export default function MobileProjectsList() {
             borderRadius: 'var(--corp-r)',
             color: 'var(--corp-ink)',
           }}
-          aria-label="Фильтры"
+          aria-label={t('filtersLabel')}
           data-testid="button-filter"
         >
           <SlidersHorizontal size={16} />
@@ -436,9 +439,9 @@ export default function MobileProjectsList() {
           }}
         >
           {([
-            { k: 'all', label: 'Все' },
-            { k: 'active', label: 'В работе' },
-            { k: 'archive', label: 'Архив' },
+            { k: 'all', label: t('allFilter') },
+            { k: 'active', label: t('inWorkFilter') },
+            { k: 'archive', label: t('archiveFilter') },
           ] as { k: TabKey; label: string }[]).map(({ k, label }) => {
             const active = tab === k;
             return (
@@ -486,10 +489,10 @@ export default function MobileProjectsList() {
             }}
           >
             <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--corp-ink-2)' }}>
-              {search ? 'Ничего не найдено' : 'Нет проектов'}
+              {search ? t('nothingFoundTitle') : t('noProjectsTitle')}
             </p>
             <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-              {search ? 'Попробуйте изменить запрос' : 'Создайте новый проект, чтобы начать работу'}
+              {search ? t('tryDifferentQuery') : t('createNewProjectStart')}
             </p>
           </div>
         ) : (

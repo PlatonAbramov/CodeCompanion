@@ -38,7 +38,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
-import { CorpHeader, MoneyAED, fmtNum, fmtDateRu } from "@/components/corp-ui";
+import { CorpHeader, MoneyAED, fmtNum } from "@/components/corp-ui";
+import { fmtDate } from "@/lib/locale";
 
 interface Project {
   id: string;
@@ -139,13 +140,13 @@ function Row({
   );
 }
 
-function getCategoryLabel(category: string) {
+function getCategoryLabel(category: string, t: (k: string) => string) {
   const categories: Record<string, string> = {
-    'materials': 'Материалы',
-    'labor': 'Работа',
-    'transport': 'Транспорт',
-    'equipment': 'Оборудование',
-    'other': 'Прочее'
+    'materials': t('materials'),
+    'labor': t('prDet_catLabor'),
+    'transport': t('transport'),
+    'equipment': t('prDet_catEquipment'),
+    'other': t('other')
   };
   return categories[category] || category;
 }
@@ -166,17 +167,17 @@ function getProjectInitials(name: string): string {
   return (words[0][0] + words[1][0]).toUpperCase();
 }
 
-function getStatusInfo(status?: string): { label: string; bg: string; color: string; dot: string } {
+function getStatusInfo(status: string | undefined, t: (k: string) => string): { label: string; bg: string; color: string; dot: string } {
   switch (status) {
     case 'completed':
-      return { label: 'Завершён', bg: 'rgba(22,163,74,0.12)', color: '#15803d', dot: '#16a34a' };
+      return { label: t('completed'), bg: 'rgba(22,163,74,0.12)', color: '#15803d', dot: '#16a34a' };
     case 'paused':
-      return { label: 'На паузе', bg: 'rgba(100,116,139,0.14)', color: '#475569', dot: '#64748b' };
+      return { label: t('prDet_statusPaused'), bg: 'rgba(100,116,139,0.14)', color: '#475569', dot: '#64748b' };
     case 'archived':
-      return { label: 'Архив', bg: 'rgba(100,116,139,0.10)', color: '#64748b', dot: '#94a3b8' };
+      return { label: t('archive'), bg: 'rgba(100,116,139,0.10)', color: '#64748b', dot: '#94a3b8' };
     case 'active':
     default:
-      return { label: 'В работе', bg: 'rgba(245,158,11,0.14)', color: '#b45309', dot: '#f59e0b' };
+      return { label: t('active'), bg: 'rgba(245,158,11,0.14)', color: '#b45309', dot: '#f59e0b' };
   }
 }
 
@@ -184,13 +185,17 @@ function MobileProjectHero({
   project,
   financialSummary,
   teamCount,
+  t,
+  language,
 }: {
   project: Project;
   financialSummary?: FinancialSummary;
   teamCount: number;
+  t: (k: string) => string;
+  language: any;
 }) {
   const initials = getProjectInitials(project.name);
-  const status = getStatusInfo(project.status);
+  const status = getStatusInfo(project.status, t);
 
   const totalCost = parseFloat(project.totalCost || '0');
   const totalExpenses = parseFloat(financialSummary?.totalExpenses || '0');
@@ -201,11 +206,11 @@ function MobileProjectHero({
   const progressColor = isOverBudget ? 'var(--corp-neg)' : 'var(--corp-pos)';
 
   const dateRange = project.startDate && project.endDate
-    ? `${fmtDateRu(project.startDate)} → ${fmtDateRu(project.endDate)}`
+    ? `${fmtDate(project.startDate, language)} → ${fmtDate(project.endDate, language)}`
     : project.startDate
-      ? fmtDateRu(project.startDate)
+      ? fmtDate(project.startDate, language)
       : project.endDate
-        ? `→ ${fmtDateRu(project.endDate)}`
+        ? `→ ${fmtDate(project.endDate, language)}`
         : null;
 
   return (
@@ -323,7 +328,7 @@ function MobileProjectHero({
             <div className="flex items-center gap-1.5">
               <Users size={13} style={{ color: 'var(--corp-muted)' }} />
               <span className="text-[12px]" style={{ color: 'var(--corp-ink-2)' }}>
-                <span style={{ fontFamily: 'var(--corp-mono)' }}>{teamCount}</span> чел.
+                <span style={{ fontFamily: 'var(--corp-mono)' }}>{teamCount}</span> {t('prDet_peopleShort')}
               </span>
             </div>
           )}
@@ -335,8 +340,8 @@ function MobileProjectHero({
 
 /* ====== DESKTOP HELPERS =================================== */
 
-function StatusPill({ status, size = 'md' }: { status?: string; size?: 'sm' | 'md' }) {
-  const s = getStatusInfo(status);
+function StatusPill({ status, size = 'md', t }: { status?: string; size?: 'sm' | 'md'; t: (k: string) => string }) {
+  const s = getStatusInfo(status, t);
   const small = size === 'sm';
   return (
     <span
@@ -492,7 +497,7 @@ function MobileActionTile({
 export default function ProjectDetail() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isFinancialSummaryOpen, setIsFinancialSummaryOpen] = useState(false);
@@ -644,12 +649,12 @@ export default function ProjectDetail() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: 'Успех', description: 'Проект удален успешно' });
+      toast({ title: t('success'), description: t('prDet_projectDeletedDesc') });
       setLocation('/');
     },
     onError: (error) => {
       console.error('Delete project error:', error);
-      toast({ title: 'Ошибка', description: 'Не удалось удалить проект', variant: 'destructive' });
+      toast({ title: t('error'), description: t('prDet_projectDeleteFailedDesc'), variant: 'destructive' });
     }
   });
 
@@ -673,8 +678,11 @@ export default function ProjectDetail() {
     },
     onSuccess: (result: any) => {
       toast({
-        title: "Лист реализации создан",
-        description: `Успешно создан лист "${result.sheet.name}" с ${result.parsedItems} позициями из ${result.format} документа`,
+        title: t('prDet_sheetCreatedTitle'),
+        description: t('prDet_sheetCreatedDescTpl')
+          .replace('{name}', result.sheet.name)
+          .replace('{count}', String(result.parsedItems))
+          .replace('{format}', result.format),
       });
       setIsCreateSheetDialogOpen(false);
       setSheetName("");
@@ -687,8 +695,8 @@ export default function ProjectDetail() {
       console.error("Parse error:", error);
       setParseResult(error);
       toast({
-        title: "Ошибка создания листа",
-        description: error.error || "Не удалось создать лист реализации из инвойса",
+        title: t('prDet_sheetCreateErrorTitle'),
+        description: error.error || t('prDet_sheetCreateErrorDesc'),
         variant: "destructive"
       });
     }
@@ -697,14 +705,14 @@ export default function ProjectDetail() {
   const handleCreateSheetFromInvoice = (doc: Document) => {
     if (!doc.fileName.toLowerCase().startsWith('invoice')) {
       toast({
-        title: "Ошибка",
-        description: "Можно создавать лист реализации только из документов, начинающихся с 'invoice'",
+        title: t('error'),
+        description: t('prDet_invoiceOnlyDesc'),
         variant: "destructive"
       });
       return;
     }
     setSelectedInvoiceDoc(doc);
-    setSheetName(`Лист реализации - ${doc.name}`);
+    setSheetName(t('prDet_sheetNameTpl').replace('{name}', doc.name));
     setIsCreateSheetDialogOpen(true);
   };
 
@@ -727,15 +735,15 @@ export default function ProjectDetail() {
     },
     onSuccess: () => {
       toast({
-        title: "Успешно",
-        description: project?.status === 'archived' ? "Проект разархивирован" : "Проект архивирован",
+        title: t('success'),
+        description: project?.status === 'archived' ? t('prDet_projectUnarchivedDesc') : t('prDet_projectArchivedDesc'),
       });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
     },
     onError: (error) => {
       console.error('Archive project error:', error);
-      toast({ title: "Ошибка", description: "Не удалось изменить статус проекта", variant: "destructive" });
+      toast({ title: t('error'), description: t('prDet_archiveChangeFailed'), variant: "destructive" });
     }
   });
 
@@ -788,7 +796,7 @@ export default function ProjectDetail() {
         <div className="p-4 space-y-3">
           <div className="p-4" style={SECTION_STYLE}>
             <div className="flex items-center justify-between">
-              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>Статус</span>
+              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t('prDet_statusLabel')}</span>
               <span
                 className="text-[11px] font-bold uppercase px-2 py-1"
                 style={{
@@ -798,7 +806,7 @@ export default function ProjectDetail() {
                   letterSpacing: '0.04em',
                 }}
               >
-                {project.status === 'active' ? 'Активный' : project.status === 'archived' ? 'В архиве' : project.status}
+                {project.status === 'active' ? t('prDet_statusActiveWord') : project.status === 'archived' ? t('prDet_statusArchivedWord') : project.status}
               </span>
             </div>
           </div>
@@ -810,7 +818,7 @@ export default function ProjectDetail() {
             data-testid="button-implementation-sheets-worker"
           >
             <span className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>
-              Листы реализации
+              {t('prDet_implSheetsTitle')}
             </span>
             <ChevronRight size={18} style={{ color: 'var(--corp-muted)' }} />
           </button>
@@ -839,11 +847,11 @@ export default function ProjectDetail() {
   const desktopRecentExpenses = filteredAndSortedExpenses.slice(0, 5);
 
   const tabsConfig = [
-    { key: 'overview' as const, label: 'Обзор', count: undefined as number | undefined },
-    { key: 'expenses' as const, label: 'Расходы', count: expenses.length },
-    { key: 'documents' as const, label: 'Документы', count: documents.length },
-    { key: 'team' as const, label: 'Команда', count: uniqueUsers.length },
-    { key: 'timeline' as const, label: 'Таймлайн', count: undefined },
+    { key: 'overview' as const, label: t('prDet_tabOverview'), count: undefined as number | undefined },
+    { key: 'expenses' as const, label: t('expenses'), count: expenses.length },
+    { key: 'documents' as const, label: t('documents'), count: documents.length },
+    { key: 'team' as const, label: t('prDet_teamLabel'), count: uniqueUsers.length },
+    { key: 'timeline' as const, label: t('prDet_timelineLabel'), count: undefined },
   ];
 
   return (
@@ -870,18 +878,18 @@ export default function ProjectDetail() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => setLocation(`/history/${projectId}`)} data-testid="menu-history">
                     <History className="h-4 w-4 mr-2" />
-                    История изменений
+                    {t('prDet_changesHistory')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleArchive()} data-testid="menu-archive">
                     {project.status === 'archived' ? (
                       <>
                         <ArchiveRestore className="h-4 w-4 mr-2" />
-                        Разархивировать
+                        {t('prDet_unarchive')}
                       </>
                     ) : (
                       <>
                         <Archive className="h-4 w-4 mr-2" />
-                        Архивировать
+                        {t('prDet_archiveAction')}
                       </>
                     )}
                   </DropdownMenuItem>
@@ -891,7 +899,7 @@ export default function ProjectDetail() {
                     data-testid="menu-delete-project"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Удалить проект
+                    {t('prDet_deleteProject')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -915,7 +923,7 @@ export default function ProjectDetail() {
               style={{ color: 'var(--corp-muted)' }}
               data-testid="breadcrumb-projects"
             >
-              Проекты
+              {t('prDet_projectsCrumb')}
             </button>
             <ChevronRight size={14} style={{ color: 'var(--corp-muted)' }} />
             <span style={{ color: 'var(--corp-ink)', fontWeight: 600 }}>{project.name}</span>
@@ -931,7 +939,7 @@ export default function ProjectDetail() {
             />
             <input
               type="text"
-              placeholder="Поиск по проектам, расходам..."
+              placeholder={t('prDet_searchPlaceholder')}
               className="w-full h-9 pl-9 pr-12 text-[13px] outline-none"
               style={{
                 background: 'var(--corp-surface-2)',
@@ -973,7 +981,7 @@ export default function ProjectDetail() {
               data-testid="button-topbar-add-expense"
             >
               <Plus size={14} />
-              Расход
+              {t('prDet_expenseShort')}
             </button>
           )}
         </div>
@@ -998,7 +1006,7 @@ export default function ProjectDetail() {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-1.5">
-              <StatusPill status={project.status} />
+              <StatusPill status={project.status} t={t} />
               <span
                 className="text-[12px]"
                 style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)', letterSpacing: '0.02em' }}
@@ -1021,12 +1029,12 @@ export default function ProjectDetail() {
               style={{ color: 'var(--corp-muted)' }}
             >
               {project.endDate && (
-                <span style={{ fontFamily: 'var(--corp-mono)' }}>до {fmtDateRu(project.endDate)}</span>
+                <span style={{ fontFamily: 'var(--corp-mono)' }}>{t('prDet_untilWord')} {fmtDate(project.endDate, language)}</span>
               )}
               {project.endDate && uniqueUsers.length > 0 && <span>·</span>}
               {uniqueUsers.length > 0 && (
                 <span>
-                  <span style={{ fontFamily: 'var(--corp-mono)' }}>{uniqueUsers.length}</span> участников
+                  <span style={{ fontFamily: 'var(--corp-mono)' }}>{uniqueUsers.length}</span> {t('prDet_participants')}
                 </span>
               )}
             </div>
@@ -1048,24 +1056,24 @@ export default function ProjectDetail() {
                     data-testid="button-edit-desktop"
                   >
                     <Pencil size={14} />
-                    Редактировать
+                    {t('edit')}
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => setLocation(`/history/${projectId}`)} data-testid="menu-history-desktop">
                     <History className="h-4 w-4 mr-2" />
-                    История изменений
+                    {t('prDet_changesHistory')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleArchive()} data-testid="menu-archive-desktop">
                     {project.status === 'archived' ? (
                       <>
                         <ArchiveRestore className="h-4 w-4 mr-2" />
-                        Разархивировать
+                        {t('prDet_unarchive')}
                       </>
                     ) : (
                       <>
                         <Archive className="h-4 w-4 mr-2" />
-                        Архивировать
+                        {t('prDet_archiveAction')}
                       </>
                     )}
                   </DropdownMenuItem>
@@ -1075,7 +1083,7 @@ export default function ProjectDetail() {
                     data-testid="menu-delete-project-desktop"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Удалить проект
+                    {t('prDet_deleteProject')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1091,7 +1099,7 @@ export default function ProjectDetail() {
                 data-testid="button-hero-add-expense"
               >
                 <Plus size={14} />
-                Расход
+                {t('prDet_expenseShort')}
               </button>
             )}
           </div>
@@ -1151,7 +1159,7 @@ export default function ProjectDetail() {
                   className="text-[14px] font-bold mb-4"
                   style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
                 >
-                  Прогресс проекта
+                  {t('prDet_projectProgress')}
                 </h3>
                 <div className="flex items-center gap-6">
                   <ProgressRing value={desktopRatio} color={desktopRingColor} size={96} />
@@ -1162,13 +1170,13 @@ export default function ProjectDetail() {
                           className="text-[10px] font-bold uppercase mb-1"
                           style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
                         >
-                          Старт
+                          {t('prDet_start')}
                         </div>
                         <div
                           className="text-[15px] font-bold"
                           style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}
                         >
-                          {fmtDateRu(project.startDate)}
+                          {fmtDate(project.startDate, language)}
                         </div>
                       </div>
                     )}
@@ -1178,13 +1186,13 @@ export default function ProjectDetail() {
                           className="text-[10px] font-bold uppercase mb-1"
                           style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
                         >
-                          Дедлайн
+                          {t('prDet_deadlineWord')}
                         </div>
                         <div
                           className="text-[15px] font-bold"
                           style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}
                         >
-                          {fmtDateRu(project.endDate)}
+                          {fmtDate(project.endDate, language)}
                         </div>
                       </div>
                     )}
@@ -1194,7 +1202,7 @@ export default function ProjectDetail() {
                           className="text-[10px] font-bold uppercase mb-1"
                           style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
                         >
-                          Дней осталось
+                          {t('prDet_daysLeft')}
                         </div>
                         <div
                           className="text-[15px] font-bold"
@@ -1226,7 +1234,7 @@ export default function ProjectDetail() {
                       className="text-[14px] font-bold"
                       style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
                     >
-                      Последние расходы
+                      {t('recentExpenses')}
                     </h3>
                     <button
                       type="button"
@@ -1235,12 +1243,12 @@ export default function ProjectDetail() {
                       style={{ color: 'var(--corp-accent)' }}
                       data-testid="button-all-expenses-overview"
                     >
-                      Все <ChevronRight size={14} />
+                      {t('all')} <ChevronRight size={14} />
                     </button>
                   </div>
                   {desktopRecentExpenses.length === 0 ? (
                     <p className="text-center py-6 text-[13px]" style={{ color: 'var(--corp-muted)' }}>
-                      Расходов пока нет
+                      {t('prDet_noExpensesYet')}
                     </p>
                   ) : (
                     <div className="divide-y" style={{ borderColor: 'var(--corp-line)' }}>
@@ -1267,14 +1275,14 @@ export default function ProjectDetail() {
                               className="text-[13px] font-semibold truncate"
                               style={{ color: 'var(--corp-ink)' }}
                             >
-                              {expense.description || getCategoryLabel(expense.category)}
+                              {expense.description || getCategoryLabel(expense.category, t)}
                             </div>
                             <div
                               className="text-[11px] truncate"
                               style={{ color: 'var(--corp-muted)' }}
                             >
-                              {getCategoryLabel(expense.category)} · {expense.user?.name || 'Неизвестно'} ·{' '}
-                              <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(expense.createdAt)}</span>
+                              {getCategoryLabel(expense.category, t)} · {expense.user?.name || t('unknownUser')} ·{' '}
+                              <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDate(expense.createdAt, language)}</span>
                             </div>
                           </div>
                           <MoneyAED amount={expense.amount} size={14} weight={700} tone="neg" />
@@ -1302,14 +1310,14 @@ export default function ProjectDetail() {
                     className="text-[11px] font-bold uppercase mb-3"
                     style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
                   >
-                    Финансы
+                    {t('prDet_finances')}
                   </h3>
-                  <DesktopFinanceRow label="Стоимость" amount={financialSummary.totalCost} tone="ink" />
-                  <DesktopFinanceRow label="Получено" amount={financialSummary.totalCustomerAdvances} tone="pos" />
-                  <DesktopFinanceRow label="Расходы" amount={financialSummary.totalExpenses} tone="neg" />
-                  <DesktopFinanceRow label="Авансы команды" amount={financialSummary.totalAdvances} tone="neg" />
+                  <DesktopFinanceRow label={t('cost')} amount={financialSummary.totalCost} tone="ink" />
+                  <DesktopFinanceRow label={t('prDet_received')} amount={financialSummary.totalCustomerAdvances} tone="pos" />
+                  <DesktopFinanceRow label={t('expenses')} amount={financialSummary.totalExpenses} tone="neg" />
+                  <DesktopFinanceRow label={t('prDet_teamAdvances')} amount={financialSummary.totalAdvances} tone="neg" />
                   <DesktopFinanceRow
-                    label="Прибыль"
+                    label={t('profit')}
                     amount={financialSummary.currentProfit}
                     tone={parseFloat(financialSummary.currentProfit) >= 0 ? 'pos' : 'neg'}
                     isLast
@@ -1331,11 +1339,11 @@ export default function ProjectDetail() {
                     className="text-[11px] font-bold uppercase mb-2"
                     style={{ color: 'var(--corp-muted)', letterSpacing: '0.06em' }}
                   >
-                    Команда
+                    {t('prDet_teamLabel')}
                   </h3>
                   <div>
                     {uniqueUsers.map((name) => (
-                      <TeamMemberRow key={name as string} name={name as string} role="Участник" />
+                      <TeamMemberRow key={name as string} name={name as string} role={t('prDet_memberRole')} />
                     ))}
                   </div>
                 </div>
@@ -1362,7 +1370,7 @@ export default function ProjectDetail() {
                 className="inline-flex items-center gap-2 text-[13px] font-semibold"
                 style={{ color: 'var(--corp-accent)' }}
               >
-                Открыть полный список расходов <ChevronRight size={14} />
+                {t('prDet_openFullExpenses')} <ChevronRight size={14} />
               </button>
             )}
             {activeTab === 'documents' && (
@@ -1372,11 +1380,11 @@ export default function ProjectDetail() {
                 className="inline-flex items-center gap-2 text-[13px] font-semibold"
                 style={{ color: 'var(--corp-accent)' }}
               >
-                Раздел «Документы» доступен ниже на мобильной разметке. <ChevronRight size={14} />
+                {t('prDet_documentsSectionMobileNote')} <ChevronRight size={14} />
               </button>
             )}
             {activeTab === 'team' && (
-              <span>Список участников отображается в разделе «Обзор» справа.</span>
+              <span>{t('prDet_membersInOverviewNote')}</span>
             )}
             {activeTab === 'timeline' && (
               <button
@@ -1385,7 +1393,7 @@ export default function ProjectDetail() {
                 className="inline-flex items-center gap-2 text-[13px] font-semibold"
                 style={{ color: 'var(--corp-accent)' }}
               >
-                Открыть историю изменений <ChevronRight size={14} />
+                {t('prDet_openChangesHistory')} <ChevronRight size={14} />
               </button>
             )}
           </div>
@@ -1399,6 +1407,8 @@ export default function ProjectDetail() {
           project={project}
           financialSummary={financialSummary}
           teamCount={uniqueUsers.length}
+          t={t}
+          language={language}
         />
 
         {/* === MOBILE 2x2 ACTION GRID (lg:hidden) ================ */}
@@ -1407,7 +1417,7 @@ export default function ProjectDetail() {
             <MobileActionTile
               onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
               icon={<Plus size={16} />}
-              label="Расход"
+              label={t('prDet_expenseShort')}
               variant="primary"
               testId="button-add-expense-mobile"
             />
@@ -1415,7 +1425,7 @@ export default function ProjectDetail() {
           <MobileActionTile
             onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
             icon={<FileText size={16} />}
-            label="Лист реализ."
+            label={t('prDet_implSheetShort')}
             variant="ghost"
             testId="button-impl-sheets-mobile"
           />
@@ -1423,7 +1433,7 @@ export default function ProjectDetail() {
             <MobileActionTile
               onClick={() => setIsAssignClientModalOpen(true)}
               icon={<User size={16} />}
-              label="Заказчик"
+              label={t('customer')}
               variant="ghost"
               testId="button-assign-client-mobile"
             />
@@ -1432,7 +1442,7 @@ export default function ProjectDetail() {
             <MobileActionTile
               onClick={() => setIsCompleteProjectDialogOpen(true)}
               icon={<CheckCircle size={16} />}
-              label="Завершить"
+              label={t('prDet_complete')}
               variant="ghost"
               testId="button-complete-mobile"
             />
@@ -1462,7 +1472,7 @@ export default function ProjectDetail() {
               data-testid="button-add-expense"
             >
               <Plus size={16} />
-              Добавить расход
+              {t('addExpense')}
             </button>
           )}
 
@@ -1474,7 +1484,7 @@ export default function ProjectDetail() {
             data-testid="button-implementation-sheets"
           >
             <FileText size={16} style={{ color: 'var(--corp-pos)' }} />
-            Листы реализации
+            {t('prDet_implSheetsTitle')}
           </button>
 
           {isAdminOrDirector && (
@@ -1487,7 +1497,7 @@ export default function ProjectDetail() {
                 data-testid="button-assign-client"
               >
                 <Plus size={16} style={{ color: 'var(--corp-accent)' }} />
-                Назначить заказчика
+                {t('assignCustomer')}
               </button>
 
               {project?.status !== 'archived' && financialSummary && (
@@ -1499,7 +1509,7 @@ export default function ProjectDetail() {
                   data-testid="button-complete-project"
                 >
                   <CheckCircle size={16} />
-                  Проект завершён
+                  {t('prDet_projectCompletedBtn')}
                 </button>
               )}
 
@@ -1533,10 +1543,10 @@ export default function ProjectDetail() {
 
               <CollapsibleContent>
                 <div className="space-y-2 mt-3">
-                  <Row label="Стоимость проекта по договору" amount={financialSummary.totalCost} tone="ink" />
+                  <Row label={t('prDet_costByContract')} amount={financialSummary.totalCost} tone="ink" />
 
                   <Row
-                    label="Аванс от заказчика"
+                    label={t('prDet_customerAdvanceLabel')}
                     amount={financialSummary.totalCustomerAdvances}
                     tone="pos"
                     onClick={() => setLocation(`/customer-advances/${projectId}`)}
@@ -1563,7 +1573,7 @@ export default function ProjectDetail() {
                   />
 
                   <Row
-                    label="Взятые авансы (Влад + Платон)"
+                    label={t('prDet_takenAdvancesLabel')}
                     amount={financialSummary.totalAdvances}
                     tone="neg"
                     onClick={() => setLocation(`/advances/${projectId}`)}
@@ -1590,7 +1600,7 @@ export default function ProjectDetail() {
                   />
 
                   <Row
-                    label="Вложили из своих (Влад + Платон)"
+                    label={t('prDet_ownInvestmentsLabel')}
                     amount={financialSummary.totalOwnerInvestments}
                     tone="neg"
                     onClick={() => setLocation(`/owner-investments/${projectId}`)}
@@ -1617,7 +1627,7 @@ export default function ProjectDetail() {
                   />
 
                   <Row
-                    label="Расходы на проект"
+                    label={t('prDet_projectExpensesLabel')}
                     amount={financialSummary.totalExpenses}
                     tone="neg"
                     onClick={() => setLocation(`/expenses/${projectId}`)}
@@ -1650,7 +1660,7 @@ export default function ProjectDetail() {
                     style={{ background: 'rgba(37,99,235,0.06)', borderRadius: 'var(--corp-r)', border: '1px solid rgba(37,99,235,0.18)' }}
                   >
                     <span className="text-[13px] font-semibold" style={{ color: 'var(--corp-accent)' }}>
-                      Прибыль на данный момент
+                      {t('prDet_currentProfitLabel')}
                     </span>
                     <MoneyAED
                       amount={financialSummary.currentProfit}
@@ -1665,7 +1675,7 @@ export default function ProjectDetail() {
                     style={{ background: 'rgba(22,163,74,0.06)', borderRadius: 'var(--corp-r)', border: '1px solid rgba(22,163,74,0.18)' }}
                   >
                     <span className="text-[13px] font-semibold" style={{ color: 'var(--corp-pos)' }}>
-                      Прогнозируемая прибыль
+                      {t('prDet_projectedProfitLabel')}
                     </span>
                     <MoneyAED
                       amount={financialSummary.projectedProfit}
@@ -1683,8 +1693,8 @@ export default function ProjectDetail() {
                     style={GHOST_BTN}
                     onClick={() => {
                       toast({
-                        title: "Экспорт в PDF",
-                        description: "Функция экспорта в PDF будет реализована в следующем обновлении",
+                        title: t('exportPDF'),
+                        description: t('prDet_pdfExportSoon'),
                       });
                     }}
                   >
@@ -1704,7 +1714,7 @@ export default function ProjectDetail() {
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between cursor-pointer">
                   <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>
-                    Информация о платежах
+                    {t('prDet_paymentsInfo')}
                   </h3>
                   <div className="w-8 h-8 flex items-center justify-center" style={{ color: 'var(--corp-ink-3)' }}>
                     {isPaymentsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -1714,15 +1724,15 @@ export default function ProjectDetail() {
 
               <CollapsibleContent>
                 <div className="space-y-2 mt-3">
-                  <Row label="Стоимость проекта" amount={project.totalCost} tone="ink" />
-                  <Row label="Оплачено" amount={String(totalPaid)} tone="pos" />
-                  <Row label="Осталось заплатить" amount={String(remainingToPay)} tone={remainingToPay > 0 ? 'neg' : 'pos'} />
+                  <Row label={t('prDet_costOfProject')} amount={project.totalCost} tone="ink" />
+                  <Row label={t('paid')} amount={String(totalPaid)} tone="pos" />
+                  <Row label={t('prDet_remainingToPay')} amount={String(remainingToPay)} tone={remainingToPay > 0 ? 'neg' : 'pos'} />
                 </div>
 
                 {clientPayments.length > 0 && (
                   <div className="mt-5">
                     <h4 className="text-[12px] font-bold uppercase mb-2" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                      История платежей
+                      {t('prDet_paymentsHistory')}
                     </h4>
                     <div className="space-y-2">
                       {clientPayments.map((payment) => (
@@ -1752,7 +1762,7 @@ export default function ProjectDetail() {
                               className="text-[11px]"
                               style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)', whiteSpace: 'nowrap' }}
                             >
-                              {fmtDateRu(payment.paymentDate)}
+                              {fmtDate(payment.paymentDate, language)}
                             </span>
                           </div>
                         </div>
@@ -1793,7 +1803,7 @@ export default function ProjectDetail() {
                   </div>
                 )}
                 {documents.length === 0 ? (
-                  <p className="text-center py-6 text-[13px]" style={{ color: 'var(--corp-muted)' }}>Нет документов</p>
+                  <p className="text-center py-6 text-[13px]" style={{ color: 'var(--corp-muted)' }}>{t('prDet_noDocuments')}</p>
                 ) : (
                   <div className="space-y-2">
                     {documents.map((doc) => (
@@ -1820,7 +1830,7 @@ export default function ProjectDetail() {
                             onClick={() => handleViewDocument(doc)}
                             className="w-8 h-8 flex items-center justify-center rounded"
                             style={{ color: 'var(--corp-accent)' }}
-                            title="Просмотр документа"
+                            title={t('prDet_viewDoc')}
                           >
                             <Eye size={15} />
                           </button>
@@ -1829,7 +1839,7 @@ export default function ProjectDetail() {
                             onClick={() => handleDownloadDocument(doc)}
                             className="w-8 h-8 flex items-center justify-center rounded"
                             style={{ color: 'var(--corp-pos)' }}
-                            title="Скачать документ"
+                            title={t('prDet_downloadDoc')}
                           >
                             <Download size={15} />
                           </button>
@@ -1839,7 +1849,7 @@ export default function ProjectDetail() {
                               onClick={() => handleCreateSheetFromInvoice(doc)}
                               className="w-8 h-8 flex items-center justify-center rounded"
                               style={{ color: '#9333ea' }}
-                              title="Создать лист реализации из инвойса"
+                              title={t('prDet_createSheetFromInvoiceTitle')}
                             >
                               <Upload size={15} />
                             </button>
@@ -1850,7 +1860,7 @@ export default function ProjectDetail() {
                               onClick={() => handleDeleteDocument(doc.id)}
                               className="w-8 h-8 flex items-center justify-center rounded"
                               style={{ color: 'var(--corp-neg)' }}
-                              title="Удалить документ"
+                              title={t('prDet_deleteDoc')}
                             >
                               <Trash2 size={15} />
                             </button>
@@ -1872,7 +1882,7 @@ export default function ProjectDetail() {
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-3">
-                    <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Расходы на проект</h3>
+                    <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('prDet_projectExpensesLabel')}</h3>
                     {financialSummary && (
                       <MoneyAED amount={financialSummary.totalExpenses} size={13} weight={700} tone="neg" />
                     )}
@@ -1892,7 +1902,7 @@ export default function ProjectDetail() {
                       className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
                       style={PRIMARY_BTN}
                     >
-                      <Plus size={14} /> Добавить расход
+                      <Plus size={14} /> {t('addExpense')}
                     </button>
                     <button
                       type="button"
@@ -1900,7 +1910,7 @@ export default function ProjectDetail() {
                       className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
                       style={GHOST_BTN}
                     >
-                      <Edit size={14} /> Управление
+                      <Edit size={14} /> {t('prDet_manage')}
                     </button>
                   </div>
 
@@ -1909,7 +1919,7 @@ export default function ProjectDetail() {
                       <div className="mb-2">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="text-[11px] font-bold uppercase" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                            История расходов
+                            {t('prDet_expensesHistory')}
                           </h4>
                           <div className="flex gap-1">
                             <button
@@ -1959,7 +1969,7 @@ export default function ProjectDetail() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="all">Все пользователи ({expenses.length})</SelectItem>
+                                <SelectItem value="all">{t('prDet_allUsersTpl').replace('{count}', String(expenses.length))}</SelectItem>
                                 {uniqueUsers.map(userName => {
                                   const cnt = expenses.filter(e => e.user?.name === userName).length;
                                   return (
@@ -1984,19 +1994,19 @@ export default function ProjectDetail() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-0.5">
                                 <span className="text-[12px] font-semibold" style={{ color: 'var(--corp-ink)' }}>
-                                  {getCategoryLabel(expense.category)}
+                                  {getCategoryLabel(expense.category, t)}
                                 </span>
                                 <span className="text-[11px]" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
-                                  {fmtDateRu(expense.createdAt)}
+                                  {fmtDate(expense.createdAt, language)}
                                 </span>
                               </div>
                               <p className="text-[12px] truncate" style={{ color: 'var(--corp-ink-3)' }}>
-                                {expense.description || 'Без описания'}
+                                {expense.description || t('prDet_noDescription')}
                               </p>
                               <div className="flex items-center gap-1 mt-0.5">
                                 <User size={10} style={{ color: 'var(--corp-muted)' }} />
                                 <span className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                                  {expense.user?.name || 'Неизвестно'}
+                                  {expense.user?.name || t('unknownUser')}
                                 </span>
                               </div>
                             </div>
@@ -2010,13 +2020,13 @@ export default function ProjectDetail() {
                             style={{ color: 'var(--corp-ink-3)' }}
                             onClick={() => setLocation(`/expenses/${projectId}`)}
                           >
-                            Показать все ({filteredAndSortedExpenses.length})
+                            {t('prDet_showAllTpl').replace('{count}', String(filteredAndSortedExpenses.length))}
                           </button>
                         )}
                       </div>
                     </div>
                   ) : (
-                    <p className="text-center py-6 text-[13px]" style={{ color: 'var(--corp-muted)' }}>Нет расходов по проекту</p>
+                    <p className="text-center py-6 text-[13px]" style={{ color: 'var(--corp-muted)' }}>{t('prDet_noProjectExpenses')}</p>
                   )}
                 </div>
               </CollapsibleContent>
@@ -2036,19 +2046,19 @@ export default function ProjectDetail() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить проект</AlertDialogTitle>
+            <AlertDialogTitle>{t('prDet_deleteProject')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить проект безвозвратно? Это действие нельзя отменить.
+              {t('prDet_deleteProjectConfirm')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Отмена</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete">{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteProject}
               style={{ background: 'var(--corp-neg)', color: '#fff' }}
               data-testid="button-confirm-delete"
             >
-              Удалить проект
+              {t('prDet_deleteProject')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2058,20 +2068,20 @@ export default function ProjectDetail() {
       <Dialog open={isCreateSheetDialogOpen} onOpenChange={setIsCreateSheetDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Создать лист реализации из инвойса</DialogTitle>
+            <DialogTitle>{t('prDet_createSheetFromInvoiceTitle')}</DialogTitle>
             <DialogDescription>
-              Автоматически создать лист реализации на основе загруженного инвойса "{selectedInvoiceDoc?.name}"
+              {t('prDet_autoCreateSheetDescTpl').replace('{name}', selectedInvoiceDoc?.name || '')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5">
             <div className="p-4" style={SECTION_STYLE}>
-              <h4 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Как это работает</h4>
+              <h4 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>{t('prDet_howItWorks')}</h4>
               <div className="space-y-2 text-[13px]">
                 {[
-                  'Система автоматически извлечет таблицу из PDF, XLSX или CSV',
-                  'Создаст позиции с наименованием, количеством, ценой и суммой',
-                  'Лист реализации будет готов для работы',
+                  t('prDet_step1'),
+                  t('prDet_step2'),
+                  t('prDet_step3'),
                 ].map((step, i) => (
                   <div key={i} className="flex items-start gap-2">
                     <span
@@ -2088,12 +2098,12 @@ export default function ProjectDetail() {
 
             <form onSubmit={handleSubmitCreateSheet} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="sheet-name">Название листа реализации</Label>
+                <Label htmlFor="sheet-name">{t('prDet_sheetNameLabel')}</Label>
                 <Input
                   id="sheet-name"
                   value={sheetName}
                   onChange={(e) => setSheetName(e.target.value)}
-                  placeholder="Введите название листа..."
+                  placeholder={t('prDet_sheetNamePlaceholder')}
                   data-testid="input-sheet-name"
                   required
                 />
@@ -2102,7 +2112,7 @@ export default function ProjectDetail() {
               <Alert>
                 <CheckCircle className="w-4 h-4" />
                 <AlertDescription>
-                  <strong>Поддерживаемые форматы:</strong> PDF, XLSX, XLS, CSV
+                  <strong>{t('prDet_supportedFormats')}</strong> PDF, XLSX, XLS, CSV
                 </AlertDescription>
               </Alert>
 
@@ -2121,11 +2131,11 @@ export default function ProjectDetail() {
                       )}
                       {parseResult.suggestColumnMapping && (
                         <div className="mt-2 text-sm">
-                          <div className="font-medium">Рекомендации:</div>
+                          <div className="font-medium">{t('prDet_recommendations')}</div>
                           <ul className="list-disc list-inside space-y-1">
-                            <li>Проверьте, что файл содержит таблицу с данными</li>
-                            <li>Убедитесь, что есть колонки с наименованием работ</li>
-                            <li>Попробуйте другой формат файла (XLSX вместо PDF)</li>
+                            <li>{t('prDet_recCheck')}</li>
+                            <li>{t('prDet_recColumns')}</li>
+                            <li>{t('prDet_recOtherFormat')}</li>
                           </ul>
                         </div>
                       )}
@@ -2142,7 +2152,7 @@ export default function ProjectDetail() {
                   style={GHOST_BTN}
                   data-testid="button-cancel"
                 >
-                  Отмена
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -2151,7 +2161,7 @@ export default function ProjectDetail() {
                   style={PRIMARY_BTN}
                   data-testid="button-create-sheet"
                 >
-                  {createSheetFromInvoiceMutation.isPending ? "Создание..." : "Создать лист"}
+                  {createSheetFromInvoiceMutation.isPending ? t('creatingShort') : t('prDet_createSheet')}
                 </button>
               </div>
             </form>
@@ -2165,28 +2175,28 @@ export default function ProjectDetail() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5" style={{ color: 'var(--corp-pos)' }} />
-              Завершение проекта
+              {t('prDet_projectCompletion')}
             </DialogTitle>
             <DialogDescription>
-              Расчет итоговой прибыли по проекту "{project?.name}"
+              {t('prDet_finalProfitCalcTpl').replace('{name}', project?.name || '')}
             </DialogDescription>
           </DialogHeader>
 
           {financialSummary && (
             <div className="space-y-3">
               <div className="p-4" style={SECTION_STYLE}>
-                <h4 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Итоги по проекту</h4>
+                <h4 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>{t('prDet_projectTotals')}</h4>
                 <div className="space-y-2">
-                  <Row label="Стоимость проекта" amount={financialSummary.totalCost} tone="ink" />
-                  <Row label="Получено от заказчика" amount={financialSummary.totalCustomerAdvances} tone="pos" />
-                  <Row label="Общие расходы" amount={financialSummary.totalExpenses} tone="neg" />
-                  <Row label="Взято авансов" amount={financialSummary.totalAdvances} tone="neg" />
+                  <Row label={t('prDet_costOfProject')} amount={financialSummary.totalCost} tone="ink" />
+                  <Row label={t('prDet_receivedFromCustomer')} amount={financialSummary.totalCustomerAdvances} tone="pos" />
+                  <Row label={t('totalExpenses')} amount={financialSummary.totalExpenses} tone="neg" />
+                  <Row label={t('prDet_advancesTaken')} amount={financialSummary.totalAdvances} tone="neg" />
                   <div style={{ height: 1, background: 'var(--corp-line)', margin: '8px 0' }} />
                   {(() => {
                     const profit = parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses);
                     return (
                       <div className="flex justify-between items-center px-3 py-3" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
-                        <span className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Итоговая прибыль</span>
+                        <span className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('prDet_finalProfit')}</span>
                         <MoneyAED amount={profit} size={18} weight={700} tone={profit >= 0 ? 'pos' : 'neg'} />
                       </div>
                     );
@@ -2195,10 +2205,10 @@ export default function ProjectDetail() {
               </div>
 
               <div className="p-4" style={SECTION_STYLE}>
-                <h4 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Распределение прибыли</h4>
+                <h4 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>{t('prDet_profitDistribution')}</h4>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="p-3" style={{ background: 'rgba(37,99,235,0.06)', borderRadius: 'var(--corp-r)' }}>
-                    <div className="text-[11px] mb-1" style={{ color: 'var(--corp-ink-3)' }}>Заработок Влада</div>
+                    <div className="text-[11px] mb-1" style={{ color: 'var(--corp-ink-3)' }}>{t('prDet_vladEarnings')}</div>
                     <MoneyAED
                       amount={financialSummary.vladEarnings || '0'}
                       size={20}
@@ -2206,11 +2216,11 @@ export default function ProjectDetail() {
                       tone={parseFloat(financialSummary.vladEarnings || '0') >= 0 ? 'pos' : 'neg'}
                     />
                     {parseFloat(financialSummary.vladEarnings || '0') < 0 && (
-                      <div className="text-[10px] mt-1" style={{ color: 'var(--corp-neg)' }}>К доплате</div>
+                      <div className="text-[10px] mt-1" style={{ color: 'var(--corp-neg)' }}>{t('prDet_owedAdditional')}</div>
                     )}
                   </div>
                   <div className="p-3" style={{ background: 'rgba(147,51,234,0.06)', borderRadius: 'var(--corp-r)' }}>
-                    <div className="text-[11px] mb-1" style={{ color: 'var(--corp-ink-3)' }}>Заработок Платона</div>
+                    <div className="text-[11px] mb-1" style={{ color: 'var(--corp-ink-3)' }}>{t('prDet_platonEarnings')}</div>
                     <MoneyAED
                       amount={financialSummary.platonEarnings || '0'}
                       size={20}
@@ -2218,17 +2228,17 @@ export default function ProjectDetail() {
                       tone={parseFloat(financialSummary.platonEarnings || '0') >= 0 ? 'pos' : 'neg'}
                     />
                     {parseFloat(financialSummary.platonEarnings || '0') < 0 && (
-                      <div className="text-[10px] mt-1" style={{ color: 'var(--corp-neg)' }}>К доплате</div>
+                      <div className="text-[10px] mt-1" style={{ color: 'var(--corp-neg)' }}>{t('prDet_owedAdditional')}</div>
                     )}
                   </div>
                 </div>
 
                 <div className="text-[12px] p-3" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)', color: 'var(--corp-ink-3)' }}>
-                  <div className="font-semibold mb-1" style={{ color: 'var(--corp-ink-2)' }}>Расчёт:</div>
-                  <div>• Доступно к распределению: {fmtNum(parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses))} AED</div>
-                  <div>• На каждого: {fmtNum((parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses)) / 2)} AED</div>
-                  <div>• Влад взял авансом: {fmtNum(parseFloat(financialSummary.vladAdvances || '0'))} AED</div>
-                  <div>• Платон взял авансом: {fmtNum(parseFloat(financialSummary.platonAdvances || '0'))} AED</div>
+                  <div className="font-semibold mb-1" style={{ color: 'var(--corp-ink-2)' }}>{t('prDet_calculation')}</div>
+                  <div>• {t('prDet_availableToDistribute')} {fmtNum(parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses))} AED</div>
+                  <div>• {t('prDet_perPerson')} {fmtNum((parseFloat(financialSummary.totalCustomerAdvances) - parseFloat(financialSummary.totalExpenses)) / 2)} AED</div>
+                  <div>• {t('prDet_vladAdvanceTaken')} {fmtNum(parseFloat(financialSummary.vladAdvances || '0'))} AED</div>
+                  <div>• {t('prDet_platonAdvanceTaken')} {fmtNum(parseFloat(financialSummary.platonAdvances || '0'))} AED</div>
                 </div>
               </div>
             </div>
@@ -2241,7 +2251,7 @@ export default function ProjectDetail() {
               className="flex-1 h-10 text-[13px] font-semibold transition-colors"
               style={GHOST_BTN}
             >
-              Закрыть
+              {t('close')}
             </button>
             <button
               type="button"
@@ -2253,7 +2263,7 @@ export default function ProjectDetail() {
               style={{ background: 'var(--corp-pos)', color: '#fff', borderRadius: 'var(--corp-r)' }}
             >
               <Archive className="w-4 h-4" />
-              Архивировать проект
+              {t('prDet_archiveProject')}
             </button>
           </div>
         </DialogContent>

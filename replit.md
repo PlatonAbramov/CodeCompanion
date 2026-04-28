@@ -61,7 +61,7 @@ Preferred communication style: Simple, everyday language.
 - **Vehicles Photo Control**: Weekly Sunday 8-step photo control of fleet vehicles with watermarked photos, mileage tracking, server-time validation, PDF reports stored in GCS, mileage statistics, full audit log, and director-only mileage correction with monotonic ordering safeguards.
 - **Enhanced Photo Viewing**: Full-screen photo viewer with zoom, rotation, navigation, and keyboard shortcuts.
 - **Real-time Updates**: Automatic cache invalidation and refresh for client users.
-- **Multi-language Support**: Russian and English.
+- **Multi-language Support**: Full localization in Russian, English, and Hindi (RU/EN/HI). Every visible UI string is rendered via the `t()` helper from `client/src/components/LanguageProvider.tsx`, all dates/times use the locale-aware formatters from `client/src/lib/locale.ts` (`fmtDate`, `fmtDateTime`, `fmtMonth`), and server error responses are mapped to localized messages through `client/src/lib/serverErrors.ts`. Translations live in `client/src/lib/translations.ts` (~4400 lines, three language blocks `ru` / `en` / `hi`, ~1500 keys grouped by domain prefixes — `pd_`, `prDet_`, `pcm_`, `tools_`, `is_`, `isv_`, `iic_`, `perm_`, `anal_`, `acm_`, `paf_`, `sys_`, `err_`, etc.). Language is selectable from the login screen and from the in-app navigation; choice persists per user.
 - **Mobile-First Design**: Optimized for mobile devices.
 
 ## UI Redesign — Pag CRM Corporate v1

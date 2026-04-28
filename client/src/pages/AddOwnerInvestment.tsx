@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { CorpHeader } from "@/components/corp-ui";
+import { fmtNumber } from "@/lib/locale";
 
 const SECTION_STYLE: React.CSSProperties = {
   background: 'var(--corp-surface)',
@@ -34,7 +35,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export default function AddOwnerInvestment() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -64,18 +65,18 @@ export default function AddOwnerInvestment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'owner-investments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
-      toast({ title: "Успешно", description: "Вложение добавлено" });
+      toast({ title: t('success'), description: t('investmentAdded') });
       setLocation(`/owner-investments/${projectId}`);
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось добавить вложение", variant: "destructive" });
+      toast({ title: t('error'), description: t('investmentAddFailed'), variant: "destructive" });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || !formData.investor || !formData.date) {
-      toast({ title: "Ошибка", description: "Заполните все обязательные поля", variant: "destructive" });
+      toast({ title: t('error'), description: t('requiredFieldsShort'), variant: "destructive" });
       return;
     }
     createOwnerInvestmentMutation.mutate(formData);
@@ -87,23 +88,20 @@ export default function AddOwnerInvestment() {
 
   const goBack = () => setLocation(`/owner-investments/${projectId}`);
 
-  const formatNum = (s: string) => {
-    if (!s) return '';
-    return parseFloat(s || "0").toLocaleString("ru-RU");
-  };
+  const formatNum = (s: string) => s ? fmtNumber(parseFloat(s || "0"), language) : '';
 
   return (
     <div
       className="min-h-screen pb-24"
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
-      <CorpHeader title="Новое вложение" subtitle="Из своих средств" onBack={goBack} />
+      <CorpHeader title={t('newInvestmentTitle')} subtitle={t('newInvestmentSubtitle')} onBack={goBack} />
 
       <main className="px-4 pt-4">
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Amount */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Сумма (AED)</FieldLabel>
+            <FieldLabel required>{t('amountAedLabel')}</FieldLabel>
             <div className="relative">
               <Input
                 id="amount"
@@ -133,24 +131,24 @@ export default function AddOwnerInvestment() {
 
           {/* Investor */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Инвестор</FieldLabel>
+            <FieldLabel required>{t('investorLabel')}</FieldLabel>
             <Select
               value={formData.investor}
               onValueChange={(v) => handleInputChange('investor', v)}
             >
               <SelectTrigger className="h-10 text-[13px]" data-testid="select-investor">
-                <SelectValue placeholder="Выберите инвестора" />
+                <SelectValue placeholder={t('selectInvestor')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="vlad">Влад</SelectItem>
-                <SelectItem value="platon">Платон</SelectItem>
+                <SelectItem value="vlad">{t('investorVlad')}</SelectItem>
+                <SelectItem value="platon">{t('investorPlaton')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Date */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Дата</FieldLabel>
+            <FieldLabel required>{t('dateLabel')}</FieldLabel>
             <Input
               id="date"
               type="date"
@@ -165,12 +163,12 @@ export default function AddOwnerInvestment() {
 
           {/* Description */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Описание</FieldLabel>
+            <FieldLabel>{t('description')}</FieldLabel>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Опциональное описание вложения"
+              placeholder={t('investmentDescriptionPlaceholder')}
               rows={3}
               className="text-[13px] resize-none"
               data-testid="input-description"
@@ -191,7 +189,7 @@ export default function AddOwnerInvestment() {
               }}
               data-testid="button-cancel"
             >
-              Отмена
+              {t('cancel')}
             </button>
             <button
               type="submit"
@@ -200,7 +198,7 @@ export default function AddOwnerInvestment() {
               style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-submit-investment"
             >
-              {createOwnerInvestmentMutation.isPending ? 'Добавление…' : 'Добавить'}
+              {createOwnerInvestmentMutation.isPending ? t('addingProgressShort') : t('addInvestmentShort')}
             </button>
           </div>
         </form>

@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, HardHat, MoreVertical } from "lucide-react";
-import { CorpHeader, CorpEmpty, fmtDateRu } from "@/components/corp-ui";
+import { CorpHeader, CorpEmpty } from "@/components/corp-ui";
+import { fmtDate } from "@/lib/locale";
 
 interface User {
   id: string;
@@ -28,7 +29,7 @@ interface User {
 export default function EmployeeManagement() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -57,10 +58,10 @@ export default function EmployeeManagement() {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       setIsCreateModalOpen(false);
       setEmployeeForm({ username: '', password: '', name: '', role: 'master' });
-      toast({ title: "Успешно", description: "Сотрудник добавлен" });
+      toast({ title: t('success'), description: t('employeeAdded') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось добавить сотрудника", variant: "destructive" });
+      toast({ title: t('error'), description: t('employeeAddFailed'), variant: "destructive" });
     },
   });
 
@@ -69,10 +70,11 @@ export default function EmployeeManagement() {
     createUserMutation.mutate(employeeForm);
   };
 
+  const localeForLang = language === 'ru' ? 'ru-RU' : language === 'hi' ? 'hi-IN' : 'en-US';
   const formatLastLogin = (dateString?: string) => {
-    if (!dateString) return 'Никогда';
+    if (!dateString) return t('never');
     const d = new Date(dateString);
-    return `${fmtDateRu(dateString)} ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+    return `${fmtDate(dateString, language)} ${d.toLocaleTimeString(localeForLang, { hour: '2-digit', minute: '2-digit' })}`;
   };
 
   const filteredEmployees = employees.filter((emp) => emp.id !== user?.id);
@@ -93,8 +95,8 @@ export default function EmployeeManagement() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title={t('employees') || 'Сотрудники'}
-        subtitle={`Всего: ${filteredEmployees.length}`}
+        title={t('employees')}
+        subtitle={`${t('totalCountLabel')}: ${filteredEmployees.length}`}
         onBack={() => setLocation('/director')}
         action={
           <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
@@ -105,47 +107,47 @@ export default function EmployeeManagement() {
                 style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
                 data-testid="button-add-employee"
               >
-                <Plus size={14} /> <span className="hidden sm:inline">{t('addEmployee') || 'Сотрудник'}</span>
+                <Plus size={14} /> <span className="hidden sm:inline">{t('employeeWord')}</span>
               </button>
             </DialogTrigger>
             <DialogContent className="w-full max-w-lg">
               <DialogHeader>
-                <DialogTitle>{t('addEmployee') || 'Добавить сотрудника'}</DialogTitle>
+                <DialogTitle>{t('addEmployee')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreateEmployee} className="space-y-4">
                 <div>
-                  <Label>{t('employeeName') || 'Имя'} *</Label>
+                  <Label>{t('employeeName')} *</Label>
                   <Input
                     value={employeeForm.name}
                     onChange={(e) => setEmployeeForm({ ...employeeForm, name: e.target.value })}
-                    placeholder="Введите полное имя"
+                    placeholder={t('enterFullName')}
                     required
                     data-testid="input-employee-name"
                   />
                 </div>
                 <div>
-                  <Label>{t('username') || 'Логин'} *</Label>
+                  <Label>{t('username')} *</Label>
                   <Input
                     value={employeeForm.username}
                     onChange={(e) => setEmployeeForm({ ...employeeForm, username: e.target.value })}
-                    placeholder="Логин для входа"
+                    placeholder={t('loginPlaceholder')}
                     required
                     data-testid="input-employee-username"
                   />
                 </div>
                 <div>
-                  <Label>{t('password') || 'Пароль'} *</Label>
+                  <Label>{t('password')} *</Label>
                   <Input
                     type="password"
                     value={employeeForm.password}
                     onChange={(e) => setEmployeeForm({ ...employeeForm, password: e.target.value })}
-                    placeholder="Пароль"
+                    placeholder={t('passwordPlaceholder')}
                     required
                     data-testid="input-employee-password"
                   />
                 </div>
                 <div>
-                  <Label>{t('role') || 'Роль'} *</Label>
+                  <Label>{t('role')} *</Label>
                   <Select
                     value={employeeForm.role}
                     onValueChange={(v) => setEmployeeForm({ ...employeeForm, role: v })}
@@ -154,8 +156,8 @@ export default function EmployeeManagement() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="master">{t('master') || 'Мастер'}</SelectItem>
-                      <SelectItem value="director">{t('director') || 'Директор'}</SelectItem>
+                      <SelectItem value="master">{t('master')}</SelectItem>
+                      <SelectItem value="director">{t('director')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -165,7 +167,7 @@ export default function EmployeeManagement() {
                   disabled={createUserMutation.isPending}
                   data-testid="button-confirm-add-employee"
                 >
-                  {createUserMutation.isPending ? (t('loading') || 'Загрузка...') : (t('addEmployee') || 'Добавить')}
+                  {createUserMutation.isPending ? t('loading') : t('addLabel')}
                 </Button>
               </form>
             </DialogContent>
@@ -177,9 +179,9 @@ export default function EmployeeManagement() {
         {isLoading ? null : filteredEmployees.length === 0 ? (
           <CorpEmpty
             icon={<HardHat size={28} />}
-            title="Пока нет сотрудников"
-            description="Добавьте первого, чтобы начать работу"
-            actionLabel={t('addEmployee') || 'Добавить'}
+            title={t('noEmployeesYet')}
+            description={t('addFirstEmployee')}
+            actionLabel={t('addLabel')}
             onAction={() => setIsCreateModalOpen(true)}
           />
         ) : (
@@ -235,7 +237,7 @@ export default function EmployeeManagement() {
                           letterSpacing: '0.04em',
                         }}
                       >
-                        {employee.isActive ? 'Активен' : 'Неактивен'}
+                        {employee.isActive ? t('activeUserStatus') : t('inactiveUserStatus')}
                       </span>
                       <button
                         type="button"
@@ -258,7 +260,7 @@ export default function EmployeeManagement() {
                         className="text-[9px] uppercase font-bold"
                         style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                       >
-                        {t('lastLogin') || 'Последний вход'}
+                        {t('lastLogin')}
                       </p>
                       <p
                         className="text-[12px]"
@@ -272,13 +274,13 @@ export default function EmployeeManagement() {
                         className="text-[9px] uppercase font-bold"
                         style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                       >
-                        Зарегистрирован
+                        {t('registeredLabel')}
                       </p>
                       <p
                         className="text-[12px]"
                         style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}
                       >
-                        {fmtDateRu(employee.createdAt)}
+                        {fmtDate(employee.createdAt, language)}
                       </p>
                     </div>
                   </div>

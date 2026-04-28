@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CorpHeader } from "@/components/corp-ui";
+import { fmtNumber } from "@/lib/locale";
 
 const SECTION_STYLE: React.CSSProperties = {
   background: 'var(--corp-surface)',
@@ -30,7 +31,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export default function EditCustomerAdvance() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -78,7 +79,7 @@ export default function EditCustomerAdvance() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Аванс от заказчика обновлён", description: "Изменения сохранены" });
+      toast({ title: t('customerAdvanceUpdated'), description: t('changesSaved') });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'customer-advances'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
@@ -86,8 +87,8 @@ export default function EditCustomerAdvance() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось обновить аванс от заказчика",
+        title: t('error'),
+        description: error.message || t('customerAdvanceUpdateFailed'),
         variant: "destructive",
       });
     },
@@ -98,7 +99,7 @@ export default function EditCustomerAdvance() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || !formData.date) {
-      toast({ title: "Ошибка", description: "Пожалуйста, заполните все обязательные поля", variant: "destructive" });
+      toast({ title: t('error'), description: t('fillRequiredFields'), variant: "destructive" });
       return;
     }
     updateCustomerAdvance({
@@ -108,7 +109,7 @@ export default function EditCustomerAdvance() {
     });
   };
 
-  const formatNum = (s: string) => s ? parseFloat(s || "0").toLocaleString("ru-RU") : '';
+  const formatNum = (s: string) => s ? fmtNumber(parseFloat(s || "0"), language) : '';
 
   if (isLoading) {
     return <div style={{ background: 'var(--corp-bg)' }} className="min-h-screen p-4" />;
@@ -120,15 +121,15 @@ export default function EditCustomerAdvance() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title="Редактирование аванса"
-        subtitle="От заказчика"
+        title={t('editCustomerAdvanceTitle')}
+        subtitle={t('editCustomerAdvanceSubtitle')}
         onBack={goBack}
       />
 
       <main className="px-4 pt-4">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Сумма</FieldLabel>
+            <FieldLabel required>{t('amount')}</FieldLabel>
             <div className="relative">
               <Input
                 id="amount"
@@ -157,7 +158,7 @@ export default function EditCustomerAdvance() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Дата</FieldLabel>
+            <FieldLabel required>{t('dateLabel')}</FieldLabel>
             <Input
               id="date"
               type="date"
@@ -171,10 +172,10 @@ export default function EditCustomerAdvance() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Описание</FieldLabel>
+            <FieldLabel>{t('description')}</FieldLabel>
             <Textarea
               id="description"
-              placeholder="Дополнительная информация об авансе от заказчика"
+              placeholder={t('customerAdvanceDescriptionInfoPlaceholder')}
               value={formData.description}
               onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
               rows={3}
@@ -196,7 +197,7 @@ export default function EditCustomerAdvance() {
               }}
               data-testid="button-cancel"
             >
-              Отмена
+              {t('cancel')}
             </button>
             <button
               type="submit"
@@ -205,7 +206,7 @@ export default function EditCustomerAdvance() {
               style={{ background: 'var(--corp-pos)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-save"
             >
-              {isPending ? 'Сохранение…' : 'Сохранить'}
+              {isPending ? t('saving') : t('save')}
             </button>
           </div>
         </form>

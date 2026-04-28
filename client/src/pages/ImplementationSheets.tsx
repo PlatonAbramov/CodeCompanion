@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Plus, FileText, Trash2, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
-import { CorpHeader, CorpEmpty, fmtDateRu } from "@/components/corp-ui";
+import { CorpHeader, CorpEmpty } from "@/components/corp-ui";
+import { fmtDate } from "@/lib/locale";
 
 interface ImplementationSheet {
   id: string;
@@ -29,7 +30,7 @@ export default function ImplementationSheets() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newSheetName, setNewSheetName] = useState("");
 
@@ -50,14 +51,14 @@ export default function ImplementationSheets() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/implementation-sheets`] });
       queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] });
-      toast({ title: language === 'ru' ? "Лист реализации создан" : "Implementation sheet created" });
+      toast({ title: t('is_sheetCreated') });
       setIsCreateDialogOpen(false);
       setNewSheetName("");
     },
     onError: () => {
       toast({
-        title: language === 'ru' ? "Ошибка" : "Error",
-        description: language === 'ru' ? "Не удалось создать лист реализации" : "Failed to create implementation sheet",
+        title: t('errorToastTitle'),
+        description: t('is_createFailed'),
         variant: "destructive",
       });
     },
@@ -69,12 +70,12 @@ export default function ImplementationSheets() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/implementation-sheets`] });
-      toast({ title: language === 'ru' ? "Лист удален" : "Sheet deleted" });
+      toast({ title: t('is_sheetDeleted') });
     },
     onError: () => {
       toast({
-        title: language === 'ru' ? "Ошибка" : "Error",
-        description: language === 'ru' ? "Не удалось удалить лист" : "Failed to delete sheet",
+        title: t('errorToastTitle'),
+        description: t('is_deleteFailed'),
         variant: "destructive",
       });
     },
@@ -90,8 +91,8 @@ export default function ImplementationSheets() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title={language === 'ru' ? 'Листы реализации' : 'Implementation Sheets'}
-        subtitle={language === 'ru' ? 'Прогресс работ по проекту' : 'Project work progress'}
+        title={t('implementationSheets')}
+        subtitle={t('is_subtitle')}
         onBack={() => setLocation(`/projects/${projectId}`)}
         action={isAdminOrDirector ? (
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -102,23 +103,23 @@ export default function ImplementationSheets() {
                 style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
                 data-testid="button-create-sheet"
               >
-                <Plus size={14} /> <span className="hidden sm:inline">{language === 'ru' ? 'Новый лист' : 'New'}</span>
+                <Plus size={14} /> <span className="hidden sm:inline">{t('is_newSheet')}</span>
               </button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {language === 'ru' ? 'Создать лист реализации' : 'Create Implementation Sheet'}
+                  {t('is_createSheetTitle')}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name">{language === 'ru' ? 'Название' : 'Name'}</Label>
+                  <Label htmlFor="name">{t('is_nameLabel')}</Label>
                   <Input
                     id="name"
                     value={newSheetName}
                     onChange={(e) => setNewSheetName(e.target.value)}
-                    placeholder={language === 'ru' ? 'Введите название листа' : 'Enter sheet name'}
+                    placeholder={t('is_namePlaceholder')}
                     data-testid="input-sheet-name"
                   />
                 </div>
@@ -129,8 +130,8 @@ export default function ImplementationSheets() {
                   data-testid="button-confirm-create"
                 >
                   {createSheetMutation.isPending
-                    ? (language === 'ru' ? 'Создание...' : 'Creating...')
-                    : (language === 'ru' ? 'Создать' : 'Create')}
+                    ? t('creatingShort')
+                    : t('create')}
                 </Button>
               </div>
             </DialogContent>
@@ -142,11 +143,11 @@ export default function ImplementationSheets() {
         {!isLoading && (!sheets || sheets.length === 0) ? (
           <CorpEmpty
             icon={<FileText size={28} />}
-            title={language === 'ru' ? 'Нет листов реализации' : 'No implementation sheets'}
+            title={t('is_noSheets')}
             description={
               isAdminOrDirector
-                ? (language === 'ru' ? 'Создайте первый лист для начала работы' : 'Create the first sheet to get started')
-                : (language === 'ru' ? 'Листы появятся здесь после создания' : 'Sheets will appear here once created')
+                ? t('is_noSheetsCreate')
+                : t('is_noSheetsView')
             }
           />
         ) : (
@@ -195,14 +196,14 @@ export default function ImplementationSheets() {
                           tabIndex={0}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm(language === 'ru' ? 'Удалить лист?' : 'Delete sheet?')) {
+                            if (window.confirm(t('is_confirmDelete'))) {
                               deleteSheetMutation.mutate(sheet.id);
                             }
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.stopPropagation();
-                              if (window.confirm(language === 'ru' ? 'Удалить лист?' : 'Delete sheet?')) {
+                              if (window.confirm(t('is_confirmDelete'))) {
                                 deleteSheetMutation.mutate(sheet.id);
                               }
                             }
@@ -223,7 +224,7 @@ export default function ImplementationSheets() {
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-[11px] mb-1.5">
                       <span style={{ color: 'var(--corp-muted)' }}>
-                        {language === 'ru' ? 'Прогресс' : 'Progress'}
+                        {t('progress')}
                       </span>
                       <span style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)', fontWeight: 700, fontSize: 12 }}>
                         {progress.toFixed(0)}%
@@ -253,11 +254,11 @@ export default function ImplementationSheets() {
                       }}
                     >
                       {sheet.status === 'active'
-                        ? (language === 'ru' ? 'Активный' : 'Active')
-                        : (language === 'ru' ? 'Завершён' : 'Done')}
+                        ? t('statusActive')
+                        : t('completed')}
                     </span>
                     <span style={{ fontFamily: 'var(--corp-mono)' }}>
-                      {language === 'ru' ? 'Обновлён ' : 'Updated '}{fmtDateRu(sheet.updatedAt)}
+                      {t('is_updated')} {fmtDate(sheet.updatedAt, language)}
                     </span>
                   </div>
                 </button>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CorpHeader } from "@/components/corp-ui";
+import { fmtNumber } from "@/lib/locale";
 
 const SECTION_STYLE: React.CSSProperties = {
   background: 'var(--corp-surface)',
@@ -30,7 +31,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export default function EditAdvance() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -80,7 +81,7 @@ export default function EditAdvance() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Аванс обновлён", description: "Изменения сохранены" });
+      toast({ title: t('advanceUpdated'), description: t('changesSaved') });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'advances'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
@@ -88,8 +89,8 @@ export default function EditAdvance() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось обновить аванс",
+        title: t('error'),
+        description: error.message || t('advanceUpdateFailed'),
         variant: "destructive",
       });
     },
@@ -100,7 +101,7 @@ export default function EditAdvance() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || !formData.recipient || !formData.date) {
-      toast({ title: "Ошибка", description: "Пожалуйста, заполните все обязательные поля", variant: "destructive" });
+      toast({ title: t('error'), description: t('fillRequiredFields'), variant: "destructive" });
       return;
     }
     updateAdvance({
@@ -111,7 +112,7 @@ export default function EditAdvance() {
     });
   };
 
-  const formatNum = (s: string) => s ? parseFloat(s || "0").toLocaleString("ru-RU") : '';
+  const formatNum = (s: string) => s ? fmtNumber(parseFloat(s || "0"), language) : '';
 
   if (isLoading) {
     return <div style={{ background: 'var(--corp-bg)' }} className="min-h-screen p-4" />;
@@ -122,12 +123,12 @@ export default function EditAdvance() {
       className="min-h-screen pb-24"
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
-      <CorpHeader title="Редактирование аванса" subtitle="Изменение записи" onBack={goBack} />
+      <CorpHeader title={t('editAdvanceTitle')} subtitle={t('editRecordSubtitle')} onBack={goBack} />
 
       <main className="px-4 pt-4">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Сумма</FieldLabel>
+            <FieldLabel required>{t('amount')}</FieldLabel>
             <div className="relative">
               <Input
                 id="amount"
@@ -156,10 +157,10 @@ export default function EditAdvance() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Получатель</FieldLabel>
+            <FieldLabel required>{t('recipientLabel')}</FieldLabel>
             <Input
               id="recipient"
-              placeholder="Имя получателя аванса"
+              placeholder={t('recipientNamePlaceholder')}
               value={formData.recipient}
               onChange={(e) => setFormData(p => ({ ...p, recipient: e.target.value }))}
               required
@@ -169,7 +170,7 @@ export default function EditAdvance() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Дата</FieldLabel>
+            <FieldLabel required>{t('dateLabel')}</FieldLabel>
             <Input
               id="date"
               type="date"
@@ -183,10 +184,10 @@ export default function EditAdvance() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Описание</FieldLabel>
+            <FieldLabel>{t('description')}</FieldLabel>
             <Textarea
               id="description"
-              placeholder="Дополнительная информация об авансе"
+              placeholder={t('advanceDescriptionInfoPlaceholder')}
               value={formData.description}
               onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
               rows={3}
@@ -208,7 +209,7 @@ export default function EditAdvance() {
               }}
               data-testid="button-cancel"
             >
-              Отмена
+              {t('cancel')}
             </button>
             <button
               type="submit"
@@ -217,7 +218,7 @@ export default function EditAdvance() {
               style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-save"
             >
-              {isPending ? 'Сохранение…' : 'Сохранить'}
+              {isPending ? t('saving') : t('save')}
             </button>
           </div>
         </form>

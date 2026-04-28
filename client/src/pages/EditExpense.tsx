@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { ExternalLink } from "lucide-react";
 import { CorpHeader } from "@/components/corp-ui";
+import { fmtNumber } from "@/lib/locale";
 
 const SECTION_STYLE: React.CSSProperties = {
   background: 'var(--corp-surface)',
@@ -34,7 +35,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export default function EditExpense() {
   const [location, setLocation] = useLocation();
   useAuth();
-  useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -86,7 +87,7 @@ export default function EditExpense() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Расход обновлён", description: "Изменения сохранены" });
+      toast({ title: t('expenseUpdated'), description: t('changesSaved') });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
@@ -94,8 +95,8 @@ export default function EditExpense() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось обновить расход",
+        title: t('error'),
+        description: error.message || t('expenseUpdateFailed'),
         variant: "destructive",
       });
     },
@@ -106,11 +107,11 @@ export default function EditExpense() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || !formData.category || !formData.description) {
-      toast({ title: "Ошибка", description: "Пожалуйста, заполните все обязательные поля", variant: "destructive" });
+      toast({ title: t('error'), description: t('fillRequiredFields'), variant: "destructive" });
       return;
     }
     if (formData.category === 'contractor_payments' && !formData.contractorId) {
-      toast({ title: "Ошибка", description: "Для категории «Оплата подрядчикам» необходимо выбрать подрядчика", variant: "destructive" });
+      toast({ title: t('error'), description: t('contractorRequiredForCategory'), variant: "destructive" });
       return;
     }
     const updateData: any = {
@@ -125,17 +126,17 @@ export default function EditExpense() {
     updateExpense(updateData);
   };
 
-  const formatNum = (s: string) => s ? parseFloat(s || "0").toLocaleString("ru-RU") : '';
+  const formatNum = (s: string) => s ? fmtNumber(parseFloat(s || "0"), language) : '';
 
   const categories = [
-    { value: 'materials', label: 'Материалы' },
-    { value: 'tools', label: 'Инструменты' },
-    { value: 'transport', label: 'Транспорт' },
-    { value: 'services', label: 'Услуги' },
-    { value: 'salary_employees', label: 'Зарплата действующим сотрудникам' },
-    { value: 'salary_daily', label: 'Зарплата поднёвщикам' },
-    { value: 'contractor_payments', label: 'Оплата подрядчикам' },
-    { value: 'other', label: 'Прочее' },
+    { value: 'materials', label: t('materials') },
+    { value: 'tools', label: t('tools') },
+    { value: 'transport', label: t('transport') },
+    { value: 'services', label: t('services') },
+    { value: 'salary_employees', label: t('salaryEmployeesLong') },
+    { value: 'salary_daily', label: t('salaryDaily') },
+    { value: 'contractor_payments', label: t('contractorPayments') },
+    { value: 'other', label: t('other') },
   ];
 
   if (isLoading) {
@@ -147,12 +148,12 @@ export default function EditExpense() {
       className="min-h-screen pb-24"
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
-      <CorpHeader title="Редактирование расхода" subtitle="Изменение записи" onBack={goBack} />
+      <CorpHeader title={t('editExpenseTitle')} subtitle={t('editExpenseSubtitle')} onBack={goBack} />
 
       <main className="px-4 pt-4">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Сумма</FieldLabel>
+            <FieldLabel required>{t('amount')}</FieldLabel>
             <div className="relative">
               <Input
                 id="amount"
@@ -181,13 +182,13 @@ export default function EditExpense() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Категория</FieldLabel>
+            <FieldLabel required>{t('category')}</FieldLabel>
             <Select
               value={formData.category}
               onValueChange={(v) => setFormData(p => ({ ...p, category: v }))}
             >
               <SelectTrigger className="h-10 text-[13px]" data-testid="select-category">
-                <SelectValue placeholder="Выберите категорию" />
+                <SelectValue placeholder={t('selectCategory')} />
               </SelectTrigger>
               <SelectContent>
                 {categories.map(c => (
@@ -199,13 +200,13 @@ export default function EditExpense() {
 
           {formData.category === 'contractor_payments' && (
             <div className="p-4" style={SECTION_STYLE}>
-              <FieldLabel required>Подрядчик</FieldLabel>
+              <FieldLabel required>{t('contractor')}</FieldLabel>
               <Select
                 value={formData.contractorId}
                 onValueChange={(v) => setFormData(p => ({ ...p, contractorId: v }))}
               >
                 <SelectTrigger className="h-10 text-[13px]" data-testid="select-contractor">
-                  <SelectValue placeholder="Выберите подрядчика" />
+                  <SelectValue placeholder={t('selectContractor')} />
                 </SelectTrigger>
                 <SelectContent>
                   {(contractors as any[])?.map((c: any) => (
@@ -216,16 +217,16 @@ export default function EditExpense() {
                 </SelectContent>
               </Select>
               <p className="text-[11px] mt-1.5" style={{ color: 'var(--corp-muted)' }}>
-                Изменить подрядчика для данного расхода
+                {t('changeContractorHint')}
               </p>
             </div>
           )}
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Описание</FieldLabel>
+            <FieldLabel required>{t('description')}</FieldLabel>
             <Textarea
               id="description"
-              placeholder="Опишите расход"
+              placeholder={t('expenseDescriptionShort')}
               value={formData.description}
               onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
               rows={3}
@@ -237,7 +238,7 @@ export default function EditExpense() {
 
           {formData.receiptUrl && (
             <div className="p-4" style={SECTION_STYLE}>
-              <FieldLabel>Текущий чек</FieldLabel>
+              <FieldLabel>{t('currentReceipt')}</FieldLabel>
               <button
                 type="button"
                 onClick={() => window.open(formData.receiptUrl, '_blank')}
@@ -251,7 +252,7 @@ export default function EditExpense() {
                 data-testid="button-view-receipt"
               >
                 <ExternalLink size={14} />
-                Посмотреть чек
+                {t('viewReceipt')}
               </button>
             </div>
           )}
@@ -269,7 +270,7 @@ export default function EditExpense() {
               }}
               data-testid="button-cancel"
             >
-              Отмена
+              {t('cancel')}
             </button>
             <button
               type="submit"
@@ -278,7 +279,7 @@ export default function EditExpense() {
               style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-save"
             >
-              {isPending ? 'Сохранение…' : 'Сохранить'}
+              {isPending ? t('saving') : t('save')}
             </button>
           </div>
         </form>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CorpHeader } from "@/components/corp-ui";
+import { fmtNumber } from "@/lib/locale";
 
 const SECTION_STYLE: React.CSSProperties = {
   background: 'var(--corp-surface)',
@@ -30,7 +31,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export default function EditRevenue() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -80,7 +81,7 @@ export default function EditRevenue() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Доход обновлён", description: "Изменения сохранены" });
+      toast({ title: t('revenueUpdated'), description: t('changesSaved') });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'revenues'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
@@ -88,8 +89,8 @@ export default function EditRevenue() {
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось обновить доход",
+        title: t('error'),
+        description: error.message || t('revenueUpdateFailed'),
         variant: "destructive",
       });
     },
@@ -100,7 +101,7 @@ export default function EditRevenue() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount) {
-      toast({ title: "Ошибка", description: "Пожалуйста, заполните все обязательные поля", variant: "destructive" });
+      toast({ title: t('error'), description: t('fillRequiredFields'), variant: "destructive" });
       return;
     }
     updateRevenue({
@@ -111,7 +112,7 @@ export default function EditRevenue() {
     });
   };
 
-  const formatNum = (s: string) => s ? parseFloat(s || "0").toLocaleString("ru-RU") : '';
+  const formatNum = (s: string) => s ? fmtNumber(parseFloat(s || "0"), language) : '';
 
   if (isLoading) {
     return <div style={{ background: 'var(--corp-bg)' }} className="min-h-screen p-4" />;
@@ -122,12 +123,12 @@ export default function EditRevenue() {
       className="min-h-screen pb-24"
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
-      <CorpHeader title="Редактирование дохода" subtitle="Изменение записи" onBack={goBack} />
+      <CorpHeader title={t('editRevenueTitle')} subtitle={t('editRecordSubtitle')} onBack={goBack} />
 
       <main className="px-4 pt-4">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Сумма</FieldLabel>
+            <FieldLabel required>{t('amount')}</FieldLabel>
             <div className="relative">
               <Input
                 id="amount"
@@ -156,7 +157,7 @@ export default function EditRevenue() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Дата</FieldLabel>
+            <FieldLabel required>{t('dateLabel')}</FieldLabel>
             <Input
               id="date"
               type="date"
@@ -170,10 +171,10 @@ export default function EditRevenue() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Источник дохода</FieldLabel>
+            <FieldLabel>{t('revenueSourceLabel')}</FieldLabel>
             <Input
               id="source"
-              placeholder="Например: Оплата от заказчика, доп. работы"
+              placeholder={t('revenueSourcePlaceholder')}
               value={formData.source}
               onChange={(e) => setFormData(p => ({ ...p, source: e.target.value }))}
               className="h-10 text-[13px]"
@@ -182,10 +183,10 @@ export default function EditRevenue() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Описание</FieldLabel>
+            <FieldLabel>{t('description')}</FieldLabel>
             <Textarea
               id="description"
-              placeholder="Дополнительная информация о доходе"
+              placeholder={t('revenueDescriptionPlaceholder')}
               value={formData.description}
               onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
               rows={3}
@@ -207,7 +208,7 @@ export default function EditRevenue() {
               }}
               data-testid="button-cancel"
             >
-              Отмена
+              {t('cancel')}
             </button>
             <button
               type="submit"
@@ -216,7 +217,7 @@ export default function EditRevenue() {
               style={{ background: 'var(--corp-pos)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-save"
             >
-              {isPending ? 'Сохранение…' : 'Сохранить'}
+              {isPending ? t('saving') : t('save')}
             </button>
           </div>
         </form>

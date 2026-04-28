@@ -17,6 +17,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ShieldCheck, RotateCcw, Save, Search, History as HistoryIcon, ArrowLeft, Users as UsersIcon, UserCog } from "lucide-react";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDateTime } from "@/lib/locale";
 
 interface RegistryPermission {
   key: string;
@@ -54,20 +56,27 @@ interface AuditEntry {
   newValue: string;
 }
 
-function valueLabel(v: string | null): string {
-  switch (v) {
-    case "enabled": return "Включено";
-    case "disabled": return "Выключено";
-    case "inherit": return "По умолчанию";
-    default: return "—";
-  }
-}
-
 export default function PermissionsAndAccess() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  const valueLabel = (v: string | null): string => {
+    switch (v) {
+      case "enabled": return t('perm_enabled');
+      case "disabled": return t('perm_disabled');
+      case "inherit": return t('perm_inherit');
+      default: return t('perm_dash');
+    }
+  };
+
+  const rightWord = (count: number): string => {
+    if (count === 1) return t('perm_rightOne');
+    if (count < 5) return t('perm_rightFew');
+    return t('perm_rightMany');
+  };
 
   // ===== Registry =====
   const { data: registry, isLoading: regLoading } = useQuery<Registry>({
@@ -116,23 +125,23 @@ export default function PermissionsAndAccess() {
       });
     },
     onSuccess: () => {
-      toast({ title: "Сохранено", description: `Изменено прав: ${roleDirty.length}` });
+      toast({ title: t('perm_savedToast'), description: t('perm_changesCountLabel').replace('{count}', String(roleDirty.length)) });
       qc.invalidateQueries({ queryKey: ["/api/permissions/role", selectedRole] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/audit"] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/me"] });
     },
-    onError: (e: any) => toast({ title: "Ошибка", description: String(e?.message ?? e), variant: "destructive" }),
+    onError: (e: any) => toast({ title: t('error'), description: String(e?.message ?? e), variant: "destructive" }),
   });
 
   const resetRoleMut = useMutation({
     mutationFn: async () => apiRequest(`/api/permissions/role/${selectedRole}/reset`, { method: "POST" }),
     onSuccess: () => {
-      toast({ title: "Сброшено к значениям по умолчанию" });
+      toast({ title: t('perm_resetToDefaultsToast') });
       qc.invalidateQueries({ queryKey: ["/api/permissions/role", selectedRole] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/audit"] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/me"] });
     },
-    onError: (e: any) => toast({ title: "Ошибка", description: String(e?.message ?? e), variant: "destructive" }),
+    onError: (e: any) => toast({ title: t('error'), description: String(e?.message ?? e), variant: "destructive" }),
   });
 
   // ===== Tab "По сотрудникам" =====
@@ -187,23 +196,23 @@ export default function PermissionsAndAccess() {
       });
     },
     onSuccess: () => {
-      toast({ title: "Сохранено", description: `Изменено прав: ${userDirty.length}` });
+      toast({ title: t('perm_savedToast'), description: t('perm_changesCountLabel').replace('{count}', String(userDirty.length)) });
       qc.invalidateQueries({ queryKey: ["/api/permissions/user", selectedUserId] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/audit"] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/me"] });
     },
-    onError: (e: any) => toast({ title: "Ошибка", description: String(e?.message ?? e), variant: "destructive" }),
+    onError: (e: any) => toast({ title: t('error'), description: String(e?.message ?? e), variant: "destructive" }),
   });
 
   const resetUserMut = useMutation({
     mutationFn: async () => apiRequest(`/api/permissions/user/${selectedUserId}/reset`, { method: "POST" }),
     onSuccess: () => {
-      toast({ title: "Персональные настройки сброшены" });
+      toast({ title: t('perm_personalSettingsReset') });
       qc.invalidateQueries({ queryKey: ["/api/permissions/user", selectedUserId] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/audit"] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/me"] });
     },
-    onError: (e: any) => toast({ title: "Ошибка", description: String(e?.message ?? e), variant: "destructive" }),
+    onError: (e: any) => toast({ title: t('error'), description: String(e?.message ?? e), variant: "destructive" }),
   });
 
   // ===== Tab "По персоналу" =====
@@ -282,23 +291,23 @@ export default function PermissionsAndAccess() {
       });
     },
     onSuccess: () => {
-      toast({ title: "Сохранено", description: `Изменено прав: ${personnelUserDirty.length}` });
+      toast({ title: t('perm_savedToast'), description: t('perm_changesCountLabel').replace('{count}', String(personnelUserDirty.length)) });
       qc.invalidateQueries({ queryKey: ["/api/permissions/user", personnelLinkedUserId] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/audit"] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/me"] });
     },
-    onError: (e: any) => toast({ title: "Ошибка", description: String(e?.message ?? e), variant: "destructive" }),
+    onError: (e: any) => toast({ title: t('error'), description: String(e?.message ?? e), variant: "destructive" }),
   });
 
   const resetPersonnelUserMut = useMutation({
     mutationFn: async () => apiRequest(`/api/permissions/user/${personnelLinkedUserId}/reset`, { method: "POST" }),
     onSuccess: () => {
-      toast({ title: "Персональные настройки сброшены" });
+      toast({ title: t('perm_personalSettingsReset') });
       qc.invalidateQueries({ queryKey: ["/api/permissions/user", personnelLinkedUserId] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/audit"] });
       qc.invalidateQueries({ queryKey: ["/api/permissions/me"] });
     },
-    onError: (e: any) => toast({ title: "Ошибка", description: String(e?.message ?? e), variant: "destructive" }),
+    onError: (e: any) => toast({ title: t('error'), description: String(e?.message ?? e), variant: "destructive" }),
   });
 
   // ===== Tab "Журнал" =====
@@ -310,8 +319,8 @@ export default function PermissionsAndAccess() {
   if (user?.role !== "admin") {
     return (
       <div className="p-6 max-w-3xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-2">Доступ запрещён</h1>
-        <p className="text-slate-600">Раздел доступен только администратору.</p>
+        <h1 className="text-2xl font-semibold mb-2">{t('accessDenied')}</h1>
+        <p className="text-slate-600">{t('perm_adminOnlySection')}</p>
       </div>
     );
   }
@@ -326,33 +335,32 @@ export default function PermissionsAndAccess() {
           data-testid="button-back-to-admin"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          К админ-панели
+          {t('perm_backToAdmin')}
         </Button>
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-slate-600" />
-          <h1 className="text-xl sm:text-2xl font-semibold">Права и доступ</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold">{t('permissions')}</h1>
         </div>
       </div>
 
       <p className="text-sm text-slate-600 mb-4">
-        Гибкая настройка прав по ролям и индивидуальные переопределения для сотрудников.
-        По умолчанию каждая роль имеет тот же набор прав, что и до внедрения этой страницы.
+        {t('perm_pageDescription')}
       </p>
 
       <Tabs defaultValue="by-role" className="w-full">
         <TabsList className="mb-4 flex-wrap h-auto">
-          <TabsTrigger value="by-role" data-testid="tab-by-role">По ролям</TabsTrigger>
+          <TabsTrigger value="by-role" data-testid="tab-by-role">{t('perm_tabByRole')}</TabsTrigger>
           <TabsTrigger value="by-user" data-testid="tab-by-user">
             <UsersIcon className="w-4 h-4 mr-1" />
-            По сотрудникам
+            {t('perm_tabByUser')}
           </TabsTrigger>
           <TabsTrigger value="by-personnel" data-testid="tab-by-personnel">
             <UserCog className="w-4 h-4 mr-1" />
-            По персоналу
+            {t('perm_tabByPersonnel')}
           </TabsTrigger>
           <TabsTrigger value="audit" data-testid="tab-audit">
             <HistoryIcon className="w-4 h-4 mr-1" />
-            Журнал
+            {t('perm_tabAudit')}
           </TabsTrigger>
         </TabsList>
 
@@ -361,10 +369,10 @@ export default function PermissionsAndAccess() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between gap-3 flex-wrap">
-                <span>Настройки роли</span>
+                <span>{t('perm_roleSettings')}</span>
                 <Select value={selectedRole} onValueChange={setSelectedRole}>
                   <SelectTrigger className="w-[180px]" data-testid="select-role">
-                    <SelectValue placeholder="Выберите роль" />
+                    <SelectValue placeholder={t('selectRole')} />
                   </SelectTrigger>
                   <SelectContent>
                     {(registry?.roles ?? []).map((r) => (
@@ -403,7 +411,7 @@ export default function PermissionsAndAccess() {
                               }}
                               data-testid={`button-enable-all-${category.key}`}
                             >
-                              Включить все
+                              {t('perm_enableAll')}
                             </Button>
                             <Button
                               variant="ghost"
@@ -415,7 +423,7 @@ export default function PermissionsAndAccess() {
                               }}
                               data-testid={`button-disable-all-${category.key}`}
                             >
-                              Выключить все
+                              {t('perm_disableAll')}
                             </Button>
                           </div>
                         </div>
@@ -447,8 +455,8 @@ export default function PermissionsAndAccess() {
                   <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
                     <div className="text-sm text-slate-600">
                       {roleDirty.length > 0
-                        ? <>Несохранённых изменений: <b>{roleDirty.length}</b></>
-                        : "Изменений нет"}
+                        ? t('perm_unsavedChangesLabel').replace('{count}', String(roleDirty.length))
+                        : t('perm_noChanges')}
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -458,7 +466,7 @@ export default function PermissionsAndAccess() {
                         data-testid="button-reset-role"
                       >
                         <RotateCcw className="w-4 h-4 mr-1" />
-                        Сбросить к дефолту
+                        {t('perm_resetToDefault')}
                       </Button>
                       <Button
                         onClick={() => setConfirmRoleSaveOpen(true)}
@@ -466,7 +474,7 @@ export default function PermissionsAndAccess() {
                         data-testid="button-save-role"
                       >
                         <Save className="w-4 h-4 mr-1" />
-                        Сохранить
+                        {t('save')}
                       </Button>
                     </div>
                   </div>
@@ -480,14 +488,14 @@ export default function PermissionsAndAccess() {
         <TabsContent value="by-user">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="md:col-span-1">
-              <CardHeader><CardTitle>Сотрудники</CardTitle></CardHeader>
+              <CardHeader><CardTitle>{t('employees')}</CardTitle></CardHeader>
               <CardContent>
                 <div className="relative mb-3">
                   <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                   <Input
                     value={userQuery}
                     onChange={(e) => setUserQuery(e.target.value)}
-                    placeholder="Поиск..."
+                    placeholder={t('perm_searchPlaceholderShort')}
                     className="pl-8"
                     data-testid="input-user-search"
                   />
@@ -510,7 +518,7 @@ export default function PermissionsAndAccess() {
                     </button>
                   ))}
                   {filteredUsers.length === 0 && (
-                    <div className="p-3 text-sm text-slate-500">Нет совпадений</div>
+                    <div className="p-3 text-sm text-slate-500">{t('perm_noMatches')}</div>
                   )}
                 </div>
               </CardContent>
@@ -520,14 +528,14 @@ export default function PermissionsAndAccess() {
               <CardHeader>
                 <CardTitle>
                   {userPerms
-                    ? <>Права: {userPerms.user.name} <span className="text-sm font-normal text-slate-500">({userPerms.user.role})</span></>
-                    : "Выберите сотрудника"}
+                    ? <>{t('perm_permissionsLabel')}: {userPerms.user.name} <span className="text-sm font-normal text-slate-500">({userPerms.user.role})</span></>
+                    : t('perm_selectEmployee')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {!selectedUserId && (
                   <div className="text-sm text-slate-500">
-                    Выберите сотрудника слева, чтобы увидеть его права.
+                    {t('perm_selectUserHint')}
                   </div>
                 )}
                 {selectedUserId && userPermsLoading && (
@@ -560,12 +568,12 @@ export default function PermissionsAndAccess() {
                                       <div className="font-medium text-sm">{p.name}</div>
                                       <div className="text-xs text-slate-500">{p.description}</div>
                                       <div className="text-xs mt-1">
-                                        <span className="text-slate-500">Сейчас действует:</span>{" "}
+                                        <span className="text-slate-500">{t('perm_currentlyActive')}</span>{" "}
                                         <Badge variant={effective ? "default" : "secondary"}>
-                                          {effective ? "Включено" : "Выключено"}
+                                          {effective ? t('perm_enabled') : t('perm_disabled')}
                                         </Badge>{" "}
                                         <span className="text-slate-400">
-                                          (наследуется от роли: {item.roleValue ? "включено" : "выключено"})
+                                          {t('perm_inheritedFromRole').replace('{value}', item.roleValue ? t('perm_enabledShort') : t('perm_disabledShort'))}
                                         </span>
                                       </div>
                                     </div>
@@ -582,9 +590,9 @@ export default function PermissionsAndAccess() {
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="inherit">По умолчанию</SelectItem>
-                                        <SelectItem value="enabled">Включено</SelectItem>
-                                        <SelectItem value="disabled">Выключено</SelectItem>
+                                        <SelectItem value="inherit">{t('perm_inherit')}</SelectItem>
+                                        <SelectItem value="enabled">{t('perm_enabled')}</SelectItem>
+                                        <SelectItem value="disabled">{t('perm_disabled')}</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>
@@ -599,8 +607,8 @@ export default function PermissionsAndAccess() {
                     <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
                       <div className="text-sm text-slate-600">
                         {userDirty.length > 0
-                          ? <>Несохранённых изменений: <b>{userDirty.length}</b></>
-                          : "Изменений нет"}
+                          ? t('perm_unsavedChangesLabel').replace('{count}', String(userDirty.length))
+                          : t('perm_noChanges')}
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -610,7 +618,7 @@ export default function PermissionsAndAccess() {
                           data-testid="button-reset-user"
                         >
                           <RotateCcw className="w-4 h-4 mr-1" />
-                          Сбросить персональные
+                          {t('perm_resetPersonal')}
                         </Button>
                         <Button
                           onClick={() => setConfirmUserSaveOpen(true)}
@@ -618,7 +626,7 @@ export default function PermissionsAndAccess() {
                           data-testid="button-save-user"
                         >
                           <Save className="w-4 h-4 mr-1" />
-                          Сохранить
+                          {t('save')}
                         </Button>
                       </div>
                     </div>
@@ -634,10 +642,9 @@ export default function PermissionsAndAccess() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="md:col-span-1">
               <CardHeader>
-                <CardTitle>Персонал</CardTitle>
+                <CardTitle>{t('personnel')}</CardTitle>
                 <p className="text-xs text-slate-500 mt-1">
-                  Права настраиваются для привязанной учётной записи. Если её нет —
-                  откройте карточку сотрудника и создайте/привяжите учётку.
+                  {t('perm_personnelHint')}
                 </p>
               </CardHeader>
               <CardContent>
@@ -646,7 +653,7 @@ export default function PermissionsAndAccess() {
                   <Input
                     value={personnelQuery}
                     onChange={(e) => setPersonnelQuery(e.target.value)}
-                    placeholder="ФИО или должность..."
+                    placeholder={t('perm_searchPersonnelPlaceholder')}
                     className="pl-8"
                     data-testid="input-personnel-search"
                   />
@@ -670,16 +677,16 @@ export default function PermissionsAndAccess() {
                         <div className="text-xs text-slate-500 truncate flex items-center gap-2">
                           <span>{p.specialization || "—"}</span>
                           {linked ? (
-                            <Badge variant="default" className="text-[10px] py-0 h-4">есть учётка</Badge>
+                            <Badge variant="default" className="text-[10px] py-0 h-4">{t('perm_hasAccount')}</Badge>
                           ) : (
-                            <Badge variant="secondary" className="text-[10px] py-0 h-4">без учётки</Badge>
+                            <Badge variant="secondary" className="text-[10px] py-0 h-4">{t('perm_noAccount')}</Badge>
                           )}
                         </div>
                       </button>
                     );
                   })}
                   {filteredPersonnel.length === 0 && (
-                    <div className="p-3 text-sm text-slate-500">Нет совпадений</div>
+                    <div className="p-3 text-sm text-slate-500">{t('perm_noMatches')}</div>
                   )}
                 </div>
               </CardContent>
@@ -690,35 +697,34 @@ export default function PermissionsAndAccess() {
                 <CardTitle>
                   {selectedPersonnel ? (
                     <>
-                      Права: {selectedPersonnel.lastName} {selectedPersonnel.firstName}
+                      {t('perm_permissionsLabel')}: {selectedPersonnel.lastName} {selectedPersonnel.firstName}
                       {personnelUserPerms && (
                         <span className="text-sm font-normal text-slate-500"> ({personnelUserPerms.user.role})</span>
                       )}
                     </>
                   ) : (
-                    "Выберите сотрудника"
+                    t('perm_selectEmployee')
                   )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {!selectedPersonnel && (
                   <div className="text-sm text-slate-500">
-                    Выберите сотрудника слева, чтобы настроить его права.
+                    {t('perm_selectPersonnelHint')}
                   </div>
                 )}
                 {selectedPersonnel && !personnelLinkedUserId && (
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm">
-                    <div className="font-medium text-amber-900 mb-1">У этого сотрудника нет учётной записи</div>
+                    <div className="font-medium text-amber-900 mb-1">{t('perm_noAccountTitle')}</div>
                     <p className="text-amber-800 mb-3">
-                      Чтобы настроить права для {selectedPersonnel.lastName} {selectedPersonnel.firstName},
-                      нужно сначала создать или привязать учётную запись в карточке персонала.
+                      {t('perm_noAccountDesc').replace('{name}', `${selectedPersonnel.lastName} ${selectedPersonnel.firstName}`)}
                     </p>
                     <Button
                       size="sm"
                       onClick={() => setLocation(`/personnel/${selectedPersonnel.id}`)}
                       data-testid="button-open-personnel-card"
                     >
-                      Открыть карточку сотрудника
+                      {t('perm_openPersonnelCard')}
                     </Button>
                   </div>
                 )}
@@ -752,12 +758,12 @@ export default function PermissionsAndAccess() {
                                       <div className="font-medium text-sm">{p.name}</div>
                                       <div className="text-xs text-slate-500">{p.description}</div>
                                       <div className="text-xs mt-1">
-                                        <span className="text-slate-500">Сейчас действует:</span>{" "}
+                                        <span className="text-slate-500">{t('perm_currentlyActive')}</span>{" "}
                                         <Badge variant={effective ? "default" : "secondary"}>
-                                          {effective ? "Включено" : "Выключено"}
+                                          {effective ? t('perm_enabled') : t('perm_disabled')}
                                         </Badge>{" "}
                                         <span className="text-slate-400">
-                                          (наследуется от роли: {item.roleValue ? "включено" : "выключено"})
+                                          {t('perm_inheritedFromRole').replace('{value}', item.roleValue ? t('perm_enabledShort') : t('perm_disabledShort'))}
                                         </span>
                                       </div>
                                     </div>
@@ -774,9 +780,9 @@ export default function PermissionsAndAccess() {
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="inherit">По умолчанию</SelectItem>
-                                        <SelectItem value="enabled">Включено</SelectItem>
-                                        <SelectItem value="disabled">Выключено</SelectItem>
+                                        <SelectItem value="inherit">{t('perm_inherit')}</SelectItem>
+                                        <SelectItem value="enabled">{t('perm_enabled')}</SelectItem>
+                                        <SelectItem value="disabled">{t('perm_disabled')}</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>
@@ -791,8 +797,8 @@ export default function PermissionsAndAccess() {
                     <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
                       <div className="text-sm text-slate-600">
                         {personnelUserDirty.length > 0
-                          ? <>Несохранённых изменений: <b>{personnelUserDirty.length}</b></>
-                          : "Изменений нет"}
+                          ? t('perm_unsavedChangesLabel').replace('{count}', String(personnelUserDirty.length))
+                          : t('perm_noChanges')}
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -802,7 +808,7 @@ export default function PermissionsAndAccess() {
                           data-testid="button-reset-personnel"
                         >
                           <RotateCcw className="w-4 h-4 mr-1" />
-                          Сбросить персональные
+                          {t('perm_resetPersonal')}
                         </Button>
                         <Button
                           onClick={() => setConfirmPersonnelSaveOpen(true)}
@@ -810,7 +816,7 @@ export default function PermissionsAndAccess() {
                           data-testid="button-save-personnel"
                         >
                           <Save className="w-4 h-4 mr-1" />
-                          Сохранить
+                          {t('save')}
                         </Button>
                       </div>
                     </div>
@@ -824,29 +830,31 @@ export default function PermissionsAndAccess() {
         {/* ===================== Журнал ===================== */}
         <TabsContent value="audit">
           <Card>
-            <CardHeader><CardTitle>Журнал последних изменений (до 100 записей)</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t('perm_auditLogTitle')}</CardTitle></CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead className="text-left text-slate-500">
                     <tr>
-                      <th className="py-2 pr-3">Когда</th>
-                      <th className="py-2 pr-3">Кто</th>
-                      <th className="py-2 pr-3">Где</th>
-                      <th className="py-2 pr-3">Право</th>
-                      <th className="py-2 pr-3">Было</th>
-                      <th className="py-2 pr-3">Стало</th>
+                      <th className="py-2 pr-3">{t('perm_colWhen')}</th>
+                      <th className="py-2 pr-3">{t('perm_colWho')}</th>
+                      <th className="py-2 pr-3">{t('perm_colWhere')}</th>
+                      <th className="py-2 pr-3">{t('perm_colPermission')}</th>
+                      <th className="py-2 pr-3">{t('perm_colBefore')}</th>
+                      <th className="py-2 pr-3">{t('perm_colAfter')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(auditEntries ?? []).map((e) => (
                       <tr key={e.id} className="border-t" data-testid={`row-audit-${e.id}`}>
                         <td className="py-2 pr-3 whitespace-nowrap">
-                          {new Date(e.changedAt).toLocaleString("ru-RU")}
+                          {fmtDateTime(e.changedAt, language)}
                         </td>
                         <td className="py-2 pr-3">{e.actor?.name ?? "—"}</td>
                         <td className="py-2 pr-3">
-                          {e.scope === "role" ? "роль" : "сотрудник"}: {e.scopeLabel}
+                          {t('perm_scopeFormat')
+                            .replace('{scope}', e.scope === "role" ? t('perm_scopeRole') : t('perm_scopeUser'))
+                            .replace('{label}', e.scopeLabel)}
                         </td>
                         <td className="py-2 pr-3">{e.permissionName}</td>
                         <td className="py-2 pr-3">{valueLabel(e.prevValue)}</td>
@@ -854,7 +862,7 @@ export default function PermissionsAndAccess() {
                       </tr>
                     ))}
                     {(!auditEntries || auditEntries.length === 0) && (
-                      <tr><td colSpan={6} className="py-4 text-slate-500 text-center">Журнал пуст</td></tr>
+                      <tr><td colSpan={6} className="py-4 text-slate-500 text-center">{t('perm_auditEmpty')}</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -868,16 +876,17 @@ export default function PermissionsAndAccess() {
       <AlertDialog open={confirmRoleSaveOpen} onOpenChange={setConfirmRoleSaveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Сохранить изменения?</AlertDialogTitle>
+            <AlertDialogTitle>{t('perm_saveChangesTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы изменили {roleDirty.length}{" "}
-              {roleDirty.length === 1 ? "право" : roleDirty.length < 5 ? "права" : "прав"}{" "}
-              для роли «{registry?.roles.find((r) => r.key === selectedRole)?.label}». Сохранить?
+              {t('perm_saveRoleConfirm')
+                .replace('{count}', String(roleDirty.length))
+                .replace('{word}', rightWord(roleDirty.length))
+                .replace('{role}', registry?.roles.find((r) => r.key === selectedRole)?.label ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => saveRoleMut.mutate()}>Сохранить</AlertDialogAction>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => saveRoleMut.mutate()}>{t('save')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -885,15 +894,14 @@ export default function PermissionsAndAccess() {
       <AlertDialog open={confirmRoleResetOpen} onOpenChange={setConfirmRoleResetOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Сбросить настройки роли?</AlertDialogTitle>
+            <AlertDialogTitle>{t('perm_resetRoleTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Все права роли «{registry?.roles.find((r) => r.key === selectedRole)?.label}» будут
-              возвращены к значениям по умолчанию.
+              {t('perm_resetRoleDesc').replace('{role}', registry?.roles.find((r) => r.key === selectedRole)?.label ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => resetRoleMut.mutate()}>Сбросить</AlertDialogAction>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => resetRoleMut.mutate()}>{t('perm_resetButton')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -901,16 +909,17 @@ export default function PermissionsAndAccess() {
       <AlertDialog open={confirmUserSaveOpen} onOpenChange={setConfirmUserSaveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Сохранить персональные настройки?</AlertDialogTitle>
+            <AlertDialogTitle>{t('perm_savePersonalTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы изменили {userDirty.length}{" "}
-              {userDirty.length === 1 ? "право" : userDirty.length < 5 ? "права" : "прав"}{" "}
-              для {userPerms?.user.name}. Сохранить?
+              {t('perm_saveUserConfirm')
+                .replace('{count}', String(userDirty.length))
+                .replace('{word}', rightWord(userDirty.length))
+                .replace('{name}', userPerms?.user.name ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => saveUserMut.mutate()}>Сохранить</AlertDialogAction>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => saveUserMut.mutate()}>{t('save')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -918,15 +927,14 @@ export default function PermissionsAndAccess() {
       <AlertDialog open={confirmUserResetOpen} onOpenChange={setConfirmUserResetOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Сбросить персональные настройки?</AlertDialogTitle>
+            <AlertDialogTitle>{t('perm_resetPersonalTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Все индивидуальные переопределения для {userPerms?.user.name} будут сняты.
-              Сотрудник снова будет работать строго по правам своей роли.
+              {t('perm_resetPersonalDesc').replace('{name}', userPerms?.user.name ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => resetUserMut.mutate()}>Сбросить</AlertDialogAction>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => resetUserMut.mutate()}>{t('perm_resetButton')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -934,16 +942,17 @@ export default function PermissionsAndAccess() {
       <AlertDialog open={confirmPersonnelSaveOpen} onOpenChange={setConfirmPersonnelSaveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Сохранить персональные настройки?</AlertDialogTitle>
+            <AlertDialogTitle>{t('perm_savePersonalTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы изменили {personnelUserDirty.length}{" "}
-              {personnelUserDirty.length === 1 ? "право" : personnelUserDirty.length < 5 ? "права" : "прав"}{" "}
-              для {selectedPersonnel?.lastName} {selectedPersonnel?.firstName}. Сохранить?
+              {t('perm_saveUserConfirm')
+                .replace('{count}', String(personnelUserDirty.length))
+                .replace('{word}', rightWord(personnelUserDirty.length))
+                .replace('{name}', selectedPersonnel ? `${selectedPersonnel.lastName} ${selectedPersonnel.firstName}` : '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => savePersonnelUserMut.mutate()}>Сохранить</AlertDialogAction>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => savePersonnelUserMut.mutate()}>{t('save')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -951,15 +960,14 @@ export default function PermissionsAndAccess() {
       <AlertDialog open={confirmPersonnelResetOpen} onOpenChange={setConfirmPersonnelResetOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Сбросить персональные настройки?</AlertDialogTitle>
+            <AlertDialogTitle>{t('perm_resetPersonalTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Все индивидуальные переопределения для {selectedPersonnel?.lastName} {selectedPersonnel?.firstName} будут сняты.
-              Сотрудник снова будет работать строго по правам своей роли.
+              {t('perm_resetPersonalDesc').replace('{name}', selectedPersonnel ? `${selectedPersonnel.lastName} ${selectedPersonnel.firstName}` : '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => resetPersonnelUserMut.mutate()}>Сбросить</AlertDialogAction>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => resetPersonnelUserMut.mutate()}>{t('perm_resetButton')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

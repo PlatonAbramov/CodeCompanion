@@ -15,6 +15,7 @@ import { QuickAddContractor } from "@/components/QuickAddContractor";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, Check, FileText } from "lucide-react";
 import { CorpHeader } from "@/components/corp-ui";
+import { fmtNumber } from "@/lib/locale";
 
 interface Project { id: string; name: string }
 interface Contractor { id: string; name: string; company?: string; specialization: string }
@@ -40,7 +41,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export default function AddExpense() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -83,11 +84,11 @@ export default function AddExpense() {
         queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'expenses'] });
         queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'financial-summary'] });
       }
-      toast({ title: "Успешно", description: "Расход добавлен" });
+      toast({ title: t('success'), description: t('expenseAdded') });
       goBack();
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось добавить расход", variant: "destructive" });
+      toast({ title: t('error'), description: t('expenseAddFailed'), variant: "destructive" });
     },
   });
 
@@ -111,11 +112,9 @@ export default function AddExpense() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.category === 'contractor_payments' && !formData.contractorId) {
-      toast({ title: "Ошибка", description: "Выберите подрядчика для оплаты", variant: "destructive" });
+      toast({ title: t('error'), description: t('selectContractorRequired'), variant: "destructive" });
       return;
     }
-    // Чек необязателен. Если он есть — сервер отправит его в Telegram-чат, если нет — расход
-    // всё равно сохраняется, просто без уведомления.
     const dataToSubmit = {
       ...formData,
       contractorId: formData.category === 'contractor_payments' ? formData.contractorId : undefined,
@@ -124,20 +123,20 @@ export default function AddExpense() {
   };
 
   const categories = [
-    { value: 'materials', label: 'Материалы' },
-    { value: 'tools', label: 'Инструменты' },
-    { value: 'transport', label: 'Транспорт' },
-    { value: 'services', label: 'Услуги' },
-    { value: 'salary_employees', label: 'Зарплата действующим сотрудникам' },
-    { value: 'salary_daily', label: 'Зарплата поднёвщикам' },
-    { value: 'contractor_payments', label: 'Оплата подрядчикам' },
-    { value: 'other', label: 'Прочее' },
+    { value: 'materials', label: t('materials') },
+    { value: 'tools', label: t('tools') },
+    { value: 'transport', label: t('transport') },
+    { value: 'services', label: t('services') },
+    { value: 'salary_employees', label: t('salaryEmployeesLong') },
+    { value: 'salary_daily', label: t('salaryDaily') },
+    { value: 'contractor_payments', label: t('contractorPayments') },
+    { value: 'other', label: t('other') },
   ];
 
   const formatNum = (s: string) => {
     if (!s) return '';
     const n = parseFloat(s || "0");
-    return n.toLocaleString("ru-RU");
+    return fmtNumber(n, language);
   };
 
   return (
@@ -145,19 +144,19 @@ export default function AddExpense() {
       className="min-h-screen pb-24"
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
-      <CorpHeader title={t('addExpense') || 'Новый расход'} subtitle="Запись затрат по проекту" onBack={goBack} />
+      <CorpHeader title={t('newExpenseTitle')} subtitle={t('expenseSubtitle')} onBack={goBack} />
 
       <main className="px-4 pt-4">
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Project */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Проект</FieldLabel>
+            <FieldLabel>{t('project')}</FieldLabel>
             <Select
               value={formData.projectId}
               onValueChange={(v) => setFormData(p => ({ ...p, projectId: v }))}
             >
               <SelectTrigger className="h-10 text-[13px]" data-testid="select-project">
-                <SelectValue placeholder="Выберите проект" />
+                <SelectValue placeholder={t('selectProject')} />
               </SelectTrigger>
               <SelectContent>
                 {projects.map(p => (
@@ -169,7 +168,7 @@ export default function AddExpense() {
 
           {/* Amount */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>{t('amount') || 'Сумма'}</FieldLabel>
+            <FieldLabel required>{t('amount')}</FieldLabel>
             <div className="relative">
               <Input
                 type="number"
@@ -197,7 +196,7 @@ export default function AddExpense() {
 
           {/* Category */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>{t('category') || 'Категория'}</FieldLabel>
+            <FieldLabel required>{t('category')}</FieldLabel>
             <Select
               value={formData.category}
               onValueChange={(v) => setFormData(p => ({
@@ -207,7 +206,7 @@ export default function AddExpense() {
               }))}
             >
               <SelectTrigger className="h-10 text-[13px]" data-testid="select-category">
-                <SelectValue placeholder="Выберите категорию" />
+                <SelectValue placeholder={t('selectCategory')} />
               </SelectTrigger>
               <SelectContent>
                 {categories.map(c => (
@@ -221,7 +220,7 @@ export default function AddExpense() {
           {formData.category === 'contractor_payments' && (
             <div className="p-4" style={SECTION_STYLE}>
               <div className="flex items-center justify-between mb-1.5">
-                <FieldLabel required>Подрядчик</FieldLabel>
+                <FieldLabel required>{t('contractor')}</FieldLabel>
                 <QuickAddContractor
                   onContractorAdded={(id) => setFormData(p => ({ ...p, contractorId: id }))}
                 />
@@ -231,7 +230,7 @@ export default function AddExpense() {
                 onValueChange={(v) => setFormData(p => ({ ...p, contractorId: v }))}
               >
                 <SelectTrigger className="h-10 text-[13px]" data-testid="select-contractor">
-                  <SelectValue placeholder="Выберите подрядчика" />
+                  <SelectValue placeholder={t('selectContractor')} />
                 </SelectTrigger>
                 <SelectContent>
                   {contractors.map(c => (
@@ -244,11 +243,11 @@ export default function AddExpense() {
 
           {/* Description */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>{t('description') || 'Описание'}</FieldLabel>
+            <FieldLabel>{t('description')}</FieldLabel>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
-              placeholder="Дополнительная информация о расходе"
+              placeholder={t('expenseDescriptionPlaceholder')}
               className="resize-none text-[13px]"
               rows={3}
               data-testid="input-description"
@@ -257,7 +256,7 @@ export default function AddExpense() {
 
           {/* Receipt */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Чек (необязательно)</FieldLabel>
+            <FieldLabel>{t('receiptOptional')}</FieldLabel>
             <div
               className="rounded-lg p-5 text-center"
               style={{
@@ -272,7 +271,7 @@ export default function AddExpense() {
                 <Camera size={20} />
               </div>
               <p className="text-[12px] mb-3" style={{ color: 'var(--corp-ink-3)' }}>
-                Сфотографируйте или выберите файл
+                {t('takePhotoOrChoose')}
               </p>
               <FileUploader
                 onUpload={handleReceiptUpload}
@@ -282,7 +281,7 @@ export default function AddExpense() {
               >
                 <div className="inline-flex items-center gap-1.5 text-[12px] font-semibold">
                   <Camera size={13} />
-                  <span>{t('attachFile') || 'Прикрепить файл'}</span>
+                  <span>{t('attachFile')}</span>
                 </div>
               </FileUploader>
 
@@ -317,7 +316,7 @@ export default function AddExpense() {
               style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-submit-expense"
             >
-              {createExpenseMutation.isPending ? (t('loading') || 'Загрузка…') : (t('addExpense') || 'Добавить расход')}
+              {createExpenseMutation.isPending ? t('loading') : t('addExpense')}
             </button>
           </div>
         </form>

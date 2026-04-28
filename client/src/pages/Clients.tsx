@@ -15,6 +15,7 @@ import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/components/LanguageProvider";
 import { CorpHeader, MoneyAED, CorpEmpty } from "@/components/corp-ui";
 
 const SECTION_STYLE: React.CSSProperties = {
@@ -23,7 +24,7 @@ const SECTION_STYLE: React.CSSProperties = {
   borderRadius: 'var(--corp-r-lg)',
 };
 
-function StatusPill({ active, labelOn = 'Активный', labelOff = 'Неактивный' }: { active: boolean; labelOn?: string; labelOff?: string }) {
+function StatusPill({ active, labelOn, labelOff }: { active: boolean; labelOn: string; labelOff: string }) {
   return (
     <span
       className="inline-flex items-center px-2 h-5 text-[10px] font-bold uppercase"
@@ -39,7 +40,7 @@ function StatusPill({ active, labelOn = 'Активный', labelOff = 'Неак
   );
 }
 
-function DeletedPill() {
+function DeletedPill({ label }: { label: string }) {
   return (
     <span
       className="inline-flex items-center px-2 h-5 text-[10px] font-bold uppercase"
@@ -50,7 +51,7 @@ function DeletedPill() {
         letterSpacing: '0.04em',
       }}
     >
-      Удален
+      {label}
     </span>
   );
 }
@@ -67,6 +68,7 @@ function ClientCard({
   onClick: () => void;
   deleted?: boolean;
 }) {
+  const { t } = useLanguage();
   const canManage = role === 'admin' || role === 'director';
   return (
     <div
@@ -92,13 +94,15 @@ function ClientCard({
             </p>
           )}
         </div>
-        {deleted ? <DeletedPill /> : <StatusPill active={!!client.isActive} />}
+        {deleted
+          ? <DeletedPill label={t('deletedPill')} />
+          : <StatusPill active={!!client.isActive} labelOn={t('activeStatusPill')} labelOff={t('inactiveStatusPill')} />}
       </div>
 
       <div className="space-y-1.5 mt-3">
         {client.contactPerson && (
           <div className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--corp-ink-2)' }}>
-            <span style={{ color: 'var(--corp-muted)' }}>Контакт:</span>
+            <span style={{ color: 'var(--corp-muted)' }}>{t('contactColon')}</span>
             <span>{client.contactPerson}</span>
           </div>
         )}
@@ -122,8 +126,8 @@ function ClientCard({
         )}
         {client.userId && (
           <div className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--corp-ink-2)' }}>
-            <span style={{ color: 'var(--corp-muted)' }}>Пользователь:</span>
-            <span>{clientUsers.find(u => u.id === client.userId)?.name || 'Не найден'}</span>
+            <span style={{ color: 'var(--corp-muted)' }}>{t('userColon')}</span>
+            <span>{clientUsers.find(u => u.id === client.userId)?.name || t('notFoundShort')}</span>
           </div>
         )}
       </div>
@@ -141,7 +145,7 @@ function ClientCard({
             }}
             data-testid={`button-edit-${client.id}`}
           >
-            <Edit2 size={12} /> Изменить
+            <Edit2 size={12} /> {t('changeLabel')}
           </button>
           <button
             type="button"
@@ -154,7 +158,7 @@ function ClientCard({
             }}
             data-testid={`button-delete-${client.id}`}
           >
-            <Trash2 size={12} /> Удалить
+            <Trash2 size={12} /> {t('deleteShort')}
           </button>
         </div>
       )}
@@ -172,7 +176,7 @@ function ClientCard({
             }}
             data-testid={`button-restore-${client.id}`}
           >
-            <RotateCcw size={12} /> Восстановить
+            <RotateCcw size={12} /> {t('restoreLabel')}
           </button>
         </div>
       )}
@@ -184,6 +188,7 @@ export default function ClientsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [, setLocation] = useLocation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -245,10 +250,10 @@ export default function ClientsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       setIsDialogOpen(false);
       form.reset();
-      toast({ title: "Заказчик создан успешно" });
+      toast({ title: t('clientCreatedToast') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось создать заказчика", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('clientCreateFailedToast'), variant: "destructive" });
     },
   });
 
@@ -267,10 +272,10 @@ export default function ClientsPage() {
       setIsDialogOpen(false);
       setEditingClient(null);
       form.reset();
-      toast({ title: "Заказчик обновлен успешно" });
+      toast({ title: t('clientUpdatedToast') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось обновить заказчика", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('clientUpdateFailedToast'), variant: "destructive" });
     },
   });
 
@@ -283,10 +288,10 @@ export default function ClientsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients/deleted"] });
-      toast({ title: "Заказчик перемещен в удаленные" });
+      toast({ title: t('clientMovedToDeletedToast') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось удалить заказчика", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('clientDeleteFailedToast'), variant: "destructive" });
     },
   });
 
@@ -299,10 +304,10 @@ export default function ClientsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients/deleted"] });
-      toast({ title: "Заказчик восстановлен успешно" });
+      toast({ title: t('clientRestoredToast') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось восстановить заказчика", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('clientRestoreFailedToast'), variant: "destructive" });
     },
   });
 
@@ -322,13 +327,13 @@ export default function ClientsPage() {
   };
 
   const handleDelete = (client: Client) => {
-    if (window.confirm(`Вы уверены, что хотите удалить заказчика "${client.name}"?`)) {
+    if (window.confirm(t('confirmDeleteClient').replace('{name}', client.name))) {
       deleteMutation.mutate(client.id);
     }
   };
 
   const handleRestore = (client: Client) => {
-    if (window.confirm(`Вы уверены, что хотите восстановить заказчика "${client.name}"?`)) {
+    if (window.confirm(t('confirmRestoreClient').replace('{name}', client.name))) {
       restoreMutation.mutate(client.id);
     }
   };
@@ -352,7 +357,7 @@ export default function ClientsPage() {
     if (isLoadingProjects) {
       return (
         <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
-          <CorpHeader title="Мои проекты" onBack={() => {}} />
+          <CorpHeader title={t('myProjectsTitle')} onBack={() => {}} />
         </div>
       );
     }
@@ -363,8 +368,8 @@ export default function ClientsPage() {
           <div className="p-4">
             <CorpEmpty
               icon={<Building2 size={28} />}
-              title="Ошибка загрузки"
-              description="Не удалось загрузить проекты"
+              title={t('loadErrorTitle')}
+              description={t('loadProjectsFailed')}
             />
           </div>
         </div>
@@ -381,7 +386,7 @@ export default function ClientsPage() {
         >
           <div className="px-3 sm:px-4 h-14 flex items-center justify-between">
             <h1 className="text-[15px] font-bold" style={{ color: 'var(--corp-ink)' }}>
-              Мои проекты
+              {t('myProjectsTitle')}
             </h1>
             <button
               type="button"
@@ -397,7 +402,7 @@ export default function ClientsPage() {
               }}
               data-testid="button-logout"
             >
-              Выйти
+              {t('logoutLabel')}
             </button>
           </div>
         </header>
@@ -427,21 +432,21 @@ export default function ClientsPage() {
                         </p>
                       )}
                     </div>
-                    <StatusPill active={project.status === 'active'} labelOn="Активный" labelOff="Завершен" />
+                    <StatusPill active={project.status === 'active'} labelOn={t('activeStatusPill')} labelOff={t('completedStatusPill')} />
                   </div>
 
                   <div className="space-y-1.5 mt-3">
                     <div className="flex items-center justify-between text-[12px]">
-                      <span style={{ color: 'var(--corp-muted)' }}>Стоимость</span>
+                      <span style={{ color: 'var(--corp-muted)' }}>{t('costLabel')}</span>
                       <MoneyAED amount={Number(project.totalCost) || 0} size={13} weight={600} tone="ink" />
                     </div>
                     <div className="flex items-center justify-between text-[12px]">
-                      <span style={{ color: 'var(--corp-muted)' }}>Оплачено</span>
+                      <span style={{ color: 'var(--corp-muted)' }}>{t('paidLabel')}</span>
                       <MoneyAED amount={Number(project.totalPaid) || 0} size={13} weight={600} tone="pos" />
                     </div>
                     {project.contractNumber && (
                       <div className="flex items-center justify-between text-[12px]">
-                        <span style={{ color: 'var(--corp-muted)' }}>Договор</span>
+                        <span style={{ color: 'var(--corp-muted)' }}>{t('contractLabel')}</span>
                         <span style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}>{project.contractNumber}</span>
                       </div>
                     )}
@@ -457,8 +462,8 @@ export default function ClientsPage() {
           ) : (
             <CorpEmpty
               icon={<Building2 size={28} />}
-              title="Проектов не найдено"
-              description="На вас еще не назначен ни один проект"
+              title={t('noProjectsFound')}
+              description={t('noProjectsAssignedYet')}
             />
           )}
         </div>
@@ -470,7 +475,7 @@ export default function ClientsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
-        <CorpHeader title="Заказчики" onBack={goBack} />
+        <CorpHeader title={t('clientsTitle')} onBack={goBack} />
       </div>
     );
   }
@@ -482,7 +487,7 @@ export default function ClientsPage() {
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }}>
       <CorpHeader
-        title="Заказчики"
+        title={t('clientsTitle')}
         onBack={goBack}
         action={
           canManage ? (
@@ -495,12 +500,12 @@ export default function ClientsPage() {
                   style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
                   data-testid="button-add-client"
                 >
-                  <Plus size={14} /> Добавить
+                  <Plus size={14} /> {t('addLabelShort')}
                 </button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{editingClient ? "Редактировать заказчика" : "Добавить заказчика"}</DialogTitle>
+                  <DialogTitle>{editingClient ? t('editClientTitle') : t('addClientTitle')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -510,9 +515,9 @@ export default function ClientsPage() {
                         name="name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Название *</FormLabel>
+                            <FormLabel>{t('nameRequiredStar')}</FormLabel>
                             <FormControl>
-                              <Input placeholder="Название заказчика" {...field} data-testid="input-name" />
+                              <Input placeholder={t('clientNamePlaceholder')} {...field} data-testid="input-name" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -523,9 +528,9 @@ export default function ClientsPage() {
                         name="company"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Компания</FormLabel>
+                            <FormLabel>{t('companyLabel')}</FormLabel>
                             <FormControl>
-                              <Input placeholder="Название компании" {...field} value={field.value || ""} data-testid="input-company" />
+                              <Input placeholder={t('companyNamePlaceholder')} {...field} value={field.value || ""} data-testid="input-company" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -538,7 +543,7 @@ export default function ClientsPage() {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Телефон</FormLabel>
+                            <FormLabel>{t('phoneLabel')}</FormLabel>
                             <FormControl>
                               <Input placeholder="+971 XX XXX XXXX" {...field} value={field.value || ""} data-testid="input-phone" />
                             </FormControl>
@@ -565,9 +570,9 @@ export default function ClientsPage() {
                       name="address"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Адрес</FormLabel>
+                          <FormLabel>{t('addressLabel')}</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Адрес заказчика" {...field} value={field.value || ""} data-testid="input-address" />
+                            <Textarea placeholder={t('clientAddressPlaceholder')} {...field} value={field.value || ""} data-testid="input-address" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -578,9 +583,9 @@ export default function ClientsPage() {
                       name="contactPerson"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Контактное лицо</FormLabel>
+                          <FormLabel>{t('contactPersonLabel')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="Имя контактного лица" {...field} value={field.value || ""} data-testid="input-contact" />
+                            <Input placeholder={t('contactPersonPlaceholder')} {...field} value={field.value || ""} data-testid="input-contact" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -591,18 +596,18 @@ export default function ClientsPage() {
                       name="userId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Связанный пользователь</FormLabel>
+                          <FormLabel>{t('relatedUserLabel')}</FormLabel>
                           <Select
                             onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
                             value={field.value || "none"}
                           >
                             <FormControl>
                               <SelectTrigger data-testid="select-user">
-                                <SelectValue placeholder="Выберите пользователя с правами заказчика" />
+                                <SelectValue placeholder={t('selectClientUserPlaceholder')} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="none">Не назначен</SelectItem>
+                              <SelectItem value="none">{t('notAssignedOption')}</SelectItem>
                               {clientUsers.map((u) => (
                                 <SelectItem key={u.id} value={u.id}>
                                   {u.name} ({u.username})
@@ -623,9 +628,9 @@ export default function ClientsPage() {
                           style={{ border: '1px solid var(--corp-line)', borderRadius: 'var(--corp-r)' }}
                         >
                           <div className="space-y-0.5">
-                            <FormLabel className="text-base">Активный</FormLabel>
+                            <FormLabel className="text-base">{t('activeFormLabel')}</FormLabel>
                             <div className="text-sm" style={{ color: 'var(--corp-muted)' }}>
-                              Заказчик активен и может быть назначен на проекты
+                              {t('activeClientHint')}
                             </div>
                           </div>
                           <FormControl>
@@ -650,7 +655,7 @@ export default function ClientsPage() {
                         }}
                         data-testid="button-cancel"
                       >
-                        Отмена
+                        {t('cancelLabel')}
                       </button>
                       <button
                         type="submit"
@@ -663,7 +668,7 @@ export default function ClientsPage() {
                         }}
                         data-testid="button-save"
                       >
-                        {editingClient ? "Обновить" : "Создать"}
+                        {editingClient ? t('updateLabel') : t('createLabel2')}
                       </button>
                     </div>
                   </form>
@@ -677,17 +682,17 @@ export default function ClientsPage() {
       <div className="p-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="active" data-testid="tab-active">Активные</TabsTrigger>
-            <TabsTrigger value="deleted" data-testid="tab-deleted">Удаленные</TabsTrigger>
+            <TabsTrigger value="active" data-testid="tab-active">{t('activeTabLabel')}</TabsTrigger>
+            <TabsTrigger value="deleted" data-testid="tab-deleted">{t('deletedTabLabel')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="active" className="space-y-3">
             {clientsArr.length === 0 ? (
               <CorpEmpty
                 icon={<Building2 size={28} />}
-                title="Заказчики не найдены"
-                description="Добавьте первого заказчика для начала работы"
-                actionLabel={canManage ? "Добавить заказчика" : undefined}
+                title={t('noClientsFound')}
+                description={t('addFirstClient')}
+                actionLabel={canManage ? t('addClientLabel') : undefined}
                 onAction={canManage ? () => setIsDialogOpen(true) : undefined}
               />
             ) : (
@@ -711,8 +716,8 @@ export default function ClientsPage() {
             {deletedArr.length === 0 ? (
               <CorpEmpty
                 icon={<Building2 size={28} />}
-                title="Удаленных заказчиков нет"
-                description="Все удаленные заказчики будут отображаться здесь"
+                title={t('noDeletedClients')}
+                description={t('allDeletedClientsHere')}
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

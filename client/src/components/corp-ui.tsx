@@ -1,4 +1,5 @@
 import { ArrowLeft, Plus } from "lucide-react";
+import { useLanguage } from "@/components/LanguageProvider";
 
 export function fmtNum(n: number) {
   return Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ');
@@ -15,12 +16,13 @@ export function MoneyAED({
   amount: number | string;
   size?: number;
   weight?: 400 | 500 | 600 | 700;
-  tone?: 'ink' | 'pos' | 'neg' | 'muted' | 'inherit';
+  tone?: 'ink' | 'pos' | 'neg' | 'muted' | 'inherit' | 'warn';
 }) {
   const num = typeof amount === 'string' ? parseFloat(amount || '0') : amount;
   const color =
     tone === 'pos' ? 'var(--corp-pos)' :
     tone === 'neg' ? 'var(--corp-neg)' :
+    tone === 'warn' ? 'var(--corp-warn, #d97706)' :
     tone === 'muted' ? 'var(--corp-muted)' :
     tone === 'inherit' ? 'inherit' :
     'var(--corp-ink)';
@@ -176,6 +178,7 @@ export function CorpItemCard({
   addedBy?: string;
   menu?: React.ReactNode;
 }) {
+  const { t } = useLanguage();
   return (
     <div
       className="p-4"
@@ -211,7 +214,7 @@ export function CorpItemCard({
       )}
       {addedBy && (
         <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-          Добавил: {addedBy}
+          {t('sys_addedByTpl').replace('{name}', String(addedBy))}
         </p>
       )}
     </div>

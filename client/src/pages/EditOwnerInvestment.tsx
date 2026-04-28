@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { CorpHeader } from "@/components/corp-ui";
+import { fmtNumber } from "@/lib/locale";
 
 interface OwnerInvestment {
   id: string;
@@ -43,7 +44,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export default function EditOwnerInvestment() {
   const [location, setLocation] = useLocation();
   useAuth();
-  useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -82,18 +83,18 @@ export default function EditOwnerInvestment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', ownerInvestment?.projectId, 'owner-investments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', ownerInvestment?.projectId, 'financial-summary'] });
-      toast({ title: "Успешно", description: "Вложение обновлено" });
+      toast({ title: t('success'), description: t('investmentUpdated') });
       setLocation(`/owner-investments/${ownerInvestment?.projectId}`);
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось обновить вложение", variant: "destructive" });
+      toast({ title: t('error'), description: t('investmentUpdateFailed'), variant: "destructive" });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || !formData.investor || !formData.date) {
-      toast({ title: "Ошибка", description: "Заполните все обязательные поля", variant: "destructive" });
+      toast({ title: t('error'), description: t('requiredFieldsShort'), variant: "destructive" });
       return;
     }
     updateOwnerInvestmentMutation.mutate(formData);
@@ -103,7 +104,7 @@ export default function EditOwnerInvestment() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const formatNum = (s: string) => s ? parseFloat(s || "0").toLocaleString("ru-RU") : '';
+  const formatNum = (s: string) => s ? fmtNumber(parseFloat(s || "0"), language) : '';
 
   if (isLoading) {
     return <div style={{ background: 'var(--corp-bg)' }} className="min-h-screen p-4" />;
@@ -112,7 +113,7 @@ export default function EditOwnerInvestment() {
   if (!ownerInvestment) {
     return (
       <div style={{ background: 'var(--corp-bg)' }} className="min-h-screen p-4">
-        <p style={{ color: 'var(--corp-muted)' }} className="text-[13px]">Вложение не найдено</p>
+        <p style={{ color: 'var(--corp-muted)' }} className="text-[13px]">{t('investmentNotFound')}</p>
       </div>
     );
   }
@@ -124,12 +125,12 @@ export default function EditOwnerInvestment() {
       className="min-h-screen pb-24"
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
-      <CorpHeader title="Редактирование вложения" subtitle="Из своих средств" onBack={goBack} />
+      <CorpHeader title={t('editInvestmentTitle')} subtitle={t('newInvestmentSubtitle')} onBack={goBack} />
 
       <main className="px-4 pt-4">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Сумма (AED)</FieldLabel>
+            <FieldLabel required>{t('amountAedLabel')}</FieldLabel>
             <div className="relative">
               <Input
                 id="amount"
@@ -158,23 +159,23 @@ export default function EditOwnerInvestment() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Инвестор</FieldLabel>
+            <FieldLabel required>{t('investorLabel')}</FieldLabel>
             <Select
               value={formData.investor}
               onValueChange={(v) => handleInputChange('investor', v)}
             >
               <SelectTrigger className="h-10 text-[13px]" data-testid="select-investor">
-                <SelectValue placeholder="Выберите инвестора" />
+                <SelectValue placeholder={t('selectInvestor')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="vlad">Влад</SelectItem>
-                <SelectItem value="platon">Платон</SelectItem>
+                <SelectItem value="vlad">{t('investorVlad')}</SelectItem>
+                <SelectItem value="platon">{t('investorPlaton')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Дата</FieldLabel>
+            <FieldLabel required>{t('dateLabel')}</FieldLabel>
             <Input
               id="date"
               type="date"
@@ -188,12 +189,12 @@ export default function EditOwnerInvestment() {
           </div>
 
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Описание</FieldLabel>
+            <FieldLabel>{t('description')}</FieldLabel>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Опциональное описание вложения"
+              placeholder={t('investmentDescriptionPlaceholder')}
               rows={3}
               className="text-[13px] resize-none"
               data-testid="input-description"
@@ -213,7 +214,7 @@ export default function EditOwnerInvestment() {
               }}
               data-testid="button-cancel"
             >
-              Отмена
+              {t('cancel')}
             </button>
             <button
               type="submit"
@@ -222,7 +223,7 @@ export default function EditOwnerInvestment() {
               style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-save"
             >
-              {updateOwnerInvestmentMutation.isPending ? 'Сохранение…' : 'Сохранить'}
+              {updateOwnerInvestmentMutation.isPending ? t('saving') : t('save')}
             </button>
           </div>
         </form>

@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
+import { fmtDate } from "@/lib/locale";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator,
@@ -13,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Edit, User, MoreVertical, Trash2 } from "lucide-react";
 import {
-  CorpHeader, CorpEmpty, CorpHeroSummary, MoneyAED, fmtDateRu,
+  CorpHeader, CorpEmpty, CorpHeroSummary, MoneyAED,
 } from "@/components/corp-ui";
 
 interface Advance {
@@ -34,8 +36,19 @@ interface Project {
 export default function AdvancesList() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const getAdvanceWordRu = (n: number): string => {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return t('advanceWordSingular');
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return t('advanceWordFew');
+    return t('advanceWordMany');
+  };
+  const advanceWord = (n: number): string =>
+    language === 'ru' ? getAdvanceWordRu(n) : t('advanceWordMany');
 
   const projectId = location.split('/')[2];
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
@@ -52,7 +65,7 @@ export default function AdvancesList() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Аванс удалён", description: "Аванс успешно удалён" });
+      toast({ title: t('advanceDeletedTitle'), description: t('advanceDeletedSuccess') });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'advances'] });
@@ -60,7 +73,7 @@ export default function AdvancesList() {
       queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка", description: error.message || "Не удалось удалить аванс", variant: "destructive" });
+      toast({ title: t('error'), description: error.message || t('advanceDeleteFailed'), variant: "destructive" });
     },
   });
 
@@ -72,7 +85,7 @@ export default function AdvancesList() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title="Выданные авансы"
+        title={t('advancesIssuedTitle')}
         subtitle={project?.name}
         onBack={() => setLocation(`/projects/${projectId}`)}
         action={isAdminOrDirector ? (
@@ -83,7 +96,7 @@ export default function AdvancesList() {
             style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
             data-testid="button-add-advance"
           >
-            <Plus size={14} /> <span className="hidden sm:inline">Аванс</span>
+            <Plus size={14} /> <span className="hidden sm:inline">{t('addAdvanceShort')}</span>
           </button>
         ) : null}
       />
@@ -92,17 +105,17 @@ export default function AdvancesList() {
         {!isLoading && advances.length === 0 ? (
           <CorpEmpty
             icon={<User size={28} />}
-            title="Нет авансов"
-            description="Авансы сотрудникам пока не выдавались"
-            actionLabel={isAdminOrDirector ? "Добавить аванс" : undefined}
+            title={t('noAdvancesTitle')}
+            description={t('noAdvancesDescription')}
+            actionLabel={isAdminOrDirector ? t('addAdvanceAction') : undefined}
             onAction={isAdminOrDirector ? () => setLocation(`/add-advance/${projectId}`) : undefined}
           />
         ) : (
           <>
             <CorpHeroSummary
-              label="Всего выдано"
+              label={t('totalIssued')}
               amount={total}
-              subtext={`${advances.length} ${advances.length === 1 ? 'аванс' : 'авансов'}`}
+              subtext={`${advances.length} ${advanceWord(advances.length)}`}
               tone="dark"
             />
 
@@ -110,7 +123,7 @@ export default function AdvancesList() {
               className="text-[10px] font-bold uppercase mb-2"
               style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
             >
-              История выплат
+              {t('paymentHistory')}
             </h3>
             <div className="flex flex-col gap-2">
               {advances.map((advance) => (
@@ -131,14 +144,17 @@ export default function AdvancesList() {
                         className="text-[11px]"
                         style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)', whiteSpace: 'nowrap' }}
                       >
-                        {fmtDateRu(advance.date)}
+                        {fmtDate(advance.date, language)}
                       </span>
                       {isAdminOrDirector && (
                         <AdvanceMenu
                           onEdit={() => setLocation(`/edit-advance/${projectId}/${advance.id}`)}
                           onDelete={() => deleteAdvance(advance.id)}
-                          deleteTitle="Удалить аванс?"
-                          deleteDescription="Это действие нельзя отменить. Аванс будет удалён безвозвратно."
+                          deleteTitle={t('deleteAdvanceConfirmTitle')}
+                          deleteDescription={t('deleteAdvanceConfirmDescription')}
+                          editLabel={t('edit')}
+                          deleteLabel={t('delete')}
+                          cancelLabel={t('cancel')}
                         />
                       )}
                     </div>
@@ -157,7 +173,7 @@ export default function AdvancesList() {
                     </p>
                   )}
                   <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                    Добавил: {advance.user?.name || 'Неизвестно'}
+                    {t('addedByLabelShort')}: {advance.user?.name || t('unknownUser')}
                   </p>
                 </div>
               ))}
@@ -170,12 +186,15 @@ export default function AdvancesList() {
 }
 
 export function AdvanceMenu({
-  onEdit, onDelete, deleteTitle, deleteDescription,
+  onEdit, onDelete, deleteTitle, deleteDescription, editLabel, deleteLabel, cancelLabel,
 }: {
   onEdit: () => void;
   onDelete: () => void;
   deleteTitle: string;
   deleteDescription: string;
+  editLabel: string;
+  deleteLabel: string;
+  cancelLabel: string;
 }) {
   return (
     <DropdownMenu>
@@ -193,13 +212,13 @@ export function AdvanceMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={onEdit}>
-          <Edit size={14} className="mr-2" /> Редактировать
+          <Edit size={14} className="mr-2" /> {editLabel}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-600">
-              <Trash2 size={14} className="mr-2" /> Удалить
+              <Trash2 size={14} className="mr-2" /> {deleteLabel}
             </DropdownMenuItem>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -208,9 +227,9 @@ export function AdvanceMenu({
               <AlertDialogDescription>{deleteDescription}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Отмена</AlertDialogCancel>
+              <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
               <AlertDialogAction onClick={onDelete} className="bg-red-600 hover:bg-red-700">
-                Удалить
+                {deleteLabel}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

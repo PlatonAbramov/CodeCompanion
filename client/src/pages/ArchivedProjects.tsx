@@ -8,7 +8,9 @@ import {
   ChevronDown, ChevronUp, Package,
 } from "lucide-react";
 import { useState } from "react";
-import { CorpHeader, MoneyAED, fmtDateRu } from "@/components/corp-ui";
+import { CorpHeader, MoneyAED } from "@/components/corp-ui";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDate } from "@/lib/locale";
 
 interface Project {
   id: string;
@@ -40,6 +42,7 @@ function ProjectCard({
   onToggleExpand: () => void;
 }) {
   const [, setLocation] = useLocation();
+  const { t, language } = useLanguage();
 
   const { data: financialSummary } = useQuery<FinancialSummary>({
     queryKey: ['/api/projects', project.id, 'financial-summary'],
@@ -85,7 +88,7 @@ function ProjectCard({
               style={{ color: 'var(--corp-accent)' }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-accent-soft)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              title="Разархивировать"
+              title={t('unarchive')}
               data-testid={`button-restore-${project.id}`}
             >
               <ArchiveRestore size={16} />
@@ -110,7 +113,7 @@ function ProjectCard({
             style={{ background: 'var(--corp-surface-2)' }}
           >
             <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-              Стоимость
+              {t('cost')}
             </p>
             <div className="mt-1">
               <MoneyAED amount={project.totalCost} size={13} weight={700} tone="ink" />
@@ -121,10 +124,10 @@ function ProjectCard({
             style={{ background: 'var(--corp-surface-2)' }}
           >
             <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-              Статус
+              {t('statusLabel')}
             </p>
             <p className="text-[13px] font-semibold mt-1" style={{ color: 'var(--corp-ink-2)' }}>
-              Архивный
+              {t('statusArchived')}
             </p>
           </div>
         </div>
@@ -136,7 +139,7 @@ function ProjectCard({
           >
             <div>
               <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                Доходы
+                {t('revenuesLabel')}
               </p>
               <div className="mt-1">
                 <MoneyAED amount={financialSummary.totalRevenues} size={13} weight={700} tone="pos" />
@@ -144,7 +147,7 @@ function ProjectCard({
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                Расходы
+                {t('expensesLabel')}
               </p>
               <div className="mt-1">
                 <MoneyAED amount={financialSummary.totalExpenses} size={13} weight={700} tone="neg" />
@@ -152,7 +155,7 @@ function ProjectCard({
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                Текущая прибыль
+                {t('currentProfitLabel')}
               </p>
               <div className="mt-1">
                 <MoneyAED amount={financialSummary.currentProfit} size={13} weight={700} tone={currentProfit >= 0 ? 'pos' : 'neg'} />
@@ -160,7 +163,7 @@ function ProjectCard({
             </div>
             <div>
               <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                Ожидаемая прибыль
+                {t('projectedProfitLabel')}
               </p>
               <div className="mt-1">
                 <MoneyAED amount={financialSummary.projectedProfit} size={13} weight={700} tone={projectedProfit >= 0 ? 'pos' : 'neg'} />
@@ -171,7 +174,7 @@ function ProjectCard({
 
         <div className="flex items-center gap-1.5 mt-3 text-[11px]" style={{ color: 'var(--corp-muted)' }}>
           <Calendar size={12} />
-          <span>Архивирован: <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(project.createdAt)}</span></span>
+          <span>{t('archivedAtLabel')}: <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDate(project.createdAt, language)}</span></span>
         </div>
       </div>
     </div>
@@ -182,6 +185,7 @@ export default function ArchivedProjects() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
@@ -200,15 +204,15 @@ export default function ArchivedProjects() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects/archived'] });
-      toast({ title: "Успешно", description: "Проект разархивирован" });
+      toast({ title: t('success'), description: t('projectUnarchived') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось разархивировать проект", variant: "destructive" });
+      toast({ title: t('error'), description: t('unarchiveFailed'), variant: "destructive" });
     },
   });
 
   const handleRestore = (projectId: string) => {
-    if (window.confirm('Вы уверены, что хотите разархивировать этот проект?')) {
+    if (window.confirm(t('unarchiveConfirm'))) {
       restoreProjectMutation.mutate(projectId);
     }
   };
@@ -228,8 +232,8 @@ export default function ArchivedProjects() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title="Архивные проекты"
-        subtitle="Завершённые и архивированные"
+        title={t('archivedProjectsTitle')}
+        subtitle={t('archivedProjectsSubtitle')}
         onBack={() => setLocation('/director')}
       />
 
@@ -250,7 +254,7 @@ export default function ArchivedProjects() {
                   className="text-[10px] uppercase font-bold"
                   style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                 >
-                  Всего
+                  {t('totalLabel')}
                 </p>
                 <p
                   className="font-bold mt-0.5"
@@ -287,7 +291,7 @@ export default function ArchivedProjects() {
                   className="text-[10px] uppercase font-bold"
                   style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                 >
-                  Стоимость
+                  {t('cost')}
                 </p>
                 <div className="mt-0.5">
                   <MoneyAED amount={totalCost} size={16} weight={700} tone="ink" />
@@ -320,10 +324,10 @@ export default function ArchivedProjects() {
               <Archive size={28} />
             </div>
             <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--corp-ink-2)' }}>
-              Нет архивных проектов
+              {t('noArchivedProjects')}
             </p>
             <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-              Завершённые и архивированные проекты будут отображаться здесь
+              {t('noArchivedProjectsDescription')}
             </p>
           </div>
         ) : (

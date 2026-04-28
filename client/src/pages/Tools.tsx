@@ -15,7 +15,9 @@ import { insertToolSchema, insertToolMovementSchema, type Tool, type ToolMovemen
 import { z } from "zod";
 import { Plus, Search, Camera, User, Package, ArrowUpDown, Eye, MoreVertical, Edit, Trash2, Wrench, Bell } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { CorpHeader, MoneyAED, CorpEmpty, fmtDateRu, fmtNum } from "@/components/corp-ui";
+import { CorpHeader, MoneyAED, CorpEmpty, fmtNum } from "@/components/corp-ui";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDate } from "@/lib/locale";
 
 interface ToolWithPerson extends Tool {
   currentPerson?: { name: string; phone: string };
@@ -46,10 +48,11 @@ const SECTION_STYLE: React.CSSProperties = {
 };
 
 function StatusPill({ status, withDot = true }: { status: string | null; withDot?: boolean }) {
+  const { t } = useLanguage();
   const cfg =
-    status === 'AVAILABLE' ? { bg: 'rgba(22,163,74,0.10)', color: 'var(--corp-pos)', dot: 'var(--corp-pos)', text: 'В наличии' } :
-    status === 'OUT' ? { bg: 'rgba(91,88,235,0.10)', color: 'var(--corp-accent)', dot: 'var(--corp-accent)', text: 'В работе' } :
-    status === 'WRITTEN_OFF' ? { bg: 'rgba(220,38,38,0.10)', color: 'var(--corp-neg)', dot: 'var(--corp-neg)', text: 'Списан' } :
+    status === 'AVAILABLE' ? { bg: 'rgba(22,163,74,0.10)', color: 'var(--corp-pos)', dot: 'var(--corp-pos)', text: t('toolStatusAvailable') } :
+    status === 'OUT' ? { bg: 'rgba(91,88,235,0.10)', color: 'var(--corp-accent)', dot: 'var(--corp-accent)', text: t('toolStatusOut') } :
+    status === 'WRITTEN_OFF' ? { bg: 'rgba(220,38,38,0.10)', color: 'var(--corp-neg)', dot: 'var(--corp-neg)', text: t('toolStatusWrittenOff') } :
     { bg: 'var(--corp-surface-2)', color: 'var(--corp-ink-3)', dot: 'var(--corp-ink-3)', text: status || '—' };
   return (
     <span
@@ -107,6 +110,7 @@ export default function Tools() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -152,17 +156,17 @@ export default function Tools() {
       queryClient.invalidateQueries({ queryKey: ['/api/tools'] });
       setIsCreateModalOpen(false);
       form.reset();
-      toast({ title: "Инструмент создан" });
+      toast({ title: t('toolCreatedToast') });
     },
     onError: () => {
-      toast({ title: "Ошибка создания инструмента", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('toolCreateError'), variant: "destructive" });
     },
   });
 
   const createMovementMutation = useMutation({
     mutationFn: async (data: z.infer<typeof toolMovementFormSchema>) => {
       if (!movementTool || !selectedFile) {
-        throw new Error("Инструмент или фото не выбраны");
+        throw new Error(t('toolOrPhotoMissing'));
       }
       const formData = new FormData();
       formData.append('type', data.type);
@@ -176,7 +180,7 @@ export default function Tools() {
         method: 'POST',
         body: formData,
       });
-      if (!res.ok) throw new Error(`Ошибка: ${res.status}`);
+      if (!res.ok) throw new Error(t('toolErrorStatusTpl').replace('{status}', String(res.status)));
       return res.json();
     },
     onSuccess: () => {
@@ -186,10 +190,10 @@ export default function Tools() {
       setMovementTool(null);
       setSelectedFile(null);
       movementForm.reset();
-      toast({ title: "Движение записано" });
+      toast({ title: t('toolMovementSavedToast') });
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка записи движения", description: error.message, variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: error.message || t('toolMovementErrorTitle'), variant: "destructive" });
     },
   });
 
@@ -204,10 +208,10 @@ export default function Tools() {
       setIsEditModalOpen(false);
       setEditingTool(null);
       form.reset();
-      toast({ title: "Инструмент обновлен" });
+      toast({ title: t('toolUpdatedToast') });
     },
     onError: () => {
-      toast({ title: "Ошибка обновления инструмента", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('toolUpdateError'), variant: "destructive" });
     },
   });
 
@@ -218,10 +222,10 @@ export default function Tools() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tools'] });
-      toast({ title: "Инструмент удален" });
+      toast({ title: t('toolDeletedToast') });
     },
     onError: () => {
-      toast({ title: "Ошибка удаления инструмента", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('toolDeleteError'), variant: "destructive" });
     },
   });
 
@@ -280,7 +284,7 @@ export default function Tools() {
   };
 
   const handleDelete = (toolId: string) => {
-    if (confirm('Вы уверены, что хотите удалить этот инструмент?')) {
+    if (confirm(t('toolDeleteConfirm'))) {
       deleteToolMutation.mutate(toolId);
     }
   };
@@ -292,7 +296,7 @@ export default function Tools() {
       {/* === MOBILE HEADER (lg:hidden) ============================ */}
       <div className="lg:hidden">
       <CorpHeader
-        title="Инструменты"
+        title={t('tools')}
         onBack={() => setLocation('/director')}
         action={
           canManage ? (
@@ -304,12 +308,12 @@ export default function Tools() {
                   style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
                   data-testid="button-add-tool"
                 >
-                  <Plus size={14} /> Добавить
+                  <Plus size={14} /> {t('add')}
                 </button>
               </DialogTrigger>
               <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Создать инструмент</DialogTitle>
+                  <DialogTitle>{t('toolCreateTitle')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(handleCreateTool)} className="space-y-4">
@@ -318,9 +322,9 @@ export default function Tools() {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Название инструмента *</FormLabel>
+                          <FormLabel>{t('toolNameRequiredLabel')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="Например: Дрель Bosch" {...field} data-testid="input-name" />
+                            <Input placeholder={t('toolNamePlaceholder')} {...field} data-testid="input-name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -331,9 +335,9 @@ export default function Tools() {
                       name="inventoryNumber"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Инвентарный номер</FormLabel>
+                          <FormLabel>{t('toolInvNumberLabel')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="Например: DR-001" {...field} data-testid="input-inventory" />
+                            <Input placeholder={t('toolInvNumberPlaceholder')} {...field} data-testid="input-inventory" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -344,7 +348,7 @@ export default function Tools() {
                       name="cost"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Стоимость, AED</FormLabel>
+                          <FormLabel>{t('toolCostLabel')}</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
@@ -365,9 +369,9 @@ export default function Tools() {
                       name="description"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Описание</FormLabel>
+                          <FormLabel>{t('description')}</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Дополнительная информация..." {...field} data-testid="input-description" />
+                            <Textarea placeholder={t('toolDescPlaceholder')} {...field} data-testid="input-description" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -381,7 +385,7 @@ export default function Tools() {
                         style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)', borderRadius: 'var(--corp-r)' }}
                         data-testid="button-cancel-create"
                       >
-                        Отмена
+                        {t('cancel')}
                       </button>
                       <button
                         type="submit"
@@ -390,7 +394,7 @@ export default function Tools() {
                         style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
                         data-testid="button-save-create"
                       >
-                        {createToolMutation.isPending ? "Создание..." : "Создать"}
+                        {createToolMutation.isPending ? t('creatingShort') : t('create')}
                       </button>
                     </div>
                   </form>
@@ -413,7 +417,7 @@ export default function Tools() {
             className="text-[15px] font-semibold"
             style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
           >
-            Инструменты
+            {t('tools')}
           </h2>
 
           <div className="flex-1" />
@@ -425,7 +429,7 @@ export default function Tools() {
             />
             <input
               type="text"
-              placeholder="Поиск по проектам, расходам..."
+              placeholder={t('searchProjectsExpenses')}
               className="w-full h-9 pl-9 pr-12 text-[13px] outline-none"
               style={{
                 background: 'var(--corp-surface-2)',
@@ -466,7 +470,7 @@ export default function Tools() {
             data-testid="button-topbar-add-expense-tools"
           >
             <Plus size={14} />
-            Расход
+            {t('expense')}
           </button>
         </div>
 
@@ -476,7 +480,7 @@ export default function Tools() {
             className="text-[28px] font-bold leading-tight"
             style={{ color: 'var(--corp-ink)', letterSpacing: '-0.6px' }}
           >
-            Инструменты
+            {t('tools')}
             <span
               className="ml-2 text-[20px] font-semibold"
               style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}
@@ -494,7 +498,7 @@ export default function Tools() {
               data-testid="button-add-tool-desktop"
             >
               <Plus size={14} />
-              Добавить инструмент
+              {t('toolsAddBtn')}
             </button>
           )}
         </div>
@@ -508,7 +512,7 @@ export default function Tools() {
             style={{ color: 'var(--corp-ink-3)' }}
           />
           <Input
-            placeholder="Поиск по названию, имени или телефону..."
+            placeholder={t('toolsSearchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10"
@@ -518,10 +522,10 @@ export default function Tools() {
 
         {/* Filters */}
         <div className="flex gap-2 overflow-x-auto pb-1">
-          <FilterTab active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} label="Все" count={counts.all} />
-          <FilterTab active={filterStatus === 'available'} onClick={() => setFilterStatus('available')} label="В наличии" count={counts.available} />
-          <FilterTab active={filterStatus === 'out'} onClick={() => setFilterStatus('out')} label="В работе" count={counts.out} />
-          <FilterTab active={filterStatus === 'written_off'} onClick={() => setFilterStatus('written_off')} label="Списанные" count={counts.written_off} />
+          <FilterTab active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} label={t('all')} count={counts.all} />
+          <FilterTab active={filterStatus === 'available'} onClick={() => setFilterStatus('available')} label={t('toolStatusAvailable')} count={counts.available} />
+          <FilterTab active={filterStatus === 'out'} onClick={() => setFilterStatus('out')} label={t('toolStatusOut')} count={counts.out} />
+          <FilterTab active={filterStatus === 'written_off'} onClick={() => setFilterStatus('written_off')} label={t('toolFilterWrittenOff')} count={counts.written_off} />
         </div>
 
         {/* Tools Grid */}
@@ -530,8 +534,8 @@ export default function Tools() {
         ) : filteredTools.length === 0 ? (
           <CorpEmpty
             icon={<Package size={28} />}
-            title={searchQuery || filterStatus !== 'all' ? 'Инструменты не найдены' : 'Нет инструментов'}
-            description={searchQuery || filterStatus !== 'all' ? 'Попробуйте изменить фильтры' : 'Добавьте первый инструмент'}
+            title={searchQuery || filterStatus !== 'all' ? t('toolsNotFoundTitle') : t('toolsEmptyTitle')}
+            description={searchQuery || filterStatus !== 'all' ? t('toolsTryFilters') : t('toolsEmptyHint')}
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -626,11 +630,11 @@ export default function Tools() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => openMovementModal(tool)} data-testid={`menu-movement-${tool.id}`}>
                           <ArrowUpDown className="mr-2 h-4 w-4" />
-                          {tool.status === 'AVAILABLE' ? 'Выдать' : 'Вернуть'}
+                          {tool.status === 'AVAILABLE' ? t('toolIssue') : t('toolReturn')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEditModal(tool)} data-testid={`menu-edit-${tool.id}`}>
                           <Edit className="mr-2 h-4 w-4" />
-                          Редактировать
+                          {t('edit')}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDelete(tool.id)}
@@ -638,7 +642,7 @@ export default function Tools() {
                           data-testid={`menu-delete-${tool.id}`}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          Удалить
+                          {t('delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -661,7 +665,7 @@ export default function Tools() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Редактировать инструмент</DialogTitle>
+            <DialogTitle>{t('toolEditTitle')}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleEditTool)} className="space-y-4">
@@ -670,9 +674,9 @@ export default function Tools() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Название инструмента *</FormLabel>
+                    <FormLabel>{t('toolNameRequiredLabel')}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Например: Дрель Bosch" {...field} data-testid="input-edit-name" />
+                      <Input placeholder={t('toolNamePlaceholder')} {...field} data-testid="input-edit-name" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -683,9 +687,9 @@ export default function Tools() {
                 name="inventoryNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Инвентарный номер</FormLabel>
+                    <FormLabel>{t('toolInvNumberLabel')}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Например: DR-001" {...field} data-testid="input-edit-inventory" />
+                      <Input placeholder={t('toolInvNumberPlaceholder')} {...field} data-testid="input-edit-inventory" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -696,7 +700,7 @@ export default function Tools() {
                 name="cost"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Стоимость, AED</FormLabel>
+                    <FormLabel>{t('toolCostLabel')}</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -717,9 +721,9 @@ export default function Tools() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Описание</FormLabel>
+                    <FormLabel>{t('description')}</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Дополнительная информация..." {...field} data-testid="input-edit-description" />
+                      <Textarea placeholder={t('toolDescPlaceholder')} {...field} data-testid="input-edit-description" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -737,7 +741,7 @@ export default function Tools() {
                   style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)', borderRadius: 'var(--corp-r)' }}
                   data-testid="button-cancel-edit"
                 >
-                  Отмена
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -746,7 +750,7 @@ export default function Tools() {
                   style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
                   data-testid="button-save-edit"
                 >
-                  {editToolMutation.isPending ? "Сохранение..." : "Сохранить"}
+                  {editToolMutation.isPending ? t('saving') : t('save')}
                 </button>
               </div>
             </form>
@@ -759,7 +763,7 @@ export default function Tools() {
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {movementTool?.status === 'AVAILABLE' ? 'Выдать инструмент' : 'Вернуть инструмент'}
+              {movementTool?.status === 'AVAILABLE' ? t('toolIssueTitle') : t('toolReturnTitle')}
             </DialogTitle>
           </DialogHeader>
           <Form {...movementForm}>
@@ -785,9 +789,9 @@ export default function Tools() {
                 name="personName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Имя получателя/возвращающего *</FormLabel>
+                    <FormLabel>{t('toolPersonNameLabel')}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Введите имя" {...field} data-testid="input-person-name" />
+                      <Input placeholder={t('toolPersonNamePlaceholder')} {...field} data-testid="input-person-name" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -799,7 +803,7 @@ export default function Tools() {
                 name="personPhone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Телефон *</FormLabel>
+                    <FormLabel>{t('toolPersonPhoneLabel')}</FormLabel>
                     <FormControl>
                       <Input type="tel" placeholder="+971 XX XXX XXXX" {...field} data-testid="input-person-phone" />
                     </FormControl>
@@ -813,7 +817,7 @@ export default function Tools() {
                 name="eventTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Дата и время</FormLabel>
+                    <FormLabel>{t('toolDateTimeLabel')}</FormLabel>
                     <FormControl>
                       <Input type="datetime-local" {...field} data-testid="input-event-time" />
                     </FormControl>
@@ -823,7 +827,7 @@ export default function Tools() {
               />
 
               <div>
-                <Label>Фото *</Label>
+                <Label>{t('toolPhotoLabel')}</Label>
                 <div className="flex gap-2 mt-1.5">
                   <div className="flex-1">
                     <Input
@@ -852,16 +856,16 @@ export default function Tools() {
                     data-testid="button-camera"
                   >
                     <Camera className="h-4 w-4" />
-                    Сфото
+                    {t('toolPhotoBtn')}
                   </button>
                 </div>
                 {selectedFile && (
                   <p className="text-[11px] mt-1" style={{ color: 'var(--corp-pos)' }}>
-                    Выбран файл: {selectedFile.name}
+                    {t('toolFileSelectedTpl').replace('{name}', selectedFile.name)}
                   </p>
                 )}
                 <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)' }}>
-                  Сделайте фото инструмента и человека
+                  {t('toolPhotoHint')}
                 </p>
               </div>
 
@@ -870,9 +874,9 @@ export default function Tools() {
                 name="comment"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Комментарий</FormLabel>
+                    <FormLabel>{t('toolCommentLabel')}</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Дополнительные заметки..." {...field} data-testid="input-comment" />
+                      <Textarea placeholder={t('toolCommentPlaceholder')} {...field} data-testid="input-comment" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -892,7 +896,7 @@ export default function Tools() {
                   style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-ink-2)', borderRadius: 'var(--corp-r)' }}
                   data-testid="button-cancel-movement"
                 >
-                  Отмена
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -901,7 +905,7 @@ export default function Tools() {
                   style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
                   data-testid="button-save-movement"
                 >
-                  {createMovementMutation.isPending ? "Сохранение..." : "Сохранить"}
+                  {createMovementMutation.isPending ? t('saving') : t('save')}
                 </button>
               </div>
             </form>
@@ -919,6 +923,7 @@ interface ToolDetailDialogProps {
 }
 
 function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
+  const { t, language } = useLanguage();
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   const { data: movements = [] } = useQuery<ToolMovement[]>({
@@ -956,21 +961,21 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <h4 className="text-[10px] font-bold uppercase mb-2" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                Основная информация
+                {t('toolMainInfo')}
               </h4>
               <div className="space-y-2 text-[13px]">
                 <div>
-                  <span style={{ color: 'var(--corp-muted)' }}>Инвентарный номер:</span>
+                  <span style={{ color: 'var(--corp-muted)' }}>{t('toolInvNumberColon')}</span>
                   <span className="ml-2" style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}>
                     {tool.inventoryNumber || '—'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span style={{ color: 'var(--corp-muted)' }}>Стоимость:</span>
+                  <span style={{ color: 'var(--corp-muted)' }}>{t('toolCostColon')}</span>
                   <MoneyAED amount={parseFloat(tool.cost) || 0} size={13} weight={600} tone="ink" />
                 </div>
                 <div>
-                  <span style={{ color: 'var(--corp-muted)' }}>Описание:</span>
+                  <span style={{ color: 'var(--corp-muted)' }}>{t('toolDescColon')}</span>
                   <span className="ml-2" style={{ color: 'var(--corp-ink)' }}>
                     {tool.description || '—'}
                   </span>
@@ -980,7 +985,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
 
             <div>
               <h4 className="text-[10px] font-bold uppercase mb-2" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                Текущий статус
+                {t('toolCurrentStatus')}
               </h4>
               <div className="space-y-2">
                 <StatusPill status={tool.status} />
@@ -999,10 +1004,10 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
           {/* Movement History */}
           <div>
             <h4 className="text-[10px] font-bold uppercase mb-3" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-              История движений
+              {t('toolMovementHistory')}
             </h4>
             {movements.length === 0 ? (
-              <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>История движений пуста</p>
+              <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t('toolNoMovements')}</p>
             ) : (
               <div className="space-y-2">
                 {movements.map((movement) => (
@@ -1013,7 +1018,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
                           <div className="relative group">
                             <img
                               src={movement.photoUrl}
-                              alt="Фото движения"
+                              alt={t('toolPhotoMovementAlt')}
                               className="w-16 h-16 object-cover cursor-pointer transition-all hover:scale-105"
                               style={{
                                 borderRadius: 'var(--corp-r)',
@@ -1038,7 +1043,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
                           >
                             <div className="text-center">
                               <div>📷</div>
-                              <div>Нет фото</div>
+                              <div>{t('toolNoPhoto')}</div>
                             </div>
                           </div>
                         )}
@@ -1054,7 +1059,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
                                 letterSpacing: '0.04em',
                               }}
                             >
-                              {movement.type === 'ISSUE' ? 'Выдано' : 'Возвращено'}
+                              {movement.type === 'ISSUE' ? t('toolMovementIssued') : t('toolMovementReturned')}
                             </div>
                             <div className="text-[12px] mt-0.5" style={{ color: 'var(--corp-ink)' }}>
                               {movement.personName}
@@ -1072,7 +1077,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
                             className="text-[11px] flex-shrink-0"
                             style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}
                           >
-                            {fmtDateRu(movement.eventTime as any)}
+                            {fmtDate(movement.eventTime as any, language)}
                           </div>
                         </div>
                       </div>
@@ -1106,7 +1111,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
               }}
               className="absolute -top-2 -right-2 z-[10000] w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-100 rounded-full text-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-110"
               data-testid="button-close-photo"
-              title="Закрыть (ESC)"
+              title={t('toolPhotoCloseHint')}
               style={{ pointerEvents: 'auto' }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1120,7 +1125,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
             >
               <img
                 src={selectedPhoto}
-                alt="Полное фото"
+                alt={t('toolPhotoFullAlt')}
                 className="max-w-full max-h-[85vh] object-contain rounded-md"
                 onClick={(e) => e.stopPropagation()}
                 data-testid="img-full-photo"
@@ -1128,7 +1133,7 @@ function ToolDetailDialog({ tool, open, onOpenChange }: ToolDetailDialogProps) {
             </div>
 
             <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm z-[10001]">
-              Нажмите за пределы изображения или ESC для закрытия
+              {t('toolPhotoCloseExternalHint')}
             </div>
           </div>
         </div>

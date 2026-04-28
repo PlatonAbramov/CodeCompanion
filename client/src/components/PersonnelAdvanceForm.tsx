@@ -34,8 +34,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/components/LanguageProvider";
 
 const advanceSchema = z.object({
-  amount: z.string().min(1, "Сумма обязательна"),
-  date: z.string().min(1, "Дата обязательна"),
+  amount: z.string().min(1),
+  date: z.string().min(1),
   projectId: z.string().optional(),
   description: z.string().optional(),
 });
@@ -87,15 +87,15 @@ export function PersonnelAdvanceForm({
     },
     onSuccess: () => {
       toast({
-        title: "Успешно",
-        description: "Аванс добавлен",
+        title: t('success'),
+        description: t('advanceAddedTitle'),
       });
       onSuccess();
       handleClose();
     },
     onError: (error) => {
       toast({
-        title: "Ошибка",
+        title: t('error'),
         description: error.message,
         variant: "destructive",
       });
@@ -136,8 +136,8 @@ export function PersonnelAdvanceForm({
       }) as any;
       setFileUrl(response.objectPath);
       toast({
-        title: "Успешно",
-        description: "Документ загружен",
+        title: t('success'),
+        description: t('paf_documentUploadedDesc'),
       });
     }
   };
@@ -146,7 +146,7 @@ export function PersonnelAdvanceForm({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Добавить аванс</DialogTitle>
+          <DialogTitle>{t('addAdvanceAction')}</DialogTitle>
         </DialogHeader>
         
         <Form {...form}>
@@ -156,7 +156,7 @@ export function PersonnelAdvanceForm({
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Сумма (AED)</FormLabel>
+                  <FormLabel>{t('amountAedLabel')}</FormLabel>
                   <FormControl>
                     <Input 
                       type="number" 
@@ -174,7 +174,7 @@ export function PersonnelAdvanceForm({
               name="date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Дата</FormLabel>
+                  <FormLabel>{t('dateLabel')}</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
@@ -188,15 +188,15 @@ export function PersonnelAdvanceForm({
               name="projectId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Проект (необязательно)</FormLabel>
+                  <FormLabel>{t('paf_projectOptionalLabel')}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите проект" />
+                        <SelectValue placeholder={t('selectProject')} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="none">Без привязки к проекту</SelectItem>
+                      <SelectItem value="none">{t('paf_noProjectOption')}</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
@@ -214,10 +214,10 @@ export function PersonnelAdvanceForm({
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Описание (необязательно)</FormLabel>
+                  <FormLabel>{t('paf_descriptionOptionalLabel')}</FormLabel>
                   <FormControl>
                     <Textarea 
-                      placeholder="Причина выдачи аванса..."
+                      placeholder={t('paf_advanceReasonPlaceholder')}
                       className="resize-none"
                       {...field}
                     />
@@ -228,11 +228,11 @@ export function PersonnelAdvanceForm({
             />
             
             <div className="space-y-2">
-              <FormLabel>Документ (необязательно)</FormLabel>
+              <FormLabel>{t('paf_documentOptionalLabel')}</FormLabel>
               {fileUrl ? (
                 <div className="flex items-center gap-2 p-2 border rounded">
                   <FileText className="w-4 h-4" />
-                  <span className="text-sm flex-1">Документ загружен</span>
+                  <span className="text-sm flex-1">{t('paf_documentUploadedSpan')}</span>
                   <Button
                     type="button"
                     variant="ghost"
@@ -251,17 +251,17 @@ export function PersonnelAdvanceForm({
                   buttonClassName="w-full"
                 >
                   <Upload className="w-4 h-4 mr-2" />
-                  Загрузить документ
+                  {t('paf_uploadDocumentButton')}
                 </ObjectUploader>
               )}
             </div>
             
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={handleClose}>
-                Отмена
+                {t('cancel')}
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Добавление..." : "Добавить"}
+                {createMutation.isPending ? t('addingProgress') : t('add')}
               </Button>
             </div>
           </form>

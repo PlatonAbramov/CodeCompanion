@@ -12,10 +12,11 @@ import {
   Wrench, DollarSign, FileText, BarChart, X,
 } from "lucide-react";
 import { format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { ru, enUS, hi } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { fmtNum } from "@/components/corp-ui";
+import { useLanguage } from "@/components/LanguageProvider";
 
 type Tone = 'ink' | 'pos' | 'neg' | 'accent';
 
@@ -76,6 +77,8 @@ function MetricTile({ label, value, hint, icon, tone = 'ink', isCurrency }: Metr
 }
 
 function Analytics() {
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'ru' ? ru : language === 'hi' ? hi : enUS;
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined, to: undefined,
   });
@@ -166,13 +169,13 @@ function Analytics() {
                 className="text-[16px] font-bold leading-tight truncate"
                 style={{ color: 'var(--corp-ink)', letterSpacing: '-0.3px' }}
               >
-                Аналитика
+                {t('analytics')}
               </h1>
               <p
                 className="text-[10px] uppercase font-bold leading-tight"
                 style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)', letterSpacing: '0.06em' }}
               >
-                Отчёты по бизнесу
+                {t('anal_reportsSubtitle')}
               </p>
             </div>
           </div>
@@ -191,15 +194,15 @@ function Analytics() {
                   {dateRange.from ? (
                     dateRange.to ? (
                       <span style={{ fontFamily: 'var(--corp-mono)' }}>
-                        {format(dateRange.from, "d MMM", { locale: ru })}–{format(dateRange.to, "d MMM", { locale: ru })}
+                        {format(dateRange.from, "d MMM", { locale: dateLocale })}–{format(dateRange.to, "d MMM", { locale: dateLocale })}
                       </span>
                     ) : (
                       <span style={{ fontFamily: 'var(--corp-mono)' }}>
-                        {format(dateRange.from, "d MMM", { locale: ru })}
+                        {format(dateRange.from, "d MMM", { locale: dateLocale })}
                       </span>
                     )
                   ) : (
-                    <span className="hidden sm:inline">Период</span>
+                    <span className="hidden sm:inline">{t('anal_period')}</span>
                   )}
                 </Button>
               </PopoverTrigger>
@@ -208,7 +211,7 @@ function Analytics() {
                   mode="range"
                   selected={{ from: dateRange.from, to: dateRange.to }}
                   onSelect={(range: any) => setDateRange(range || { from: undefined, to: undefined })}
-                  locale={ru}
+                  locale={dateLocale}
                 />
               </PopoverContent>
             </Popover>
@@ -236,16 +239,16 @@ function Analytics() {
             style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}
           >
             <TabsTrigger value="projects" className={tabClass} style={{ borderRadius: 'calc(var(--corp-r) - 2px)' }} data-testid="tab-projects">
-              Проекты
+              {t('projects')}
             </TabsTrigger>
             <TabsTrigger value="contractors" className={tabClass} style={{ borderRadius: 'calc(var(--corp-r) - 2px)' }} data-testid="tab-contractors">
-              Подрядчики
+              {t('contractors')}
             </TabsTrigger>
             <TabsTrigger value="clients" className={tabClass} style={{ borderRadius: 'calc(var(--corp-r) - 2px)' }} data-testid="tab-clients">
-              Заказчики
+              {t('anal_clientsTab')}
             </TabsTrigger>
             <TabsTrigger value="tools" className={tabClass} style={{ borderRadius: 'calc(var(--corp-r) - 2px)' }} data-testid="tab-tools">
-              Инструменты
+              {t('tools')}
             </TabsTrigger>
           </TabsList>
 
@@ -253,43 +256,43 @@ function Analytics() {
           <TabsContent value="projects" className="space-y-3">
             <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
               <MetricTile
-                label="Активные проекты"
+                label={t('activeProjects')}
                 value={projectAnalytics?.activeCount || 0}
-                hint="Проекты в работе"
+                hint={t('anal_projectsInWork')}
                 icon={<Package size={14} />}
               />
               <MetricTile
-                label="Архивные"
+                label={t('anal_archived')}
                 value={projectAnalytics?.archivedCount || 0}
-                hint="Завершённые"
+                hint={t('anal_completedPlural')}
                 icon={<FileText size={14} />}
               />
               <MetricTile
-                label="Средний прогресс"
+                label={t('anal_avgProgress')}
                 value={formatPercent(projectAnalytics?.averageProgress || 0)}
-                hint="По всем проектам"
+                hint={t('anal_byAllProjects')}
                 icon={<BarChart size={14} />}
                 tone="accent"
               />
               <MetricTile
-                label="Стоимость"
+                label={t('cost')}
                 value={fmtNum(projectAnalytics?.totalContractValue || 0)}
-                hint="Сумма всех контрактов"
+                hint={t('anal_totalContractsSum')}
                 icon={<DollarSign size={14} />}
                 isCurrency
               />
               <MetricTile
-                label="Расходы"
+                label={t('expenses')}
                 value={fmtNum(projectAnalytics?.totalExpenses || 0)}
-                hint="Общие расходы"
+                hint={t('totalExpenses')}
                 icon={<TrendingDown size={14} />}
                 tone="neg"
                 isCurrency
               />
               <MetricTile
-                label="Платежи"
+                label={t('anal_payments')}
                 value={fmtNum(projectAnalytics?.totalPayments || 0)}
-                hint="Полученные платежи"
+                hint={t('anal_paymentsReceived')}
                 icon={<TrendingUp size={14} />}
                 tone="pos"
                 isCurrency
@@ -308,18 +311,18 @@ function Analytics() {
                 className="text-[10px] uppercase font-bold mb-1.5"
                 style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
               >
-                Фильтр по статусу
+                {t('anal_filterByStatus')}
               </p>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-9 text-[13px] max-w-xs" data-testid="filter-project-status">
-                  <SelectValue placeholder="Все статусы" />
+                  <SelectValue placeholder={t('anal_allStatuses')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Все статусы</SelectItem>
-                  <SelectItem value="active">Активные</SelectItem>
-                  <SelectItem value="completed">Завершённые</SelectItem>
-                  <SelectItem value="paused">Приостановленные</SelectItem>
-                  <SelectItem value="archived">Архивные</SelectItem>
+                  <SelectItem value="all">{t('anal_allStatuses')}</SelectItem>
+                  <SelectItem value="active">{t('filterActive')}</SelectItem>
+                  <SelectItem value="completed">{t('anal_completedPlural')}</SelectItem>
+                  <SelectItem value="paused">{t('anal_paused')}</SelectItem>
+                  <SelectItem value="archived">{t('anal_archived')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -339,14 +342,14 @@ function Analytics() {
                 className="text-[10px] uppercase font-bold mb-1.5"
                 style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
               >
-                Выбрать подрядчика
+                {t('anal_selectContractorTitle')}
               </p>
               <Select value={selectedContractor} onValueChange={setSelectedContractor}>
                 <SelectTrigger className="h-9 text-[13px]" data-testid="filter-contractor">
-                  <SelectValue placeholder="Выберите подрядчика" />
+                  <SelectValue placeholder={t('selectContractor')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Все подрядчики</SelectItem>
+                  <SelectItem value="all">{t('anal_allContractors')}</SelectItem>
                   {contractors?.map((c: any) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
@@ -387,7 +390,7 @@ function Analytics() {
                           letterSpacing: '0.04em',
                         }}
                       >
-                        {c.totalProjects} проектов
+                        {t('anal_projectsCount').replace('{count}', String(c.totalProjects))}
                       </span>
                     </div>
                     <div
@@ -396,7 +399,7 @@ function Analytics() {
                     >
                       <div>
                         <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                          Бюджет
+                          {t('budget')}
                         </p>
                         <p className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}>
                           {fmtNum(Number(c.totalBudget))}
@@ -405,7 +408,7 @@ function Analytics() {
                       </div>
                       <div>
                         <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                          Расходы
+                          {t('expenses')}
                         </p>
                         <p className="text-[14px] font-bold" style={{ color: 'var(--corp-neg)', fontFamily: 'var(--corp-mono)' }}>
                           {fmtNum(Number(c.totalExpenses))}
@@ -433,14 +436,14 @@ function Analytics() {
                 className="text-[10px] uppercase font-bold mb-1.5"
                 style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
               >
-                Выбрать заказчика
+                {t('anal_selectClientTitle')}
               </p>
               <Select value={selectedClient} onValueChange={setSelectedClient}>
                 <SelectTrigger className="h-9 text-[13px]" data-testid="filter-client">
-                  <SelectValue placeholder="Выберите заказчика" />
+                  <SelectValue placeholder={t('selectClient')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Все заказчики</SelectItem>
+                  <SelectItem value="all">{t('anal_allClients')}</SelectItem>
                   {clients?.map((c: any) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
@@ -476,7 +479,7 @@ function Analytics() {
                           letterSpacing: '0.04em',
                         }}
                       >
-                        {c.totalProjects} проектов
+                        {t('anal_projectsCount').replace('{count}', String(c.totalProjects))}
                       </span>
                     </div>
                     <div
@@ -485,7 +488,7 @@ function Analytics() {
                     >
                       <div>
                         <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                          Сумма контрактов
+                          {t('anal_contractsSum')}
                         </p>
                         <p className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}>
                           {fmtNum(Number(c.totalContractValue))}
@@ -494,7 +497,7 @@ function Analytics() {
                       </div>
                       <div>
                         <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                          Оплачено
+                          {t('paid')}
                         </p>
                         <p className="text-[14px] font-bold" style={{ color: 'var(--corp-pos)', fontFamily: 'var(--corp-mono)' }}>
                           {fmtNum(Number(c.totalPayments))}
@@ -512,43 +515,45 @@ function Analytics() {
           <TabsContent value="tools" className="space-y-3">
             <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
               <MetricTile
-                label="Всего инструментов"
+                label={t('anal_totalTools')}
                 value={toolsAnalytics?.totalTools || 0}
-                hint="В базе данных"
+                hint={t('anal_inDatabase')}
                 icon={<Wrench size={14} />}
               />
               <MetricTile
-                label="Доступно"
+                label={t('anal_available')}
                 value={toolsAnalytics?.availableTools || 0}
-                hint="На складе"
+                hint={t('anal_inStock')}
                 icon={<Package size={14} />}
                 tone="pos"
               />
               <MetricTile
-                label="Выдано"
+                label={t('anal_issued')}
                 value={toolsAnalytics?.outTools || 0}
-                hint="В работе"
+                hint={t('anal_inWorkShort')}
                 icon={<Users size={14} />}
                 tone="accent"
               />
               <MetricTile
-                label="Списано"
+                label={t('anal_writtenOff')}
                 value={toolsAnalytics?.writtenOffTools || 0}
-                hint="Выведено"
+                hint={t('anal_decommissioned')}
                 icon={<FileText size={14} />}
                 tone="neg"
               />
               <MetricTile
-                label="Стоимость"
+                label={t('cost')}
                 value={fmtNum(Number(toolsAnalytics?.totalValue || 0))}
-                hint="Общая"
+                hint={t('anal_totalShort')}
                 icon={<DollarSign size={14} />}
                 isCurrency
               />
               <MetricTile
-                label="Операций"
+                label={t('anal_operations')}
                 value={toolsAnalytics?.totalMovements || 0}
-                hint={`Выдач: ${toolsAnalytics?.totalIssues || 0} · Возвр.: ${toolsAnalytics?.totalReturns || 0}`}
+                hint={t('anal_operationsHint')
+                  .replace('{issues}', String(toolsAnalytics?.totalIssues || 0))
+                  .replace('{returns}', String(toolsAnalytics?.totalReturns || 0))}
                 icon={<BarChart size={14} />}
               />
             </div>

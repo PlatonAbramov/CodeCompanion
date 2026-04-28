@@ -4,6 +4,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ListSkeleton } from "@/components/skeletons";
+import { fmtDate, fmtToday } from "@/lib/locale";
 import {
   HardHat, LogOut, Plus, Receipt, Bell, ClipboardList,
   Building2, History, ChevronRight, Mic,
@@ -25,20 +26,10 @@ interface ImplementationSheet {
   status?: string;
 }
 
-// === Helpers ================================================================
-function fmtDateRu(s?: string) {
-  if (!s) return '—';
-  return new Date(s).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function fmtTodayRu() {
-  return new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-}
-
 // === Page ===================================================================
 export default function MasterDashboard() {
   const { user, logout } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [, setLocation] = useLocation();
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
@@ -80,19 +71,19 @@ export default function MasterDashboard() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-semibold" style={{ color: 'var(--corp-muted)' }}>
-              Добрый день,
+              {t('goodDay')},
             </p>
             <h2
               className="text-[14px] font-bold truncate"
               style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
             >
-              {user?.name || 'Мастер'}
+              {user?.name || t('master')}
             </h2>
           </div>
           <LanguageSwitcher />
           <button
             type="button"
-            title="Уведомления"
+            title={t('notifications')}
             className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
             style={{ color: 'var(--corp-ink-2)', background: 'transparent' }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--corp-surface-2)'; }}
@@ -103,7 +94,7 @@ export default function MasterDashboard() {
           </button>
           <button
             type="button"
-            title="Выйти"
+            title={t('logout')}
             onClick={() => logout()}
             className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
             style={{ color: 'var(--corp-ink-2)', background: 'transparent' }}
@@ -123,7 +114,7 @@ export default function MasterDashboard() {
             className="text-[10px] font-bold uppercase"
             style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
           >
-            Рабочее пространство · {fmtTodayRu()}
+            {t('workspace')} · {fmtToday(language)}
           </p>
           <h1
             className="mt-1 font-bold"
@@ -133,7 +124,7 @@ export default function MasterDashboard() {
               color: 'var(--corp-ink)',
             }}
           >
-            Готов к работе
+            {t('readyToWork')}
           </h1>
         </div>
 
@@ -157,7 +148,7 @@ export default function MasterDashboard() {
                 className="text-[10px] font-bold uppercase"
                 style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em' }}
               >
-                Быстрое действие
+                {t('quickAction')}
               </p>
               <div
                 className="mt-2 font-bold flex items-center gap-2"
@@ -168,10 +159,10 @@ export default function MasterDashboard() {
                 }}
               >
                 <Plus size={26} strokeWidth={2.5} />
-                Добавить расход
+                {t('addExpense')}
               </div>
               <p className="mt-2 text-[12px]" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Загрузите чек или используйте голосовой ввод
+                {t('uploadReceiptOrVoice')}
               </p>
             </div>
             <div
@@ -188,9 +179,9 @@ export default function MasterDashboard() {
             style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}
           >
             {[
-              { label: 'Активных', value: activeProjects.length },
-              { label: 'Листов', value: sheetsCount },
-              { label: 'Архив', value: archivedCount },
+              { label: t('active'), value: activeProjects.length },
+              { label: t('sheets'), value: sheetsCount },
+              { label: t('archive'), value: archivedCount },
             ].map(s => (
               <div key={s.label}>
                 <p
@@ -218,19 +209,19 @@ export default function MasterDashboard() {
         <div className="grid grid-cols-4 gap-2 mb-5">
           {[
             {
-              label: 'Расход',
+              label: t('expense'),
               icon: Plus,
               onClick: () => setLocation('/expenses'),
               testId: 'quick-action-expense',
             },
             {
-              label: 'Листы',
+              label: t('sheets'),
               icon: ClipboardList,
               onClick: () => setLocation('/implementation-sheets'),
               testId: 'quick-action-sheets',
             },
             {
-              label: 'Проекты',
+              label: t('projects'),
               icon: Building2,
               onClick: () => {
                 if (activeProjects[0]) setLocation(`/projects/${activeProjects[0].id}`);
@@ -238,7 +229,7 @@ export default function MasterDashboard() {
               testId: 'quick-action-projects',
             },
             {
-              label: 'История',
+              label: t('history'),
               icon: History,
               onClick: () => setLocation('/history'),
               testId: 'quick-action-history',
@@ -284,7 +275,7 @@ export default function MasterDashboard() {
             className="text-[14px] font-bold"
             style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
           >
-            Мои проекты
+            {t('myProjects')}
           </h3>
           <span
             className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
@@ -311,10 +302,10 @@ export default function MasterDashboard() {
           >
             <Receipt size={36} className="mx-auto mb-3" style={{ color: 'var(--corp-ink-3)' }} />
             <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--corp-ink-2)' }}>
-              Проектов пока нет
+              {t('noProjectsYet')}
             </p>
             <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-              Они появятся здесь, когда руководитель назначит вас на проект
+              {t('noProjectsAssignedHint')}
             </p>
           </div>
         ) : (
@@ -365,7 +356,7 @@ export default function MasterDashboard() {
                         className="text-[11px] font-medium whitespace-nowrap"
                         style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}
                       >
-                        до {fmtDateRu(project.endDate)}
+                        {t('until')} {fmtDate(project.endDate, language)}
                       </span>
                     )}
                   </div>

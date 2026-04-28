@@ -107,7 +107,7 @@ export default function ImplementationSheetView() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { language } = useLanguage();
+  const { t } = useLanguage();
   const [selectedItem, setSelectedItem] = useState<ImplementationItem | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<ImplementationPhoto | null>(null);
   const [isEditMode, setIsEditMode] = useState<string | null>(null);
@@ -193,13 +193,13 @@ export default function ImplementationSheetView() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/implementation-sheets/${sheetId}`] });
-      toast({ title: language === 'ru' ? "Позиция обновлена" : "Item updated" });
+      toast({ title: t('isv_itemUpdated') });
       setIsEditMode(null);
     },
     onError: () => {
       toast({
-        title: language === 'ru' ? "Ошибка" : "Error",
-        description: language === 'ru' ? "Не удалось обновить позицию" : "Failed to update item",
+        title: t('errorToastTitle'),
+        description: t('isv_updateFailed'),
         variant: "destructive",
       });
     },
@@ -220,12 +220,12 @@ export default function ImplementationSheetView() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/implementation-items/${selectedItem?.id}/photos`] });
       queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] });
-      toast({ title: language === 'ru' ? "Фото добавлено" : "Photo added" });
+      toast({ title: t('isv_photoAdded') });
     },
     onError: () => {
       toast({
-        title: language === 'ru' ? "Ошибка" : "Error",
-        description: language === 'ru' ? "Не удалось добавить фото" : "Failed to add photo",
+        title: t('errorToastTitle'),
+        description: t('isv_photoAddFailed'),
         variant: "destructive",
       });
     },
@@ -237,12 +237,12 @@ export default function ImplementationSheetView() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/implementation-items/${selectedItem?.id}/photos`] });
-      toast({ title: language === 'ru' ? "Фото удалено" : "Photo deleted" });
+      toast({ title: t('isv_photoDeleted') });
     },
     onError: () => {
       toast({
-        title: language === 'ru' ? "Ошибка" : "Error",
-        description: language === 'ru' ? "Не удалось удалить фото" : "Failed to delete photo",
+        title: t('errorToastTitle'),
+        description: t('isv_photoDeleteFailed'),
         variant: "destructive",
       });
     },
@@ -292,12 +292,12 @@ export default function ImplementationSheetView() {
         if (!uploadResponse.ok) throw new Error('Upload failed');
         const photoUrl = await objectStorageService.setObjectAclPolicy(uploadURL, { visibility: 'private' });
         createPhotoMutation.mutate({ itemId, photoUrl, visibleToClient: true });
-        toast({ title: language === 'ru' ? "Фото добавлено" : "Photo added" });
+        toast({ title: t('isv_photoAdded') });
       } catch (error) {
         console.error('Camera capture error:', error);
         toast({
-          title: language === 'ru' ? "Ошибка" : "Error",
-          description: language === 'ru' ? "Не удалось сделать фото" : "Failed to capture photo",
+          title: t('errorToastTitle'),
+          description: t('isv_captureFailed'),
           variant: "destructive",
         });
       }
@@ -312,8 +312,8 @@ export default function ImplementationSheetView() {
     } catch (error) {
       console.error('Error getting upload parameters:', error);
       toast({
-        title: language === 'ru' ? "Ошибка" : "Error",
-        description: language === 'ru' ? "Не удалось получить URL для загрузки" : "Failed to get upload URL",
+        title: t('errorToastTitle'),
+        description: t('isv_uploadUrlFailed'),
         variant: "destructive",
       });
       throw error;
@@ -334,17 +334,15 @@ export default function ImplementationSheetView() {
           });
         }
         toast({
-          title: language === 'ru' ? "Успешно" : "Success",
-          description: language === 'ru'
-            ? `Загружено ${result.successful.length} файлов`
-            : `Uploaded ${result.successful.length} files`,
+          title: t('success'),
+          description: t('isv_uploadedFilesTpl').replace('{count}', String(result.successful.length)),
         });
         setUploadingItemId(null);
       } catch (error) {
         console.error('Error saving files:', error);
         toast({
-          title: language === 'ru' ? "Ошибка" : "Error",
-          description: language === 'ru' ? "Не удалось сохранить файлы" : "Failed to save files",
+          title: t('errorToastTitle'),
+          description: t('isv_saveFilesFailed'),
           variant: "destructive",
         });
         setUploadingItemId(null);
@@ -358,7 +356,7 @@ export default function ImplementationSheetView() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--corp-bg)' }}>
         <p style={{ color: 'var(--corp-muted)' }}>
-          {language === 'ru' ? 'Лист не найден' : 'Sheet not found'}
+          {t('isv_sheetNotFound')}
         </p>
       </div>
     );
@@ -376,8 +374,8 @@ export default function ImplementationSheetView() {
         action={
           <StatusPill
             active={sheet.status === 'active'}
-            labelOn={language === 'ru' ? 'Активный' : 'Active'}
-            labelOff={language === 'ru' ? 'Завершен' : 'Completed'}
+            labelOn={t('statusActive')}
+            labelOff={t('isv_completed')}
           />
         }
       />
@@ -387,7 +385,7 @@ export default function ImplementationSheetView() {
         <div className="p-4" style={ITEM_CARD_STYLE}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold uppercase" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-              {language === 'ru' ? 'Общий прогресс' : 'Total Progress'}
+              {t('isv_totalProgress')}
             </span>
             <span
               className="text-[16px] font-bold"
@@ -473,7 +471,7 @@ export default function ImplementationSheetView() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                            {language === 'ru' ? 'Прогресс' : 'Progress'}
+                            {t('progress')}
                           </Label>
                           <span
                             className="text-[12px] font-bold"
@@ -498,7 +496,7 @@ export default function ImplementationSheetView() {
                             data-testid={`button-save-progress-${item.id}`}
                           >
                             <Save className="h-3 w-3" />
-                            {language === 'ru' ? 'Сохранить' : 'Save'}
+                            {t('save')}
                           </button>
                           <button
                             type="button"
@@ -508,7 +506,7 @@ export default function ImplementationSheetView() {
                             data-testid={`button-cancel-progress-${item.id}`}
                           >
                             <X className="h-3 w-3" />
-                            {language === 'ru' ? 'Отмена' : 'Cancel'}
+                            {t('cancel')}
                           </button>
                         </div>
                       </div>
@@ -516,7 +514,7 @@ export default function ImplementationSheetView() {
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                            {language === 'ru' ? 'Прогресс' : 'Progress'}
+                            {t('progress')}
                           </span>
                           <span
                             className="text-[11px] font-bold"
@@ -544,7 +542,7 @@ export default function ImplementationSheetView() {
                         data-testid={`button-edit-progress-${item.id}`}
                       >
                         <Edit className="h-3 w-3" />
-                        {language === 'ru' ? 'Изменить' : 'Edit'}
+                        {t('isv_edit')}
                       </button>
                     )}
 
@@ -556,7 +554,7 @@ export default function ImplementationSheetView() {
                       data-testid={`button-view-photos-${item.id}`}
                     >
                       <ImageIcon className="h-3 w-3" />
-                      {language === 'ru' ? 'Фото' : 'Photos'}
+                      {t('isv_photos')}
                     </button>
 
                     <button
@@ -567,7 +565,7 @@ export default function ImplementationSheetView() {
                       data-testid={`button-view-comments-${item.id}`}
                     >
                       <MessageSquare className="h-3 w-3" />
-                      {language === 'ru' ? 'Комментарии' : 'Comments'}
+                      {t('isv_comments')}
                     </button>
 
                     {canManagePhotos && (
@@ -592,7 +590,7 @@ export default function ImplementationSheetView() {
                             data-testid={`button-upload-photo-${item.id}`}
                           >
                             <Plus className="h-3 w-3" />
-                            {language === 'ru' ? 'Добавить' : 'Add'}
+                            {t('isv_add')}
                           </button>
                           <button
                             type="button"
@@ -602,7 +600,7 @@ export default function ImplementationSheetView() {
                             data-testid={`button-camera-capture-${item.id}`}
                           >
                             <Camera className="h-3 w-3" />
-                            {language === 'ru' ? 'Камера' : 'Camera'}
+                            {t('isv_camera')}
                           </button>
                         </div>
                       )
@@ -620,7 +618,7 @@ export default function ImplementationSheetView() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {language === 'ru' ? 'Фотографии позиции' : 'Item Photos'}: {selectedItem?.name}
+              {t('isv_itemPhotos')}: {selectedItem?.name}
             </DialogTitle>
           </DialogHeader>
 
@@ -749,7 +747,7 @@ export default function ImplementationSheetView() {
             <div className="text-center py-8">
               <Camera className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--corp-ink-3)' }} />
               <p style={{ color: 'var(--corp-muted)' }}>
-                {language === 'ru' ? 'Нет фотографий' : 'No photos'}
+                {t('isv_noPhotos')}
               </p>
             </div>
           )}
@@ -776,7 +774,7 @@ export default function ImplementationSheetView() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {language === 'ru' ? 'Комментарии' : 'Comments'}: {selectedItemForComments?.name}
+              {t('isv_comments')}: {selectedItemForComments?.name}
             </DialogTitle>
           </DialogHeader>
           {selectedItemForComments && sheet && (

@@ -12,10 +12,11 @@ import {
   Filter, ChevronDown,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
-import { ru } from "date-fns/locale";
+import { ru, enUS, hi } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { CorpHeader } from "@/components/corp-ui";
+import { useLanguage } from "@/components/LanguageProvider";
 
 const ACTION_COLORS: Record<string, { bg: string; fg: string }> = {
   create: { bg: 'var(--corp-pos-soft)', fg: 'var(--corp-pos)' },
@@ -32,55 +33,58 @@ function getActionStyle(action: string) {
   return ACTION_COLORS[action] || { bg: 'var(--corp-surface-2)', fg: 'var(--corp-muted)' };
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  create: 'Создание',
-  update: 'Изменение',
-  delete: 'Удаление',
-  archive: 'Архивирование',
-  unarchive: 'Разархивирование',
-  upload: 'Загрузка',
-  status_change: 'Смена статуса',
-  progress_change: 'Изменение прогресса',
-  complete: 'Завершение',
-};
-
-const ENTITY_LABELS: Record<string, string> = {
-  project: 'Проект',
-  expense: 'Расход',
-  revenue: 'Доход',
-  advance: 'Аванс',
-  customer_advance: 'Аванс от заказчика',
-  owner_investment: 'Инвестиция владельца',
-  document: 'Документ',
-  tool: 'Инструмент',
-  contractor: 'Подрядчик',
-  client: 'Заказчик',
-  user: 'Пользователь',
-  implementation_item: 'Элемент реализации',
-  photo: 'Фото/Видео',
-};
-
-const FIELD_LABELS: Record<string, string> = {
-  name: 'Название',
-  status: 'Статус',
-  progress: 'Прогресс',
-  amount: 'Сумма',
-  description: 'Описание',
-  totalCost: 'Общая стоимость',
-  location: 'Местоположение',
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Администратор',
-  director: 'Директор',
-  master: 'Мастер',
-  client: 'Заказчик',
-};
-
 function History() {
   const [, params] = useRoute("/history/:projectId");
   const [, setLocation] = useLocation();
+  const { t, language } = useLanguage();
   const projectId = params?.projectId;
+
+  const dateLocale = language === 'ru' ? ru : language === 'hi' ? hi : enUS;
+
+  const ACTION_LABELS: Record<string, string> = {
+    create: t('historyCreate'),
+    update: t('historyUpdate'),
+    delete: t('historyDelete'),
+    archive: t('historyArchive'),
+    unarchive: t('historyUnarchive'),
+    upload: t('historyUpload'),
+    status_change: t('historyStatusChange'),
+    progress_change: t('historyProgressChange'),
+    complete: t('historyComplete'),
+  };
+
+  const ENTITY_LABELS: Record<string, string> = {
+    project: t('entityProject'),
+    expense: t('entityExpense'),
+    revenue: t('entityRevenue'),
+    advance: t('entityAdvance'),
+    customer_advance: t('entityCustomerAdvance'),
+    owner_investment: t('entityOwnerInvestment'),
+    document: t('entityDocument'),
+    tool: t('entityTool'),
+    contractor: t('entityContractor'),
+    client: t('entityClient'),
+    user: t('entityUser'),
+    implementation_item: t('entityImplementationItem'),
+    photo: t('entityPhoto'),
+  };
+
+  const FIELD_LABELS: Record<string, string> = {
+    name: t('fieldName'),
+    status: t('fieldStatus'),
+    progress: t('fieldProgress'),
+    amount: t('fieldAmount'),
+    description: t('fieldDescription'),
+    totalCost: t('fieldTotalCost'),
+    location: t('fieldLocation'),
+  };
+
+  const ROLE_LABELS: Record<string, string> = {
+    admin: t('roleAdminLong'),
+    director: t('roleDirectorLong'),
+    master: t('roleMasterLong'),
+    client: t('roleClientLong'),
+  };
 
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
@@ -120,8 +124,8 @@ function History() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title="История изменений"
-        subtitle={projectId ? `Проект #${projectId.slice(0, 8)}` : undefined}
+        title={t('historyTitle')}
+        subtitle={projectId ? `${t('projectShortLabel')} #${projectId.slice(0, 8)}` : undefined}
         onBack={() => projectId ? setLocation(`/projects/${projectId}`) : window.history.back()}
         action={
           <button
@@ -135,7 +139,7 @@ function History() {
             }}
             data-testid="button-toggle-filters"
           >
-            <Filter size={14} /> <span className="hidden sm:inline">Фильтры</span>
+            <Filter size={14} /> <span className="hidden sm:inline">{t('filtersLabel')}</span>
             <ChevronDown size={12} style={{ transform: filtersOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
           </button>
         }
@@ -158,23 +162,23 @@ function History() {
                   className="text-[10px] uppercase font-bold mb-1"
                   style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                 >
-                  Тип объекта
+                  {t('objectTypeLabel')}
                 </p>
                 <Select value={entityTypeFilter} onValueChange={setEntityTypeFilter}>
                   <SelectTrigger className="h-9 text-[13px]" data-testid="filter-entity-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Все типы</SelectItem>
-                    <SelectItem value="project">Проекты</SelectItem>
-                    <SelectItem value="expense">Расходы</SelectItem>
-                    <SelectItem value="revenue">Доходы</SelectItem>
-                    <SelectItem value="advance">Авансы</SelectItem>
-                    <SelectItem value="customer_advance">Авансы от заказчиков</SelectItem>
-                    <SelectItem value="document">Документы</SelectItem>
-                    <SelectItem value="implementation_item">Элементы реализации</SelectItem>
-                    <SelectItem value="contractor">Подрядчики</SelectItem>
-                    <SelectItem value="client">Заказчики</SelectItem>
+                    <SelectItem value="all">{t('allTypesOption')}</SelectItem>
+                    <SelectItem value="project">{t('projectsTypeOption')}</SelectItem>
+                    <SelectItem value="expense">{t('expensesTypeOption')}</SelectItem>
+                    <SelectItem value="revenue">{t('revenuesTypeOption')}</SelectItem>
+                    <SelectItem value="advance">{t('advancesTypeOption')}</SelectItem>
+                    <SelectItem value="customer_advance">{t('customerAdvancesTypeOption')}</SelectItem>
+                    <SelectItem value="document">{t('documentsTypeOption')}</SelectItem>
+                    <SelectItem value="implementation_item">{t('implementationItemsTypeOption')}</SelectItem>
+                    <SelectItem value="contractor">{t('contractorsTypeOption')}</SelectItem>
+                    <SelectItem value="client">{t('clientsTypeOption')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -184,14 +188,14 @@ function History() {
                   className="text-[10px] uppercase font-bold mb-1"
                   style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                 >
-                  Пользователь
+                  {t('userFilterLabel')}
                 </p>
                 <Select value={userFilter} onValueChange={setUserFilter}>
                   <SelectTrigger className="h-9 text-[13px]" data-testid="filter-user">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Все пользователи</SelectItem>
+                    <SelectItem value="all">{t('allUsersOption')}</SelectItem>
                     {users?.map((u: any) => (
                       <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
                     ))}
@@ -204,7 +208,7 @@ function History() {
                   className="text-[10px] uppercase font-bold mb-1"
                   style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                 >
-                  Период
+                  {t('periodLabel')}
                 </p>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -218,12 +222,12 @@ function History() {
                       <CalendarIcon className="mr-2 h-3.5 w-3.5" />
                       {dateRange.from ? (
                         dateRange.to ? (
-                          <>{format(dateRange.from, "d MMM", { locale: ru })} – {format(dateRange.to, "d MMM", { locale: ru })}</>
+                          <>{format(dateRange.from, "d MMM", { locale: dateLocale })} – {format(dateRange.to, "d MMM", { locale: dateLocale })}</>
                         ) : (
-                          format(dateRange.from, "d MMM yyyy", { locale: ru })
+                          format(dateRange.from, "d MMM yyyy", { locale: dateLocale })
                         )
                       ) : (
-                        <span>Выберите период</span>
+                        <span>{t('selectPeriodPlaceholder')}</span>
                       )}
                     </Button>
                   </PopoverTrigger>
@@ -232,7 +236,7 @@ function History() {
                       mode="range"
                       selected={{ from: dateRange.from, to: dateRange.to }}
                       onSelect={(range: any) => setDateRange(range || { from: undefined, to: undefined })}
-                      locale={ru}
+                      locale={dateLocale}
                     />
                   </PopoverContent>
                 </Popover>
@@ -251,7 +255,7 @@ function History() {
                 style={{ color: 'var(--corp-accent)' }}
                 data-testid="button-reset-filters"
               >
-                Сбросить фильтры
+                {t('resetFilters')}
               </button>
             )}
           </div>
@@ -295,7 +299,7 @@ function History() {
                     <div className="flex items-center gap-1 text-[11px] flex-shrink-0" style={{ color: 'var(--corp-ink-3)' }}>
                       <Clock size={11} />
                       <span style={{ fontFamily: 'var(--corp-mono)' }}>
-                        {format(new Date(log.createdAt), "d MMM HH:mm", { locale: ru })}
+                        {format(new Date(log.createdAt), "d MMM HH:mm", { locale: dateLocale })}
                       </span>
                     </div>
                   </div>
@@ -331,7 +335,7 @@ function History() {
                       <span>{ROLE_LABELS[log.userRole] || log.userRole}</span>
                     </div>
                     <span style={{ fontFamily: 'var(--corp-mono)', whiteSpace: 'nowrap' }}>
-                      {formatDistanceToNow(new Date(log.createdAt), { locale: ru, addSuffix: true })}
+                      {formatDistanceToNow(new Date(log.createdAt), { locale: dateLocale, addSuffix: true })}
                     </span>
                   </div>
                 </div>
@@ -354,10 +358,10 @@ function History() {
               <Activity size={28} />
             </div>
             <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--corp-ink-2)' }}>
-              Нет записей в истории
+              {t('noHistoryRecords')}
             </p>
             <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-              Изменения по проекту появятся здесь
+              {t('historyChangesAppearHere')}
             </p>
           </div>
         )}

@@ -1,13 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Wallet } from "lucide-react";
 import {
-  CorpHeader, CorpHeroSummary, MoneyAED, fmtDateRu,
+  CorpHeader, CorpHeroSummary, MoneyAED,
 } from "@/components/corp-ui";
+import { fmtDate, fmtNumber } from "@/lib/locale";
 import { AdvanceMenu } from "./AdvancesList";
 
 interface OwnerInvestment {
@@ -22,6 +24,7 @@ interface OwnerInvestment {
 export default function OwnerInvestmentsList() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -43,10 +46,10 @@ export default function OwnerInvestmentsList() {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'owner-investments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
       queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
-      toast({ title: "Успешно", description: "Вложение удалено" });
+      toast({ title: t('success'), description: t('investmentDeleted') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось удалить вложение", variant: "destructive" });
+      toast({ title: t('error'), description: t('investmentDeleteFailed'), variant: "destructive" });
     },
   });
 
@@ -58,7 +61,6 @@ export default function OwnerInvestmentsList() {
   const renderList = (
     investments: OwnerInvestment[],
     investorKey: 'vlad' | 'platon',
-    investorName: string,
   ) => (
     <div className="flex flex-col gap-2">
       {isAdminOrDirector && (
@@ -69,7 +71,7 @@ export default function OwnerInvestmentsList() {
           style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
           data-testid={`button-add-investment-${investorKey}`}
         >
-          <Plus size={13} /> Добавить вложение
+          <Plus size={13} /> {t('addInvestmentAction')}
         </button>
       )}
 
@@ -83,7 +85,7 @@ export default function OwnerInvestmentsList() {
           }}
         >
           <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-            У {investorName} пока нет вложений
+            {t('noInvestmentsForInvestor')}
           </p>
         </div>
       ) : (
@@ -105,14 +107,17 @@ export default function OwnerInvestmentsList() {
                   className="text-[11px]"
                   style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)', whiteSpace: 'nowrap' }}
                 >
-                  {fmtDateRu(investment.date)}
+                  {fmtDate(investment.date, language)}
                 </span>
                 {isAdminOrDirector && (
                   <AdvanceMenu
                     onEdit={() => setLocation(`/edit-owner-investment/${investment.id}`)}
                     onDelete={() => deleteOwnerInvestmentMutation.mutate(investment.id)}
-                    deleteTitle="Удалить вложение?"
-                    deleteDescription="Это действие нельзя отменить. Вложение будет удалено безвозвратно."
+                    deleteTitle={t('deleteInvestmentConfirmTitle')}
+                    deleteDescription={t('deleteInvestmentConfirmDescription')}
+                    editLabel={t('edit')}
+                    deleteLabel={t('delete')}
+                    cancelLabel={t('cancel')}
                   />
                 )}
               </div>
@@ -135,17 +140,17 @@ export default function OwnerInvestmentsList() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title="Вложили из своих"
-        subtitle="Личные вложения учредителей"
+        title={t('ownerInvestmentsTitle')}
+        subtitle={t('ownerInvestmentsSubtitle')}
         onBack={() => setLocation(`/projects/${projectId}`)}
       />
 
       <main className="px-4 pt-4">
         {!isLoading && (
           <CorpHeroSummary
-            label="Общая сумма вложений"
+            label={t('totalInvestmentsLabel')}
             amount={vladTotal + platonTotal}
-            subtext={`Влад: ${Math.round(vladTotal).toLocaleString('ru-RU').replace(/,/g, ' ')} · Платон: ${Math.round(platonTotal).toLocaleString('ru-RU').replace(/,/g, ' ')}`}
+            subtext={`${t('investorVlad')}: ${fmtNumber(Math.round(vladTotal), language)} · ${t('investorPlaton')}: ${fmtNumber(Math.round(platonTotal), language)}`}
             tone="dark"
           />
         )}
@@ -165,9 +170,9 @@ export default function OwnerInvestmentsList() {
               data-testid="tab-vlad"
             >
               <span className="flex items-center gap-1.5">
-                <Wallet size={13} /> Влад
+                <Wallet size={13} /> {t('investorVlad')}
                 <span style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-muted)', fontWeight: 600 }}>
-                  {Math.round(vladTotal).toLocaleString('ru-RU').replace(/,/g, ' ')}
+                  {fmtNumber(Math.round(vladTotal), language)}
                 </span>
               </span>
             </TabsTrigger>
@@ -178,19 +183,19 @@ export default function OwnerInvestmentsList() {
               data-testid="tab-platon"
             >
               <span className="flex items-center gap-1.5">
-                <Wallet size={13} /> Платон
+                <Wallet size={13} /> {t('investorPlaton')}
                 <span style={{ fontFamily: 'var(--corp-mono)', color: 'var(--corp-muted)', fontWeight: 600 }}>
-                  {Math.round(platonTotal).toLocaleString('ru-RU').replace(/,/g, ' ')}
+                  {fmtNumber(Math.round(platonTotal), language)}
                 </span>
               </span>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="vlad" className="mt-4">
-            {renderList(vladInvestments, 'vlad', 'Влада')}
+            {renderList(vladInvestments, 'vlad')}
           </TabsContent>
           <TabsContent value="platon" className="mt-4">
-            {renderList(platonInvestments, 'platon', 'Платона')}
+            {renderList(platonInvestments, 'platon')}
           </TabsContent>
         </Tabs>
       </main>

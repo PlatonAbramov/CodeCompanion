@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ListSkeleton } from "@/components/skeletons";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtToday, fmtDate } from "@/lib/locale";
 import {
   HardHat, ClipboardList, Building2, ChevronRight,
 } from "lucide-react";
@@ -16,18 +18,10 @@ interface WorkerProject {
   endDate?: string | null;
 }
 
-function fmtTodayRu() {
-  return new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-}
-
-function fmtDateRu(s?: string | null) {
-  if (!s) return '—';
-  return new Date(s).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
 export default function WorkerDashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const { t, language } = useLanguage();
 
   const { data: projects = [], isLoading } = useQuery<WorkerProject[]>({
     queryKey: ['/api/projects'],
@@ -54,10 +48,10 @@ export default function WorkerDashboard() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-bold leading-tight" style={{ color: 'var(--corp-ink)' }}>
-              {user?.name || 'Рабочий'}
+              {user?.name || t('worker')}
             </div>
             <div className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-              Сегодня · {fmtTodayRu()}
+              {t('today')} · {fmtToday(language)}
             </div>
           </div>
           <LanguageSwitcher />
@@ -82,7 +76,7 @@ export default function WorkerDashboard() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[12px] font-medium" style={{ color: 'var(--corp-muted)' }}>
-              Активных проектов
+              {t('activeProjects')}
             </div>
             <div className="text-[20px] font-bold" style={{ color: 'var(--corp-ink)' }}>
               {activeProjects.length}
@@ -94,7 +88,7 @@ export default function WorkerDashboard() {
       {/* Список проектов */}
       <div className="px-4 pt-5">
         <div className="text-[12px] font-bold uppercase mb-2" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-          Проекты
+          {t('projects')}
         </div>
 
         {isLoading ? (
@@ -110,7 +104,7 @@ export default function WorkerDashboard() {
             }}
             data-testid="text-no-projects"
           >
-            Активных проектов пока нет
+            {t('noProjects')}
           </div>
         ) : (
           <div className="space-y-2">
@@ -138,8 +132,8 @@ export default function WorkerDashboard() {
                     {project.name}
                   </div>
                   <div className="text-[12px] truncate" style={{ color: 'var(--corp-muted)' }}>
-                    {project.location || 'Без адреса'}
-                    {project.startDate ? ` · с ${fmtDateRu(project.startDate)}` : ''}
+                    {project.location || t('noLocation')}
+                    {project.startDate ? ` · ${fmtDate(project.startDate, language)}` : ''}
                   </div>
                 </div>
                 <ChevronRight size={18} style={{ color: 'var(--corp-muted)' }} />

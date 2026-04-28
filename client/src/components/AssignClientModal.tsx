@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientProjectSchema, type InsertClientProject, insertClientSchema, type InsertClient } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/components/LanguageProvider";
 import { Plus } from "lucide-react";
 
 interface AssignClientModalProps {
@@ -28,6 +29,7 @@ interface Client {
 
 export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientModalProps) {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [isCreatingClient, setIsCreatingClient] = useState(false);
   
@@ -89,14 +91,14 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
       onClose();
       form.reset();
       toast({
-        title: "Заказчик назначен",
-        description: "Заказчик успешно назначен на проект",
+        title: t('acm_clientAssignedTitle'),
+        description: t('acm_clientAssignedDesc'),
       });
     },
     onError: () => {
       toast({
-        title: "Ошибка",
-        description: "Не удалось назначить заказчика на проект",
+        title: t('errorToastTitle'),
+        description: t('acm_assignFailedDesc'),
         variant: "destructive",
       });
     },
@@ -126,14 +128,14 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
       setIsCreatingClient(false);
       clientForm.reset();
       toast({
-        title: "Заказчик создан",
-        description: "Новый заказчик успешно создан",
+        title: t('acm_clientCreatedTitle'),
+        description: t('acm_clientCreatedDesc'),
       });
     },
     onError: () => {
       toast({
-        title: "Ошибка",
-        description: "Не удалось создать заказчика",
+        title: t('errorToastTitle'),
+        description: t('acm_createFailedDesc'),
         variant: "destructive",
       });
     },
@@ -159,7 +161,7 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {isCreatingClient ? "Добавить нового заказчика" : "Назначить заказчика на проект"}
+            {isCreatingClient ? t('acm_addNewClientTitle') : t('acm_assignClientTitle')}
           </DialogTitle>
         </DialogHeader>
         
@@ -172,9 +174,9 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Название *</FormLabel>
+                      <FormLabel>{t('acm_nameStarLabel')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Название заказчика" {...field} />
+                        <Input placeholder={t('clientNamePlaceholder')} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -185,9 +187,9 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                   name="company"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Компания</FormLabel>
+                      <FormLabel>{t('companyLabel')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Название компании" {...field} value={field.value || ""} />
+                        <Input placeholder={t('companyNamePlaceholder')} {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -201,7 +203,7 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Телефон</FormLabel>
+                      <FormLabel>{t('phoneLabel')}</FormLabel>
                       <FormControl>
                         <Input placeholder="+971 XX XXX XXXX" {...field} value={field.value || ""} />
                       </FormControl>
@@ -229,9 +231,9 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                 name="contactPerson"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Контактное лицо</FormLabel>
+                    <FormLabel>{t('contactPersonLabel')}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Имя контактного лица" {...field} value={field.value || ""} />
+                      <Input placeholder={t('acm_contactPersonPlaceholder')} {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -243,9 +245,9 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                 name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Адрес</FormLabel>
+                    <FormLabel>{t('addressLabel')}</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Адрес заказчика" {...field} value={field.value || ""} />
+                      <Textarea placeholder={t('clientAddressPlaceholder')} {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -260,14 +262,14 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                   className="flex-1"
                   disabled={createClientMutation.isPending}
                 >
-                  Назад
+                  {t('back')}
                 </Button>
                 <Button 
                   type="submit"
                   className="flex-1"
                   disabled={createClientMutation.isPending}
                 >
-                  {createClientMutation.isPending ? "Создаем..." : "Создать заказчика"}
+                  {createClientMutation.isPending ? t('acm_creatingProgress') : t('acm_createClientButton')}
                 </Button>
               </div>
             </form>
@@ -280,12 +282,12 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                 name="clientId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Заказчик *</FormLabel>
+                    <FormLabel>{t('acm_clientStarLabel')}</FormLabel>
                     <div className="flex gap-2">
                       <FormControl className="flex-1">
                         <Select onValueChange={field.onChange} value={field.value}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Выберите заказчика" />
+                            <SelectValue placeholder={t('selectClient')} />
                           </SelectTrigger>
                           <SelectContent>
                             {clients?.map((client) => (
@@ -316,7 +318,7 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                   name="contractAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Сумма договора (د.إ) *</FormLabel>
+                      <FormLabel>{t('acm_contractAmountStar')}</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -337,9 +339,9 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                   name="contractNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Номер договора</FormLabel>
+                      <FormLabel>{t('contractNumber')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="№ договора" {...field} value={field.value || ""} />
+                        <Input placeholder={t('acm_contractNumberPlaceholder')} {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -352,7 +354,7 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                 name="contractDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Дата договора *</FormLabel>
+                    <FormLabel>{t('acm_contractDateStar')}</FormLabel>
                     <FormControl>
                       <Input
                         type="date"
@@ -371,10 +373,10 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Описание работ</FormLabel>
+                    <FormLabel>{t('acm_workDescriptionLabel')}</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Описание работ по договору"
+                        placeholder={t('acm_workDescriptionPlaceholder')}
                         rows={3}
                         {...field}
                         value={field.value || ""}
@@ -393,7 +395,7 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                   className="flex-1"
                   disabled={assignMutation.isPending}
                 >
-                  Отмена
+                  {t('cancel')}
                 </Button>
                 <Button 
                   type="submit"
@@ -406,7 +408,7 @@ export function AssignClientModal({ isOpen, onClose, projectId }: AssignClientMo
                     console.log("Form errors:", form.formState.errors);
                   }}
                 >
-                  {assignMutation.isPending ? "Назначаем..." : "Назначить"}
+                  {assignMutation.isPending ? t('acm_assigningProgress') : t('acm_assignButton')}
                 </Button>
               </div>
             </form>

@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { fmtDateRu } from "@/components/corp-ui";
+import { fmtDate } from "@/lib/locale";
+import { useLanguage } from "@/components/LanguageProvider";
 import { VehicleForm } from "@/components/VehicleForm";
 
 interface Vehicle {
@@ -62,6 +63,7 @@ export default function VehicleDetail() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, language } = useLanguage();
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
 
@@ -150,10 +152,10 @@ export default function VehicleDetail() {
       qc.invalidateQueries({ queryKey: ['/api/vehicles', id, 'audit-log'] });
       qc.invalidateQueries({ queryKey: ['/api/vehicles'] });
       setMileageEdit(null);
-      toast({ title: 'Пробег обновлён' });
+      toast({ title: t('mileageUpdatedToast') });
     },
     onError: (e: any) => {
-      toast({ title: 'Ошибка', description: e?.message || 'Не удалось обновить', variant: 'destructive' });
+      toast({ title: t('errorToastTitle'), description: e?.message || t('failedToUpdateGeneric'), variant: 'destructive' });
     },
   });
 
@@ -170,11 +172,11 @@ export default function VehicleDetail() {
       qc.invalidateQueries({ queryKey: ['/api/vehicles', id] });
       qc.invalidateQueries({ queryKey: ['/api/vehicles', id, 'audit-log'] });
       toast({
-        title: newStatus === 'archived' ? 'В архиве' : 'Восстановлен',
+        title: newStatus === 'archived' ? t('movedToArchiveToast') : t('restoredToast'),
       });
     },
     onError: (e: any) => {
-      toast({ title: 'Ошибка', description: e?.message, variant: 'destructive' });
+      toast({ title: t('errorToastTitle'), description: e?.message, variant: 'destructive' });
     },
   });
 
@@ -204,11 +206,11 @@ export default function VehicleDetail() {
               className="text-[14px] sm:text-[15px] font-bold truncate"
               style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
             >
-              {vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Автомобиль'}
+              {vehicle ? `${vehicle.brand} ${vehicle.model}` : t('vehicleTitle')}
             </h2>
             {vehicle && (
               <p className="text-[11px] truncate" style={{ color: 'var(--corp-muted)' }}>
-                {vehicle.plateNumber}{isArchived ? ' · в архиве' : ''}
+                {vehicle.plateNumber}{isArchived ? ` · ${t('inArchiveSuffix')}` : ''}
               </p>
             )}
           </div>
@@ -240,7 +242,7 @@ export default function VehicleDetail() {
           </div>
         ) : !vehicle ? (
           <div className="text-center py-10 text-[13px]" style={{ color: 'var(--corp-muted)' }}>
-            Автомобиль не найден
+            {t('vehicleNotFound')}
           </div>
         ) : (
           <>
@@ -268,24 +270,24 @@ export default function VehicleDetail() {
                 </div>
               )}
               <div className="p-3">
-                <InfoRow label="Госномер" value={<span className="font-mono">{vehicle.plateNumber}</span>} />
-                <InfoRow label="Год выпуска" value={vehicle.year || '—'} />
+                <InfoRow label={t('plateNumberLabel')} value={<span className="font-mono">{vehicle.plateNumber}</span>} />
+                <InfoRow label={t('yearProducedLabel')} value={vehicle.year || '—'} />
                 <InfoRow label="VIN" value={vehicle.vin ? <span className="font-mono text-[11px]">{vehicle.vin}</span> : '—'} />
-                <InfoRow label="Цвет" value={vehicle.color || '—'} />
+                <InfoRow label={t('colorLabel')} value={vehicle.color || '—'} />
                 <InfoRow
-                  label="Закреплён"
+                  label={t('assignedToLabel')}
                   value={
                     vehicle.assignedPersonnel
                       ? `${vehicle.assignedPersonnel.lastName} ${vehicle.assignedPersonnel.firstName}` +
                         (vehicle.assignedPersonnel.specialization
                           ? ` · ${vehicle.assignedPersonnel.specialization}`
                           : '')
-                      : 'Не назначен'
+                      : t('notAssignedOption')
                   }
                 />
-                <InfoRow label="Статус" value={isArchived ? 'Архив' : 'Активен'} />
+                <InfoRow label={t('statusFieldLabel')} value={isArchived ? t('archive') : t('statusActiveBadge')} />
                 {vehicle.createdAt && (
-                  <InfoRow label="Добавлен" value={fmtDateRu(vehicle.createdAt)} />
+                  <InfoRow label={t('addedFieldLabel')} value={fmtDate(vehicle.createdAt, language)} />
                 )}
               </div>
             </div>
@@ -302,7 +304,7 @@ export default function VehicleDetail() {
               <div className="flex items-center gap-2 mb-2">
                 <ClipboardList size={16} style={{ color: 'var(--corp-accent)' }} />
                 <h3 className="text-[13px] font-bold" style={{ color: 'var(--corp-ink)' }}>
-                  Фотоконтроль
+                  {t('photoControl')}
                 </h3>
               </div>
               {canPhotoControl ? (
@@ -311,15 +313,15 @@ export default function VehicleDetail() {
                   data-testid="button-start-photo-control"
                   onClick={() => setLocation(`/vehicles/${id}/photo-control`)}
                 >
-                  <Camera size={14} className="mr-2" /> Начать фотоконтроль
+                  <Camera size={14} className="mr-2" /> {t('startPhotoControlBtn')}
                 </Button>
               ) : (
                 <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
                   {isArchived
-                    ? 'Автомобиль в архиве — фотоконтроль недоступен.'
+                    ? t('vehicleArchivedHint')
                     : isMaster
-                      ? 'Этот автомобиль не закреплён за вами.'
-                      : 'Фотоконтроль выполняет закреплённый сотрудник ежедневно с 08:00 до 18:00 (GST).'}
+                      ? t('vehicleNotAssignedToYou')
+                      : t('photoControlScheduleHint')}
                 </p>
               )}
             </div>
@@ -337,21 +339,21 @@ export default function VehicleDetail() {
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 size={16} style={{ color: 'var(--corp-accent)' }} />
                 <h3 className="text-[13px] font-bold" style={{ color: 'var(--corp-ink)' }}>
-                  Статистика пробега
+                  {t('mileageStatsTitle')}
                 </h3>
               </div>
               {!stats || stats.controlsCount === 0 ? (
                 <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                  Появится после первого фотоконтроля.
+                  {t('mileageStatsHint')}
                 </p>
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { label: 'За неделю', value: stats.week },
-                      { label: 'За месяц', value: stats.month },
-                      { label: 'За год', value: stats.year },
-                      { label: 'Всего', value: stats.all },
+                      { label: t('weekRangeLabel'), value: stats.week },
+                      { label: t('monthRangeLabel'), value: stats.month },
+                      { label: t('yearRangeLabel'), value: stats.year },
+                      { label: t('totalRangeLabel'), value: stats.all },
                     ].map((s) => (
                       <div
                         key={s.label}
@@ -363,7 +365,7 @@ export default function VehicleDetail() {
                           {s.label}
                         </div>
                         <div className="text-[15px] font-bold" style={{ color: 'var(--corp-ink)' }}>
-                          {s.value.toLocaleString('ru-RU')} <span className="text-[11px] font-normal" style={{ color: 'var(--corp-muted)' }}>км</span>
+                          {s.value.toLocaleString('ru-RU')} <span className="text-[11px] font-normal" style={{ color: 'var(--corp-muted)' }}>{t('kmUnit')}</span>
                         </div>
                       </div>
                     ))}
@@ -371,9 +373,9 @@ export default function VehicleDetail() {
                   {stats.lastMileage !== null && (
                     <div className="mt-3 pt-2 flex items-center justify-between text-[11px]"
                       style={{ borderTop: '1px solid var(--corp-line)', color: 'var(--corp-muted)' }}>
-                      <span>Последняя запись: {fmtDateRu(stats.lastDate || undefined)}</span>
+                      <span>{t('lastRecordLabel')}: {fmtDate(stats.lastDate || undefined, language)}</span>
                       <span className="font-semibold" style={{ color: 'var(--corp-ink-2)' }}>
-                        {stats.lastMileage.toLocaleString('ru-RU')} км
+                        {stats.lastMileage.toLocaleString('ru-RU')} {t('kmUnit')}
                       </span>
                     </div>
                   )}
@@ -391,11 +393,11 @@ export default function VehicleDetail() {
               }}
             >
               <h3 className="text-[13px] font-bold mb-2" style={{ color: 'var(--corp-ink)' }}>
-                История фотоконтролей
+                {t('photoControlHistoryTitle')}
               </h3>
               {controls.length === 0 ? (
                 <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                  Записей пока нет.
+                  {t('noRecordsYet')}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -437,11 +439,11 @@ export default function VehicleDetail() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>
-                            {fmtDateRu(c.performedAt || undefined)}
+                            {fmtDate(c.performedAt || undefined, language)}
                           </p>
                           <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
                             <span className="font-semibold" style={{ color: 'var(--corp-ink-2)' }}>
-                              {c.mileageKm.toLocaleString('ru-RU')} км
+                              {c.mileageKm.toLocaleString('ru-RU')} {t('kmUnit')}
                             </span>
                             {delta !== null && (
                               <span style={{ color: 'var(--corp-accent)' }}>
@@ -468,7 +470,7 @@ export default function VehicleDetail() {
                             </a>
                           ) : (
                             <span className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                              нет PDF
+                              {t('noPdfShort')}
                             </span>
                           )}
                           {canManage && (
@@ -489,7 +491,7 @@ export default function VehicleDetail() {
                                 border: '1px solid var(--corp-line)',
                               }}
                             >
-                              <Pencil size={10} /> Пробег
+                              <Pencil size={10} /> {t('mileageBtn')}
                             </button>
                           )}
                         </div>
@@ -514,45 +516,51 @@ export default function VehicleDetail() {
                 <div className="flex items-center gap-2 mb-2">
                   <History size={16} style={{ color: 'var(--corp-accent)' }} />
                   <h3 className="text-[13px] font-bold" style={{ color: 'var(--corp-ink)' }}>
-                    Журнал действий
+                    {t('auditLogTitle')}
                   </h3>
                 </div>
                 {auditLoading ? (
                   <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                    <Loader2 size={12} className="animate-spin" /> Загрузка…
+                    <Loader2 size={12} className="animate-spin" /> {t('loadingDots')}
                   </div>
                 ) : auditLog.length === 0 ? (
                   <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                    Записей пока нет.
+                    {t('noRecordsYet')}
                   </p>
                 ) : (
                   <div className="space-y-1.5 max-h-72 overflow-y-auto">
                     {auditLog.map((a) => {
-                      const actor = a.user?.name || a.user?.username || 'Система';
+                      const actor = a.user?.name || a.user?.username || t('systemActor');
                       const d = a.details || {};
                       let descr = '';
                       switch (a.action) {
                         case 'create':
-                          descr = `Добавлен автомобиль ${d.brand || ''} ${d.model || ''} · ${d.plateNumber || ''}`.trim();
+                          descr = t('auditCreateVehicleTpl')
+                            .replace('{brand}', d.brand || '')
+                            .replace('{model}', d.model || '')
+                            .replace('{plate}', d.plateNumber || '')
+                            .trim();
                           break;
                         case 'update':
-                          descr = `Обновлены поля: ${(d.fields || []).join(', ') || '—'}`;
+                          descr = t('auditUpdateFieldsTpl').replace('{fields}', (d.fields || []).join(', ') || '—');
                           break;
                         case 'archive':
-                          descr = 'Перенесён в архив';
+                          descr = t('auditMovedToArchive');
                           break;
                         case 'restore':
-                          descr = 'Восстановлен из архива';
+                          descr = t('auditRestoredFromArchive');
                           break;
                         case 'reassign':
-                          descr = `Назначен сотрудник: ${d.assignedToName || 'не назначен'}` +
-                            (d.assignedFromName ? ` (был: ${d.assignedFromName})` : '');
+                          descr = t('auditAssignedEmployeeTpl').replace('{name}', d.assignedToName || t('notAssignedLower')) +
+                            (d.assignedFromName ? ` (${t('auditWasTpl').replace('{name}', d.assignedFromName)})` : '');
                           break;
                         case 'photo_control':
-                          descr = `Выполнен фотоконтроль · пробег ${(d.mileageKm || 0).toLocaleString('ru-RU')} км`;
+                          descr = t('auditPhotoControlTpl').replace('{km}', (d.mileageKm || 0).toLocaleString('ru-RU'));
                           break;
                         case 'mileage_correction':
-                          descr = `Корректировка пробега: ${(d.mileageFrom || 0).toLocaleString('ru-RU')} → ${(d.mileageTo || 0).toLocaleString('ru-RU')} км` +
+                          descr = t('auditMileageCorrectionTpl')
+                            .replace('{from}', (d.mileageFrom || 0).toLocaleString('ru-RU'))
+                            .replace('{to}', (d.mileageTo || 0).toLocaleString('ru-RU')) +
                             (d.reason ? ` · ${d.reason}` : '');
                           break;
                         default:
@@ -570,7 +578,7 @@ export default function VehicleDetail() {
                               {actor}
                             </span>
                             <span style={{ color: 'var(--corp-muted)' }}>
-                              {fmtDateRu(a.createdAt || undefined)}
+                              {fmtDate(a.createdAt || undefined, language)}
                             </span>
                           </div>
                           <div style={{ color: 'var(--corp-ink-2)' }}>{descr}</div>
@@ -592,9 +600,9 @@ export default function VehicleDetail() {
                 onClick={() => archiveMutation.mutate(isArchived ? 'active' : 'archived')}
               >
                 {isArchived ? (
-                  <><RotateCcw size={14} className="mr-2" /> Восстановить из архива</>
+                  <><RotateCcw size={14} className="mr-2" /> {t('restoreFromArchiveBtn')}</>
                 ) : (
-                  <><Archive size={14} className="mr-2" /> Перенести в архив</>
+                  <><Archive size={14} className="mr-2" /> {t('moveToArchiveBtn')}</>
                 )}
               </Button>
             )}
@@ -607,7 +615,7 @@ export default function VehicleDetail() {
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Редактировать автомобиль</DialogTitle>
+              <DialogTitle>{t('editVehicleTitle')}</DialogTitle>
             </DialogHeader>
             <VehicleForm
               initial={{
@@ -632,17 +640,17 @@ export default function VehicleDetail() {
       <Dialog open={!!mileageEdit} onOpenChange={(o) => !o && setMileageEdit(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Корректировка пробега</DialogTitle>
+            <DialogTitle>{t('mileageCorrectionTitle')}</DialogTitle>
           </DialogHeader>
           {mileageEdit && (
             <div className="space-y-3">
               <div className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                Текущее значение: <b style={{ color: 'var(--corp-ink)' }}>
-                  {mileageEdit.currentMileage.toLocaleString('ru-RU')} км
+                {t('currentValueLabel')}: <b style={{ color: 'var(--corp-ink)' }}>
+                  {mileageEdit.currentMileage.toLocaleString('ru-RU')} {t('kmUnit')}
                 </b>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="mileage-new" className="text-[12px]">Новый пробег (км)</Label>
+                <Label htmlFor="mileage-new" className="text-[12px]">{t('newMileageLabel')}</Label>
                 <Input
                   id="mileage-new"
                   type="number"
@@ -656,11 +664,11 @@ export default function VehicleDetail() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="mileage-reason" className="text-[12px]">Причина</Label>
+                <Label htmlFor="mileage-reason" className="text-[12px]">{t('reasonLabel')}</Label>
                 <Textarea
                   id="mileage-reason"
                   rows={3}
-                  placeholder="Например: ошибка ввода, опечатка"
+                  placeholder={t('reasonPlaceholder')}
                   value={mileageEdit.reason}
                   onChange={(e) =>
                     setMileageEdit({ ...mileageEdit, reason: e.target.value })
@@ -675,7 +683,7 @@ export default function VehicleDetail() {
                   onClick={() => setMileageEdit(null)}
                   data-testid="button-correct-cancel"
                 >
-                  Отмена
+                  {t('cancel')}
                 </Button>
                 <Button
                   type="button"
@@ -683,15 +691,15 @@ export default function VehicleDetail() {
                   onClick={() => {
                     const n = parseInt(mileageEdit.newMileage, 10);
                     if (!Number.isFinite(n) || n < 0) {
-                      toast({ title: 'Введите корректный пробег', variant: 'destructive' });
+                      toast({ title: t('enterValidMileage'), variant: 'destructive' });
                       return;
                     }
                     if (n === mileageEdit.currentMileage) {
-                      toast({ title: 'Значение не изменилось', variant: 'destructive' });
+                      toast({ title: t('valueDidNotChange'), variant: 'destructive' });
                       return;
                     }
                     if (mileageEdit.reason.trim().length < 1) {
-                      toast({ title: 'Укажите причину', variant: 'destructive' });
+                      toast({ title: t('specifyReason'), variant: 'destructive' });
                       return;
                     }
                     correctMileageMutation.mutate({
@@ -702,7 +710,7 @@ export default function VehicleDetail() {
                   }}
                   data-testid="button-correct-save"
                 >
-                  {correctMileageMutation.isPending ? 'Сохранение…' : 'Сохранить'}
+                  {correctMileageMutation.isPending ? t('savingDots') : t('save')}
                 </Button>
               </div>
             </div>

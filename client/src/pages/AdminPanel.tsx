@@ -19,7 +19,9 @@ import {
   Activity, Search, AlertTriangle, CheckCircle, XCircle,
   Clock, Edit, Trash2, Send
 } from "lucide-react";
-import { CorpHeader, fmtDateRu } from "@/components/corp-ui";
+import { CorpHeader } from "@/components/corp-ui";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDateTime } from "@/lib/locale";
 
 interface AdminStats {
   totalUsers: number;
@@ -104,6 +106,7 @@ function StatusBadge({ children, tone = 'neutral' }: { children: React.ReactNode
 
 export default function AdminPanel() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "blocked">("all");
@@ -167,14 +170,14 @@ export default function AdminPanel() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Успешно", description: "Пользователь создан успешно" });
+      toast({ title: t('success'), description: t('userCreatedSuccess') });
       setIsCreateUserOpen(false);
       createUserForm.reset();
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка", description: error.message || "Не удалось создать пользователя", variant: "destructive" });
+      toast({ title: t('error'), description: error.message || t('userCreateFailed'), variant: "destructive" });
     },
   });
 
@@ -184,12 +187,12 @@ export default function AdminPanel() {
       return res.json();
     },
     onSuccess: (_, { blocked }) => {
-      toast({ title: "Успешно", description: blocked ? "Пользователь заблокирован" : "Пользователь разблокирован" });
+      toast({ title: t('success'), description: blocked ? t('userBlockedToast') : t('userUnblockedToast') });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка", description: error.message || "Не удалось изменить статус пользователя", variant: "destructive" });
+      toast({ title: t('error'), description: error.message || t('userStatusChangeFailed'), variant: "destructive" });
     },
   });
 
@@ -199,11 +202,11 @@ export default function AdminPanel() {
       return res.json();
     },
     onSuccess: (data) => {
-      toast({ title: "Пароль сброшен", description: `Новый временный пароль: ${data.tempPassword}` });
+      toast({ title: t('passwordResetToastTitle'), description: `${t('newTempPasswordPrefix')} ${data.tempPassword}` });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка", description: error.message || "Не удалось сбросить пароль", variant: "destructive" });
+      toast({ title: t('error'), description: error.message || t('passwordResetFailed'), variant: "destructive" });
     },
   });
 
@@ -213,12 +216,12 @@ export default function AdminPanel() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Успешно", description: "Пользователь принудительно вышел из всех сессий" });
+      toast({ title: t('success'), description: t('userForceLoggedOut') });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
       setIsEditUserOpen(false);
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка", description: error.message || "Не удалось завершить сессии", variant: "destructive" });
+      toast({ title: t('error'), description: error.message || t('forceLogoutFailed'), variant: "destructive" });
     },
   });
 
@@ -228,13 +231,13 @@ export default function AdminPanel() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Успешно", description: "Пользователь удален" });
+      toast({ title: t('success'), description: t('userDeletedToast') });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
       setIsEditUserOpen(false);
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка", description: error.message || "Не удалось удалить пользователя", variant: "destructive" });
+      toast({ title: t('error'), description: error.message || t('userDeleteFailed'), variant: "destructive" });
     },
   });
 
@@ -244,13 +247,13 @@ export default function AdminPanel() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Успешно", description: "Пароль установлен" });
+      toast({ title: t('success'), description: t('passwordSetToast') });
       setIsSetPasswordOpen(false);
       setNewPassword("");
       setIsEditUserOpen(false);
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка", description: error.message || "Не удалось установить пароль", variant: "destructive" });
+      toast({ title: t('error'), description: error.message || t('passwordSetFailed'), variant: "destructive" });
     },
   });
 
@@ -264,21 +267,21 @@ export default function AdminPanel() {
     onSuccess: (data: any) => {
       if (data?.ok) {
         toast({
-          title: "Telegram работает",
-          description: `Бот @${data.bot} отправил тест в чат «${data.chat?.title || data.chat?.id}». Проверьте сообщение в Telegram.`,
+          title: t('telegramWorking'),
+          description: `@${data.bot} → ${data.chat?.title || data.chat?.id}`,
         });
       } else {
         toast({
-          title: `Ошибка Telegram (${data?.stage || '?'})`,
-          description: `${data?.error || 'Неизвестная ошибка'}${data?.hint ? '\n\n' + data.hint : ''}`,
+          title: `${t('telegramErrorPrefix')} (${data?.stage || '?'})`,
+          description: `${data?.error || t('unknownError')}${data?.hint ? '\n\n' + data.hint : ''}`,
           variant: "destructive",
         });
       }
     },
     onError: (error: any) => {
       toast({
-        title: "Не удалось проверить Telegram",
-        description: error?.message || 'Ошибка запроса',
+        title: t('telegramCheckFailed'),
+        description: error?.message || t('requestError'),
         variant: "destructive",
       });
     },
@@ -293,8 +296,8 @@ export default function AdminPanel() {
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--corp-bg)' }}>
         <div className="w-full max-w-md p-8 text-center" style={SECTION_STYLE}>
           <XCircle className="h-14 w-14 mx-auto mb-3" style={{ color: 'var(--corp-neg)' }} />
-          <h2 className="text-[16px] font-bold mb-2" style={{ color: 'var(--corp-ink)' }}>Нет доступа</h2>
-          <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>У вас нет прав для доступа к админ-панели.</p>
+          <h2 className="text-[16px] font-bold mb-2" style={{ color: 'var(--corp-ink)' }}>{t('noAccessTitle')}</h2>
+          <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>{t('noAccessDescription')}</p>
         </div>
       </div>
     );
@@ -311,9 +314,10 @@ export default function AdminPanel() {
   });
 
   const getRoleLabel = (role: string) =>
-    role === 'admin' ? 'Администратор' :
-    role === 'director' ? 'Директор' :
-    role === 'master' ? 'Прораб' : 'Заказчик';
+    role === 'admin' ? t('roleAdmin') :
+    role === 'director' ? t('roleDirector') :
+    role === 'master' ? t('roleMaster') :
+    role === 'worker' ? t('roleWorker') : t('roleClient');
 
   const getRoleTone = (role: string): 'neg' | 'accent' | 'neutral' =>
     role === 'admin' ? 'neg' :
@@ -322,21 +326,21 @@ export default function AdminPanel() {
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }} data-page-header>
       <CorpHeader
-        title="Админ-панель"
-        subtitle="Управление пользователями и системой"
+        title={t('adminPanel')}
+        subtitle={t('adminPanelSubtitle')}
         onBack={() => setLocation('/director')}
-        action={<StatusBadge tone="neg">Администратор</StatusBadge>}
+        action={<StatusBadge tone="neg">{t('roleAdmin')}</StatusBadge>}
       />
 
       <div className="p-4 space-y-4">
         {/* Statistics */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <StatCard label="Всего пользователей" value={stats.totalUsers} icon={<Users className="h-5 w-5" />} tone="accent" />
-            <StatCard label="Активные" value={stats.activeUsers} icon={<CheckCircle className="h-5 w-5" />} tone="pos" />
-            <StatCard label="Заблокированные" value={stats.blockedUsers} icon={<XCircle className="h-5 w-5" />} tone="neg" />
-            <StatCard label="Активные сессии" value={stats.activeSessions} icon={<Activity className="h-5 w-5" />} tone="pos" />
-            <StatCard label="Ошибки входа сегодня" value={stats.failedLoginsToday} icon={<AlertTriangle className="h-5 w-5" />} tone="warn" />
+            <StatCard label={t('statTotalUsers')} value={stats.totalUsers} icon={<Users className="h-5 w-5" />} tone="accent" />
+            <StatCard label={t('statActiveUsers')} value={stats.activeUsers} icon={<CheckCircle className="h-5 w-5" />} tone="pos" />
+            <StatCard label={t('statBlockedUsers')} value={stats.blockedUsers} icon={<XCircle className="h-5 w-5" />} tone="neg" />
+            <StatCard label={t('statActiveSessions')} value={stats.activeSessions} icon={<Activity className="h-5 w-5" />} tone="pos" />
+            <StatCard label={t('statFailedLoginsToday')} value={stats.failedLoginsToday} icon={<AlertTriangle className="h-5 w-5" />} tone="warn" />
           </div>
         )}
 
@@ -344,9 +348,9 @@ export default function AdminPanel() {
         <div className="p-4" style={SECTION_STYLE}>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Telegram-уведомления о чеках</h3>
+              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('telegramTitle')}</h3>
               <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                Отправить тестовое сообщение в настроенный чат. Если бот не доставит сообщение — на экране появится точная причина.
+                {t('telegramDescription')}
               </p>
             </div>
             <button
@@ -358,7 +362,7 @@ export default function AdminPanel() {
               data-testid="button-test-telegram"
             >
               <Send className="w-4 h-4" />
-              {testTelegramMutation.isPending ? 'Проверяем…' : 'Проверить связь'}
+              {testTelegramMutation.isPending ? t('checking') : t('checkConnection')}
             </button>
           </div>
         </div>
@@ -366,9 +370,9 @@ export default function AdminPanel() {
         {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="users">Пользователи</TabsTrigger>
-            <TabsTrigger value="actions">Журнал действий</TabsTrigger>
-            <TabsTrigger value="logins">Логи входов</TabsTrigger>
+            <TabsTrigger value="users">{t('tabUsers')}</TabsTrigger>
+            <TabsTrigger value="actions">{t('tabActions')}</TabsTrigger>
+            <TabsTrigger value="logins">{t('tabLogins')}</TabsTrigger>
           </TabsList>
 
           {/* Users tab */}
@@ -376,9 +380,9 @@ export default function AdminPanel() {
             <div className="p-4" style={SECTION_STYLE}>
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
-                  <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Управление пользователями</h3>
+                  <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('userManagement')}</h3>
                   <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                    Создание, редактирование и управление пользователями
+                    {t('userManagementDescription')}
                   </p>
                 </div>
 
@@ -391,13 +395,13 @@ export default function AdminPanel() {
                       data-testid="button-create-user"
                     >
                       <UserPlus className="h-4 w-4" />
-                      Создать пользователя
+                      {t('createUser')}
                     </button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Создать нового пользователя</DialogTitle>
-                      <DialogDescription>Заполните форму для создания нового пользователя</DialogDescription>
+                      <DialogTitle>{t('createNewUser')}</DialogTitle>
+                      <DialogDescription>{t('createUserDescription')}</DialogDescription>
                     </DialogHeader>
 
                     <Form {...createUserForm}>
@@ -407,7 +411,7 @@ export default function AdminPanel() {
                           name="username"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Логин</FormLabel>
+                              <FormLabel>{t('formLogin')}</FormLabel>
                               <FormControl>
                                 <Input {...field} data-testid="input-username" />
                               </FormControl>
@@ -420,7 +424,7 @@ export default function AdminPanel() {
                           name="name"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Имя</FormLabel>
+                              <FormLabel>{t('formName')}</FormLabel>
                               <FormControl>
                                 <Input {...field} data-testid="input-name" />
                               </FormControl>
@@ -433,7 +437,7 @@ export default function AdminPanel() {
                           name="password"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Пароль</FormLabel>
+                              <FormLabel>{t('formPassword')}</FormLabel>
                               <FormControl>
                                 <Input {...field} type="password" data-testid="input-password" />
                               </FormControl>
@@ -446,17 +450,17 @@ export default function AdminPanel() {
                           name="role"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Роль</FormLabel>
+                              <FormLabel>{t('formRole')}</FormLabel>
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-role">
-                                    <SelectValue placeholder="Выберите роль" />
+                                    <SelectValue placeholder={t('selectRole')} />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="master">Прораб</SelectItem>
-                                  <SelectItem value="worker">Рабочий</SelectItem>
-                                  <SelectItem value="director">Директор</SelectItem>
+                                  <SelectItem value="master">{t('roleMaster')}</SelectItem>
+                                  <SelectItem value="worker">{t('roleWorker')}</SelectItem>
+                                  <SelectItem value="director">{t('roleDirector')}</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -472,7 +476,7 @@ export default function AdminPanel() {
                             style={GHOST_BTN}
                             data-testid="button-cancel"
                           >
-                            Отмена
+                            {t('cancel')}
                           </button>
                           <button
                             type="submit"
@@ -481,7 +485,7 @@ export default function AdminPanel() {
                             style={PRIMARY_BTN}
                             data-testid="button-submit"
                           >
-                            {createUserMutation.isPending ? "Создание..." : "Создать"}
+                            {createUserMutation.isPending ? t('creatingShort') : t('createShort')}
                           </button>
                         </div>
                       </form>
@@ -498,7 +502,7 @@ export default function AdminPanel() {
                     style={{ color: 'var(--corp-ink-3)' }}
                   />
                   <Input
-                    placeholder="Поиск по логину, имени или email..."
+                    placeholder={t('searchAdminUsers')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9 h-10"
@@ -511,9 +515,9 @@ export default function AdminPanel() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Все пользователи</SelectItem>
-                    <SelectItem value="active">Активные</SelectItem>
-                    <SelectItem value="blocked">Заблокированные</SelectItem>
+                    <SelectItem value="all">{t('filterAllUsers')}</SelectItem>
+                    <SelectItem value="active">{t('filterActive')}</SelectItem>
+                    <SelectItem value="blocked">{t('filterBlocked')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -523,18 +527,18 @@ export default function AdminPanel() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Пользователь</TableHead>
-                      <TableHead>Роль</TableHead>
-                      <TableHead>Статус</TableHead>
-                      <TableHead>Последний вход</TableHead>
-                      <TableHead>Действия</TableHead>
+                      <TableHead>{t('columnUser')}</TableHead>
+                      <TableHead>{t('columnRole')}</TableHead>
+                      <TableHead>{t('columnStatus')}</TableHead>
+                      <TableHead>{t('columnLastLogin')}</TableHead>
+                      <TableHead>{t('columnActionsList')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {usersLoading ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-8" style={{ color: 'var(--corp-muted)' }}>
-                          Загрузка...
+                          {t('loading')}
                         </TableCell>
                       </TableRow>
                     ) : filteredUsers && filteredUsers.length > 0 ? (
@@ -555,20 +559,20 @@ export default function AdminPanel() {
                           <TableCell>
                             <div className="flex flex-col gap-1 items-start">
                               <StatusBadge tone={u.isActive && !u.isBlocked ? 'pos' : 'neg'}>
-                                {u.isBlocked ? 'Заблокирован' : u.isActive ? 'Активен' : 'Неактивен'}
+                                {u.isBlocked ? t('statusBlocked') : u.isActive ? t('statusActiveUser') : t('statusInactive')}
                               </StatusBadge>
                               {u.mustChangePassword && (
-                                <StatusBadge tone="warn">Смена пароля</StatusBadge>
+                                <StatusBadge tone="warn">{t('mustChangePassword')}</StatusBadge>
                               )}
                             </div>
                           </TableCell>
                           <TableCell>
                             {u.lastLogin ? (
                               <span className="text-[12px]" style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}>
-                                {new Date(u.lastLogin).toLocaleString('ru-RU')}
+                                {fmtDateTime(u.lastLogin, language)}
                               </span>
                             ) : (
-                              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>Никогда</span>
+                              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t('never')}</span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -583,7 +587,7 @@ export default function AdminPanel() {
                               data-testid={`button-edit-user-${u.id}`}
                             >
                               <Edit className="h-3 w-3" />
-                              Редактировать
+                              {t('editButton')}
                             </button>
                           </TableCell>
                         </TableRow>
@@ -592,8 +596,8 @@ export default function AdminPanel() {
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-8" style={{ color: 'var(--corp-muted)' }}>
                           {searchTerm || filterStatus !== 'all'
-                            ? "Пользователи не найдены"
-                            : "Пока нет пользователей"}
+                            ? t('noUsersFound')
+                            : t('noUsersYet')}
                         </TableCell>
                       </TableRow>
                     )}
@@ -607,17 +611,17 @@ export default function AdminPanel() {
           <TabsContent value="actions">
             <div className="p-4" style={SECTION_STYLE}>
               <div className="mb-4">
-                <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Журнал действий администратора</h3>
-                <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>История всех действий в админ-панели</p>
+                <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('adminActionsTitle')}</h3>
+                <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t('adminActionsSubtitle')}</p>
               </div>
               <div style={{ borderRadius: 'var(--corp-r)', border: '1px solid var(--corp-line)', overflow: 'hidden' }}>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Дата и время</TableHead>
-                      <TableHead>Действие</TableHead>
-                      <TableHead>Пользователь</TableHead>
-                      <TableHead>Детали</TableHead>
+                      <TableHead>{t('columnDateTime')}</TableHead>
+                      <TableHead>{t('columnAction')}</TableHead>
+                      <TableHead>{t('columnUser')}</TableHead>
+                      <TableHead>{t('columnDetails')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -627,7 +631,7 @@ export default function AdminPanel() {
                           <TableCell>
                             <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}>
                               <Clock className="h-3.5 w-3.5" style={{ color: 'var(--corp-ink-3)' }} />
-                              {action.createdAt ? new Date(action.createdAt).toLocaleString('ru-RU') : '—'}
+                              {action.createdAt ? fmtDateTime(action.createdAt, language) : '—'}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -656,7 +660,7 @@ export default function AdminPanel() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-8" style={{ color: 'var(--corp-muted)' }}>
-                          Пока нет событий
+                          {t('noEventsYet')}
                         </TableCell>
                       </TableRow>
                     )}
@@ -670,18 +674,18 @@ export default function AdminPanel() {
           <TabsContent value="logins">
             <div className="p-4" style={SECTION_STYLE}>
               <div className="mb-4">
-                <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Логи входов в систему</h3>
-                <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>История попыток входа и ошибок</p>
+                <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('loginsTitle')}</h3>
+                <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t('loginsSubtitle')}</p>
               </div>
               <div style={{ borderRadius: 'var(--corp-r)', border: '1px solid var(--corp-line)', overflow: 'hidden' }}>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Дата и время</TableHead>
-                      <TableHead>Пользователь</TableHead>
-                      <TableHead>Статус</TableHead>
-                      <TableHead>IP адрес</TableHead>
-                      <TableHead>Браузер</TableHead>
+                      <TableHead>{t('columnDateTime')}</TableHead>
+                      <TableHead>{t('columnUser')}</TableHead>
+                      <TableHead>{t('columnStatus')}</TableHead>
+                      <TableHead>{t('columnIP')}</TableHead>
+                      <TableHead>{t('columnBrowser')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -691,7 +695,7 @@ export default function AdminPanel() {
                           <TableCell>
                             <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}>
                               <Clock className="h-3.5 w-3.5" style={{ color: 'var(--corp-ink-3)' }} />
-                              {attempt.attemptTime ? new Date(attempt.attemptTime).toLocaleString('ru-RU') : '—'}
+                              {attempt.attemptTime ? fmtDateTime(attempt.attemptTime, language) : '—'}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -709,9 +713,9 @@ export default function AdminPanel() {
                           <TableCell>
                             <StatusBadge tone={attempt.success ? 'pos' : 'neg'}>
                               {attempt.success ? (
-                                <><CheckCircle className="h-2.5 w-2.5 mr-1" />Успешно</>
+                                <><CheckCircle className="h-2.5 w-2.5 mr-1" />{t('loginSuccess')}</>
                               ) : (
-                                <><XCircle className="h-2.5 w-2.5 mr-1" />Ошибка</>
+                                <><XCircle className="h-2.5 w-2.5 mr-1" />{t('loginError')}</>
                               )}
                             </StatusBadge>
                             {!attempt.success && attempt.failureReason && (
@@ -733,7 +737,7 @@ export default function AdminPanel() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-8" style={{ color: 'var(--corp-muted)' }}>
-                          Пока нет попыток входа
+                          {t('noLoginAttemptsYet')}
                         </TableCell>
                       </TableRow>
                     )}
@@ -748,9 +752,9 @@ export default function AdminPanel() {
         <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Редактирование пользователя</DialogTitle>
+              <DialogTitle>{t('editUserModalTitle')}</DialogTitle>
               <DialogDescription>
-                Управление учетной записью: {editingUser?.name} (@{editingUser?.username})
+                {t('editUserModalDescriptionPrefix')}: {editingUser?.name} (@{editingUser?.username})
               </DialogDescription>
             </DialogHeader>
 
@@ -769,9 +773,9 @@ export default function AdminPanel() {
                   data-testid="button-edit-toggle-block"
                 >
                   {editingUser?.isBlocked ? (
-                    <><Shield className="h-4 w-4" />Разблокировать</>
+                    <><Shield className="h-4 w-4" />{t('buttonUnblock')}</>
                   ) : (
-                    <><ShieldOff className="h-4 w-4" />Заблокировать</>
+                    <><ShieldOff className="h-4 w-4" />{t('buttonBlock')}</>
                   )}
                 </button>
 
@@ -784,7 +788,7 @@ export default function AdminPanel() {
                   data-testid="button-edit-reset-password"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  Сбросить пароль
+                  {t('buttonResetPassword')}
                 </button>
               </div>
 
@@ -796,7 +800,7 @@ export default function AdminPanel() {
                 data-testid="button-edit-set-password"
               >
                 <Edit className="h-4 w-4" />
-                Установить пароль
+                {t('buttonSetPassword')}
               </button>
 
               <button
@@ -808,14 +812,14 @@ export default function AdminPanel() {
                 data-testid="button-edit-force-logout"
               >
                 <LogOut className="h-4 w-4" />
-                Выйти везде
+                {t('buttonForceLogout')}
               </button>
 
               <div style={{ borderTop: '1px solid var(--corp-line)', paddingTop: 12 }}>
                 <button
                   type="button"
                   onClick={() => {
-                    if (editingUser && confirm(`Вы уверены, что хотите удалить пользователя ${editingUser.name}? Это действие нельзя отменить.`)) {
+                    if (editingUser && confirm(`${t('confirmDeleteUserPrefix')} ${editingUser.name}? ${t('confirmDeleteUserSuffix')}`)) {
                       deleteUserMutation.mutate(editingUser.id);
                     }
                   }}
@@ -825,7 +829,7 @@ export default function AdminPanel() {
                   data-testid="button-edit-delete-user"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Удалить пользователя
+                  {t('buttonDeleteUser')}
                 </button>
               </div>
             </div>
@@ -838,7 +842,7 @@ export default function AdminPanel() {
                 style={GHOST_BTN}
                 data-testid="button-cancel-edit"
               >
-                Отмена
+                {t('cancel')}
               </button>
             </div>
           </DialogContent>
@@ -848,21 +852,21 @@ export default function AdminPanel() {
         <Dialog open={isSetPasswordOpen} onOpenChange={setIsSetPasswordOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Установить пароль</DialogTitle>
+              <DialogTitle>{t('buttonSetPassword')}</DialogTitle>
               <DialogDescription>
-                Установить новый пароль для пользователя: {editingUser?.name} (@{editingUser?.username})
+                {t('setPasswordDescriptionPrefix')}: {editingUser?.name} (@{editingUser?.username})
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3">
               <div>
-                <Label htmlFor="new-password">Новый пароль</Label>
+                <Label htmlFor="new-password">{t('newPasswordLabel')}</Label>
                 <Input
                   id="new-password"
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Введите новый пароль"
+                  placeholder={t('newPasswordPlaceholder')}
                   data-testid="input-new-password"
                   className="mt-1.5"
                 />
@@ -877,7 +881,7 @@ export default function AdminPanel() {
                 style={GHOST_BTN}
                 data-testid="button-cancel-password"
               >
-                Отмена
+                {t('cancel')}
               </button>
               <button
                 type="button"
@@ -891,7 +895,7 @@ export default function AdminPanel() {
                 style={PRIMARY_BTN}
                 data-testid="button-submit-password"
               >
-                {setPasswordMutation.isPending ? "Установка..." : "Установить"}
+                {setPasswordMutation.isPending ? t('settingShort') : t('setShort')}
               </button>
             </div>
           </DialogContent>

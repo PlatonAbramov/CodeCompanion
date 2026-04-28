@@ -10,8 +10,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { CorpEmpty, fmtDateRu } from "@/components/corp-ui";
+import { CorpEmpty } from "@/components/corp-ui";
 import { VehicleForm } from "@/components/VehicleForm";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDate, fmtNumber } from "@/lib/locale";
 
 interface VehicleListItem {
   id: string;
@@ -50,6 +52,7 @@ interface PersonnelOption {
 type StatusFilter = 'active' | 'archived' | 'all';
 
 function VehicleCard({ v, onClick }: { v: VehicleListItem; onClick: () => void }) {
+  const { t, language } = useLanguage();
   const initials = `${v.brand?.[0] || '?'}${v.model?.[0] || ''}`.toUpperCase();
   const isArchived = v.status === 'archived';
   return (
@@ -96,23 +99,23 @@ function VehicleCard({ v, onClick }: { v: VehicleListItem; onClick: () => void }
                 className="text-[10px] px-1.5 py-0.5 rounded font-bold"
                 style={{ background: 'var(--corp-surface-2)', color: 'var(--corp-muted)' }}
               >
-                Архив
+                {t('archivedShortLabel')}
               </span>
             )}
           </div>
           <p className="text-[12px] truncate" style={{ color: 'var(--corp-muted)' }}>
             {v.assignedPersonnel
               ? `${v.assignedPersonnel.lastName} ${v.assignedPersonnel.firstName}`
-              : 'Не назначен'}
+              : t('notAssignedLabel')}
             {v.year ? ` · ${v.year}` : ''}
           </p>
           {v.lastPhotoControl ? (
             <p className="text-[11px] mt-0.5" style={{ color: 'var(--corp-ink-3)' }}>
-              Последний контроль: {fmtDateRu(v.lastPhotoControl.performedAt || undefined)} · {v.lastPhotoControl.mileageKm.toLocaleString('ru-RU')} км
+              {t('lastControlLabel')}: {fmtDate(v.lastPhotoControl.performedAt || undefined, language)} · {fmtNumber(v.lastPhotoControl.mileageKm, language)} {t('kmUnit')}
             </p>
           ) : (
             <p className="text-[11px] mt-0.5" style={{ color: 'var(--corp-warning, #C97A00)' }}>
-              Контроль не проводился
+              {t('noControlPerformed')}
             </p>
           )}
         </div>
@@ -123,6 +126,7 @@ function VehicleCard({ v, onClick }: { v: VehicleListItem; onClick: () => void }
 
 export default function Vehicles() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
@@ -165,9 +169,9 @@ export default function Vehicles() {
   }, [vehicles, search, statusFilter, assignedFilter]);
 
   const tabs: { key: StatusFilter; label: string }[] = [
-    { key: 'active', label: 'Активные' },
-    { key: 'archived', label: 'Архив' },
-    { key: 'all', label: 'Все' },
+    { key: 'active', label: t('activeFilterTab') },
+    { key: 'archived', label: t('archivedFilterTab') },
+    { key: 'all', label: t('allFilterTab') },
   ];
 
   return (
@@ -189,10 +193,10 @@ export default function Vehicles() {
               className="text-[14px] sm:text-[15px] font-bold truncate"
               style={{ color: 'var(--corp-ink)', letterSpacing: '-0.2px' }}
             >
-              Автомобили
+              {t('vehiclesTitle')}
             </h2>
             <p className="text-[11px] truncate" style={{ color: 'var(--corp-muted)' }}>
-              {isDirector ? 'Парк компании' : 'Закреплённые за вами'}
+              {isDirector ? t('companyFleet') : t('assignedToYouLabel')}
             </p>
           </div>
           {isDirector && (
@@ -203,7 +207,7 @@ export default function Vehicles() {
               className="inline-flex items-center gap-1.5 h-9 px-3 text-[13px] font-semibold transition-colors"
               style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
             >
-              <Plus size={14} /> Добавить
+              <Plus size={14} /> {t('addLabel')}
             </button>
           )}
         </div>
@@ -220,7 +224,7 @@ export default function Vehicles() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по марке, госномеру, сотруднику…"
+            placeholder={t('vehicleSearchPlaceholder')}
             className="pl-9 h-10 text-[13px]"
             data-testid="input-vehicle-search"
           />
@@ -263,11 +267,11 @@ export default function Vehicles() {
               className="h-9 text-[12px]"
               data-testid="select-assigned-filter"
             >
-              <SelectValue placeholder="Водитель" />
+              <SelectValue placeholder={t('driverLabel')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все водители</SelectItem>
-              <SelectItem value="none">Без назначения</SelectItem>
+              <SelectItem value="all">{t('allDrivers')}</SelectItem>
+              <SelectItem value="none">{t('unassignedFilter')}</SelectItem>
               {personnelOptions.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.lastName} {p.firstName}
@@ -294,15 +298,15 @@ export default function Vehicles() {
         ) : filtered.length === 0 ? (
           <CorpEmpty
             icon={<Car size={22} />}
-            title={search || assignedFilter !== 'all' ? 'Ничего не найдено' : 'Автомобилей пока нет'}
+            title={search || assignedFilter !== 'all' ? t('nothingFoundTitle') : t('noVehiclesYet')}
             description={
               search || assignedFilter !== 'all'
-                ? 'Попробуйте изменить фильтры'
+                ? t('tryDifferentFilters')
                 : isDirector
-                  ? 'Добавьте первый автомобиль, чтобы вести фотоконтроль'
-                  : 'За вами пока не закреплено ни одного автомобиля'
+                  ? t('addFirstVehicle')
+                  : t('noAssignedVehicles')
             }
-            actionLabel={isDirector && !search && assignedFilter === 'all' ? 'Добавить автомобиль' : undefined}
+            actionLabel={isDirector && !search && assignedFilter === 'all' ? t('addVehicleLabel') : undefined}
             onAction={isDirector && !search && assignedFilter === 'all' ? () => setCreateOpen(true) : undefined}
           />
         ) : (
@@ -323,7 +327,7 @@ export default function Vehicles() {
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Новый автомобиль</DialogTitle>
+              <DialogTitle>{t('newVehicleTitle')}</DialogTitle>
             </DialogHeader>
             <VehicleForm
               onSuccess={(id) => {

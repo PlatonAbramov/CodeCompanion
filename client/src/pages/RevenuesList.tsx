@@ -1,11 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, DollarSign, TrendingUp } from "lucide-react";
 import {
-  CorpHeader, CorpEmpty, CorpHeroSummary, MoneyAED, fmtDateRu,
+  CorpHeader, CorpEmpty, CorpHeroSummary, MoneyAED,
 } from "@/components/corp-ui";
+import { fmtDate } from "@/lib/locale";
 import { AdvanceMenu } from "./AdvancesList";
 
 interface Revenue {
@@ -23,9 +25,18 @@ interface Project {
   name: string;
 }
 
+function getRecordWordRu(count: number): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'запись';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'записи';
+  return 'записей';
+}
+
 export default function RevenuesList() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -44,17 +55,20 @@ export default function RevenuesList() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Доход удалён", description: "Доход успешно удалён" });
+      toast({ title: t('revenueDeleted'), description: t('revenueDeletedDescription') });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'revenues'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'financial-summary'] });
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка", description: error.message || "Не удалось удалить доход", variant: "destructive" });
+      toast({ title: t('error'), description: error.message || t('revenueDeleteFailed'), variant: "destructive" });
     },
   });
 
   const total = revenues.reduce((s, r) => s + parseFloat(r.amount), 0);
+  const countLabel = language === 'ru'
+    ? `${revenues.length} ${getRecordWordRu(revenues.length)}`
+    : `${revenues.length} ${revenues.length === 1 ? t('recordWordSingularRu') : t('recordWordManyRu')}`;
 
   return (
     <div
@@ -62,7 +76,7 @@ export default function RevenuesList() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title="Доходы"
+        title={t('revenuesTitle')}
         subtitle={project?.name}
         onBack={() => setLocation(`/projects/${projectId}`)}
         action={isAdminOrDirector ? (
@@ -73,7 +87,7 @@ export default function RevenuesList() {
             style={{ background: 'var(--corp-pos)', color: '#fff', borderRadius: 'var(--corp-r)' }}
             data-testid="button-add-revenue"
           >
-            <Plus size={14} /> <span className="hidden sm:inline">Доход</span>
+            <Plus size={14} /> <span className="hidden sm:inline">{t('revenueWordShort')}</span>
           </button>
         ) : null}
       />
@@ -82,17 +96,17 @@ export default function RevenuesList() {
         {!isLoading && revenues.length === 0 ? (
           <CorpEmpty
             icon={<TrendingUp size={28} />}
-            title="Нет доходов"
-            description="Добавьте первый доход для этого проекта"
-            actionLabel={isAdminOrDirector ? "Добавить доход" : undefined}
+            title={t('noRevenuesTitle')}
+            description={t('noRevenuesDescription')}
+            actionLabel={isAdminOrDirector ? t('addRevenueAction') : undefined}
             onAction={isAdminOrDirector ? () => setLocation(`/add-revenue?projectId=${projectId}`) : undefined}
           />
         ) : (
           <>
             <CorpHeroSummary
-              label="Общие доходы"
+              label={t('totalRevenuesLabel')}
               amount={total}
-              subtext={`${revenues.length} ${revenues.length === 1 ? 'запись' : 'записей'}`}
+              subtext={countLabel}
               tone="pos"
             />
 
@@ -100,7 +114,7 @@ export default function RevenuesList() {
               className="text-[10px] font-bold uppercase mb-2"
               style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
             >
-              История доходов
+              {t('revenuesHistory')}
             </h3>
             <div className="flex flex-col gap-2">
               {revenues.map((revenue) => (
@@ -121,14 +135,17 @@ export default function RevenuesList() {
                         className="text-[11px]"
                         style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)', whiteSpace: 'nowrap' }}
                       >
-                        {fmtDateRu(revenue.date)}
+                        {fmtDate(revenue.date, language)}
                       </span>
                       {isAdminOrDirector && (
                         <AdvanceMenu
                           onEdit={() => setLocation(`/edit-revenue/${projectId}/${revenue.id}`)}
                           onDelete={() => deleteRevenue(revenue.id)}
-                          deleteTitle="Удалить доход?"
-                          deleteDescription="Это действие нельзя отменить. Доход будет удалён безвозвратно."
+                          deleteTitle={t('deleteRevenueConfirmTitle')}
+                          deleteDescription={t('deleteRevenueConfirmDescription')}
+                          editLabel={t('edit')}
+                          deleteLabel={t('delete')}
+                          cancelLabel={t('cancel')}
                         />
                       )}
                     </div>
@@ -149,7 +166,7 @@ export default function RevenuesList() {
                     </p>
                   )}
                   <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                    Добавил: {revenue.user?.name || 'Неизвестно'}
+                    {t('addedByLabelShort')}: {revenue.user?.name || t('unknownUser')}
                   </p>
                 </div>
               ))}

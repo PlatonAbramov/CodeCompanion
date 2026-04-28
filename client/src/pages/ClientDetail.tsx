@@ -18,7 +18,9 @@ import { insertClientProjectSchema, insertClientPaymentSchema, type InsertClient
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { CorpHeader, MoneyAED, fmtDateRu } from "@/components/corp-ui";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDate } from "@/lib/locale";
+import { CorpHeader, MoneyAED } from "@/components/corp-ui";
 
 const SECTION_STYLE: React.CSSProperties = {
   background: 'var(--corp-surface)',
@@ -90,6 +92,7 @@ export default function ClientDetailPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
 
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -203,10 +206,10 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] });
       setIsProjectDialogOpen(false);
       projectForm.reset();
-      toast({ title: "Проект назначен успешно" });
+      toast({ title: t('cdProjectAssignedSuccess') });
     },
     onError: (error) => {
-      toast({ title: "Ошибка", description: `Не удалось назначить проект: ${error.message}`, variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('cdAssignProjectFailedTpl').replace('{error}', error.message), variant: "destructive" });
     },
   });
 
@@ -225,10 +228,10 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
       setIsPaymentDialogOpen(false);
       paymentForm.reset();
-      toast({ title: "Платеж добавлен успешно" });
+      toast({ title: t('cdPaymentAddedSuccess') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось добавить платеж", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('cdAddPaymentFailed'), variant: "destructive" });
     },
   });
 
@@ -249,10 +252,10 @@ export default function ClientDetailPage() {
       setIsEditProjectDialogOpen(false);
       setEditingProject(null);
       editProjectForm.reset();
-      toast({ title: "Проект обновлен успешно" });
+      toast({ title: t('cdProjectUpdatedSuccess') });
     },
     onError: (error) => {
-      toast({ title: "Ошибка", description: `Не удалось обновить проект: ${error.message}`, variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('cdUpdateProjectFailedTpl').replace('{error}', error.message), variant: "destructive" });
     },
   });
 
@@ -265,10 +268,10 @@ export default function ClientDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "payments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
-      toast({ title: "Платеж удален успешно" });
+      toast({ title: t('cdPaymentDeletedSuccess') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось удалить платеж", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('cdDeletePaymentFailed'), variant: "destructive" });
     },
   });
 
@@ -282,10 +285,10 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/my-client-projects"] });
-      toast({ title: "Проект отвязан успешно" });
+      toast({ title: t('cdProjectUnlinkedSuccess') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось отвязать проект", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('cdUnlinkProjectFailed'), variant: "destructive" });
     },
   });
 
@@ -301,10 +304,10 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "employees"] });
       setIsEmployeeDialogOpen(false);
       setSelectedEmployees([]);
-      toast({ title: "Сотрудники назначены успешно" });
+      toast({ title: t('cdEmployeesAssignedSuccess') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось назначить сотрудников", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('cdAssignEmployeesFailed'), variant: "destructive" });
     },
   });
 
@@ -315,10 +318,10 @@ export default function ClientDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "employees"] });
-      toast({ title: "Сотрудник отвязан успешно" });
+      toast({ title: t('cdEmployeeUnlinkedSuccess') });
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось отвязать сотрудника", variant: "destructive" });
+      toast({ title: t('errorToastTitle'), description: t('cdUnlinkEmployeeFailed'), variant: "destructive" });
     },
   });
 
@@ -360,13 +363,13 @@ export default function ClientDetailPage() {
   };
 
   const handleDeletePayment = (paymentId: string) => {
-    if (window.confirm("Вы уверены, что хотите удалить этот платеж?")) {
+    if (window.confirm(t('cdConfirmDeletePayment'))) {
       deletePaymentMutation.mutate(paymentId);
     }
   };
 
   const handleRemoveProject = (assignmentId: string, projectName: string) => {
-    if (window.confirm(`Вы уверены, что хотите отвязать проект "${projectName}"?`)) {
+    if (window.confirm(t('cdConfirmUnlinkProject').replace('{name}', projectName))) {
       removeProjectMutation.mutate(assignmentId);
     }
   };
@@ -380,29 +383,29 @@ export default function ClientDetailPage() {
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }} data-page-header>
       <CorpHeader
-        title={safeClient?.name || 'Заказчик'}
+        title={safeClient?.name || t('customer')}
         subtitle={safeClient?.company || undefined}
         onBack={() => setLocation('/clients')}
-        action={<StatusBadge tone={safeClient?.isActive ? 'pos' : 'neutral'}>{safeClient?.isActive ? 'Активный' : 'Неактивный'}</StatusBadge>}
+        action={<StatusBadge tone={safeClient?.isActive ? 'pos' : 'neutral'}>{safeClient?.isActive ? t('activeStatusPill') : t('inactiveStatusPill')}</StatusBadge>}
       />
 
       <div className="p-4 space-y-4">
         {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <StatCard
-            label="Всего проектов"
+            label={t('cdTotalProjects')}
             value={safeStats.totalProjects}
             icon={<FileText size={16} />}
             tone="accent"
           />
           <StatCard
-            label="Общая сумма платежей"
+            label={t('cdTotalPayments')}
             value={<MoneyAED amount={safeStats.totalPayments} size={20} weight={700} tone="pos" />}
             icon={<DollarSign size={16} />}
             tone="pos"
           />
           <StatCard
-            label="Остаток к доплате"
+            label={t('cdRemainingAmount')}
             value={<MoneyAED amount={safeStats.remainingAmount} size={20} weight={700} tone={safeStats.remainingAmount > 0 ? 'warn' : 'pos'} />}
             icon={<CreditCard size={16} />}
             tone={safeStats.remainingAmount > 0 ? 'warn' : 'pos'}
@@ -411,12 +414,12 @@ export default function ClientDetailPage() {
 
         {/* Client Information */}
         <div className="p-4" style={SECTION_STYLE}>
-          <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Информация о заказчике</h3>
+          <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>{t('cdClientInfo')}</h3>
           <div className="grid gap-3 md:grid-cols-2 text-[13px]">
             {safeClient?.contactPerson && (
               <div className="flex items-center gap-2" style={{ color: 'var(--corp-ink-2)' }}>
                 <User size={15} style={{ color: 'var(--corp-ink-3)' }} />
-                <span><span style={{ color: 'var(--corp-muted)' }}>Контактное лицо:</span> {safeClient.contactPerson}</span>
+                <span><span style={{ color: 'var(--corp-muted)' }}>{t('cdContactPersonColon')}</span> {safeClient.contactPerson}</span>
               </div>
             )}
             {safeClient?.phone && (
@@ -434,7 +437,7 @@ export default function ClientDetailPage() {
             {safeClient?.address && (
               <div className="flex items-start gap-2 md:col-span-2" style={{ color: 'var(--corp-ink-2)' }}>
                 <MapPin size={15} style={{ color: 'var(--corp-ink-3)', marginTop: 2 }} />
-                <span><span style={{ color: 'var(--corp-muted)' }}>Адрес:</span> {safeClient.address}</span>
+                <span><span style={{ color: 'var(--corp-muted)' }}>{t('cdAddressColon')}</span> {safeClient.address}</span>
               </div>
             )}
           </div>
@@ -442,15 +445,15 @@ export default function ClientDetailPage() {
 
         <Tabs defaultValue="projects" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="projects">Проекты</TabsTrigger>
-            <TabsTrigger value="payments">Платежи</TabsTrigger>
-            <TabsTrigger value="employees">Сотрудники</TabsTrigger>
+            <TabsTrigger value="projects">{t('projects')}</TabsTrigger>
+            <TabsTrigger value="payments">{t('cdTabPayments')}</TabsTrigger>
+            <TabsTrigger value="employees">{t('employees')}</TabsTrigger>
           </TabsList>
 
           {/* Projects tab */}
           <TabsContent value="projects" className="space-y-3">
             <div className="flex justify-between items-center">
-              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Проекты заказчика</h3>
+              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('cdClientProjects')}</h3>
               {canManage && (
                 <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
                   <DialogTrigger asChild>
@@ -459,12 +462,12 @@ export default function ClientDetailPage() {
                       className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold transition-colors"
                       style={PRIMARY_BTN}
                     >
-                      <Plus size={14} /> Назначить проект
+                      <Plus size={14} /> {t('cdAssignProjectBtn')}
                     </button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Назначить проект заказчику</DialogTitle>
+                      <DialogTitle>{t('cdAssignProjectTitle')}</DialogTitle>
                     </DialogHeader>
                     <Form {...projectForm}>
                       <form onSubmit={projectForm.handleSubmit(onProjectSubmit)} className="space-y-4">
@@ -473,16 +476,16 @@ export default function ClientDetailPage() {
                           name="projectId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Проект *</FormLabel>
+                              <FormLabel>{t('cdProjectStar')}</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Выберите проект" />
+                                    <SelectValue placeholder={t('selectProject')} />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
                                   {safeAllProjects.length === 0 ? (
-                                    <div className="p-2 text-[12px]" style={{ color: 'var(--corp-muted)' }}>Нет доступных проектов</div>
+                                    <div className="p-2 text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t('cdNoAvailableProjects')}</div>
                                   ) : (
                                     safeAllProjects.map((project: any) => (
                                       <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
@@ -500,7 +503,7 @@ export default function ClientDetailPage() {
                             name="contractAmount"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Сумма договора, AED</FormLabel>
+                                <FormLabel>{t('cdContractAmountAed')}</FormLabel>
                                 <FormControl>
                                   <Input
                                     type="number" step="0.01" placeholder="0.00"
@@ -520,9 +523,9 @@ export default function ClientDetailPage() {
                             name="contractNumber"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Номер договора</FormLabel>
+                                <FormLabel>{t('cdContractNumber')}</FormLabel>
                                 <FormControl>
-                                  <Input placeholder="№ договора" {...field} value={field.value || ""} />
+                                  <Input placeholder={t('cdContractNumberPlaceholder')} {...field} value={field.value || ""} />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -534,7 +537,7 @@ export default function ClientDetailPage() {
                           name="contractDate"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Дата договора</FormLabel>
+                              <FormLabel>{t('cdContractDate')}</FormLabel>
                               <FormControl>
                                 <Input
                                   type="date"
@@ -552,9 +555,9 @@ export default function ClientDetailPage() {
                           name="description"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Описание работ</FormLabel>
+                              <FormLabel>{t('cdWorkDescription')}</FormLabel>
                               <FormControl>
-                                <Textarea placeholder="Описание работ по договору" {...field} value={field.value || ""} />
+                                <Textarea placeholder={t('cdWorkDescriptionPlaceholder')} {...field} value={field.value || ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -567,7 +570,7 @@ export default function ClientDetailPage() {
                             className="flex-1 h-10 text-[13px] font-semibold"
                             style={GHOST_BTN}
                           >
-                            Отмена
+                            {t('cancel')}
                           </button>
                           <button
                             type="submit"
@@ -575,7 +578,7 @@ export default function ClientDetailPage() {
                             className="flex-1 h-10 text-[13px] font-semibold disabled:opacity-50"
                             style={PRIMARY_BTN}
                           >
-                            {assignProjectMutation.isPending ? "Назначение..." : "Назначить"}
+                            {assignProjectMutation.isPending ? t('cdAssigning') : t('cdAssign')}
                           </button>
                         </div>
                       </form>
@@ -599,7 +602,7 @@ export default function ClientDetailPage() {
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <StatusBadge tone={project.status === 'active' ? 'pos' : 'neutral'}>
-                          {project.status === 'active' ? 'Активный' : 'Завершен'}
+                          {project.status === 'active' ? t('activeStatusPill') : t('completedStatusPill')}
                         </StatusBadge>
                         {canManage && (
                           <>
@@ -608,7 +611,7 @@ export default function ClientDetailPage() {
                               onClick={() => handleEditProject(project)}
                               className="w-8 h-8 flex items-center justify-center rounded"
                               style={{ color: 'var(--corp-accent)' }}
-                              title="Редактировать"
+                              title={t('cdEditTitleAttr')}
                             >
                               <Edit2 size={15} />
                             </button>
@@ -617,7 +620,7 @@ export default function ClientDetailPage() {
                               onClick={() => handleRemoveProject(project.id, project.projectName)}
                               className="w-8 h-8 flex items-center justify-center rounded"
                               style={{ color: 'var(--corp-neg)' }}
-                              title="Отвязать"
+                              title={t('cdUnlinkTitle')}
                             >
                               <Trash2 size={15} />
                             </button>
@@ -628,21 +631,21 @@ export default function ClientDetailPage() {
 
                     <div className="grid grid-cols-2 gap-2 mb-3">
                       <div className="p-2.5" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
-                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Стоимость</div>
+                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>{t('costLabel')}</div>
                         <MoneyAED amount={project.totalCost || '0'} size={14} weight={700} tone="ink" />
                       </div>
                       <div className="p-2.5" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
-                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Сумма договора</div>
+                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>{t('cdContractAmountLabel')}</div>
                         {project.contractAmount
                           ? <MoneyAED amount={project.contractAmount} size={14} weight={700} tone="ink" />
-                          : <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>Не указана</span>}
+                          : <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t('cdNotSpecifiedFem')}</span>}
                       </div>
                       <div className="p-2.5" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
-                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Оплачено</div>
+                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>{t('paidLabel')}</div>
                         <MoneyAED amount={project.totalPaid || '0'} size={14} weight={700} tone="pos" />
                       </div>
                       <div className="p-2.5" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
-                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>К доплате</div>
+                        <div className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>{t('cdToBePaid')}</div>
                         {remaining !== null
                           ? <MoneyAED amount={remaining} size={14} weight={700} tone={remaining > 0 ? 'neg' : 'pos'} />
                           : <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>—</span>}
@@ -653,14 +656,14 @@ export default function ClientDetailPage() {
                       <div className="text-[12px] space-y-1">
                         {project.contractNumber && (
                           <p style={{ color: 'var(--corp-ink-3)' }}>
-                            <span style={{ color: 'var(--corp-muted)' }}>Номер договора:</span>{' '}
+                            <span style={{ color: 'var(--corp-muted)' }}>{t('cdContractNumberColon')}</span>{' '}
                             <span style={{ fontFamily: 'var(--corp-mono)' }}>{project.contractNumber}</span>
                           </p>
                         )}
                         {project.contractDate && (
                           <p style={{ color: 'var(--corp-ink-3)' }}>
-                            <span style={{ color: 'var(--corp-muted)' }}>Дата:</span>{' '}
-                            <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(project.contractDate)}</span>
+                            <span style={{ color: 'var(--corp-muted)' }}>{t('cdDateColon')}</span>{' '}
+                            <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDate(project.contractDate, language)}</span>
                           </p>
                         )}
                         {project.description && (
@@ -674,7 +677,7 @@ export default function ClientDetailPage() {
               {(!safeClientProjects || safeClientProjects.length === 0) && (
                 <div className="p-8 text-center" style={SECTION_STYLE}>
                   <FileText size={28} className="mx-auto mb-2" style={{ color: 'var(--corp-muted)' }} />
-                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Проекты не назначены</p>
+                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>{t('cdNoProjectsAssigned')}</p>
                 </div>
               )}
             </div>
@@ -683,7 +686,7 @@ export default function ClientDetailPage() {
           {/* Payments tab */}
           <TabsContent value="payments" className="space-y-3">
             <div className="flex justify-between items-center">
-              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Платежи заказчика</h3>
+              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('cdClientPayments')}</h3>
               {canManage && (
                 <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
                   <DialogTrigger asChild>
@@ -692,12 +695,12 @@ export default function ClientDetailPage() {
                       className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold transition-colors"
                       style={PRIMARY_BTN}
                     >
-                      <Plus size={14} /> Добавить платеж
+                      <Plus size={14} /> {t('cdAddPayment')}
                     </button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Добавить платеж</DialogTitle>
+                      <DialogTitle>{t('cdAddPayment')}</DialogTitle>
                     </DialogHeader>
                     <Form {...paymentForm}>
                       <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
@@ -706,10 +709,10 @@ export default function ClientDetailPage() {
                           name="projectId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Проект *</FormLabel>
+                              <FormLabel>{t('cdProjectStar')}</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                                  <SelectTrigger><SelectValue placeholder="Выберите проект" /></SelectTrigger>
+                                  <SelectTrigger><SelectValue placeholder={t('selectProject')} /></SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
                                   {safeClientProjects.map((project: any) => (
@@ -727,7 +730,7 @@ export default function ClientDetailPage() {
                             name="amount"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Сумма платежа, AED *</FormLabel>
+                                <FormLabel>{t('cdPaymentAmountAedStar')}</FormLabel>
                                 <FormControl>
                                   <Input
                                     type="number" step="0.01" placeholder="0.00"
@@ -747,7 +750,7 @@ export default function ClientDetailPage() {
                             name="paymentDate"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Дата платежа *</FormLabel>
+                                <FormLabel>{t('cdPaymentDateStar')}</FormLabel>
                                 <FormControl>
                                   <Input
                                     type="date" {...field}
@@ -765,9 +768,9 @@ export default function ClientDetailPage() {
                           name="paymentMethod"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Способ оплаты</FormLabel>
+                              <FormLabel>{t('cdPaymentMethod')}</FormLabel>
                               <FormControl>
-                                <Input placeholder="Банковский перевод, наличные и т.д." {...field} value={field.value || ""} />
+                                <Input placeholder={t('cdPaymentMethodPlaceholder')} {...field} value={field.value || ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -778,9 +781,9 @@ export default function ClientDetailPage() {
                           name="description"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Описание</FormLabel>
+                              <FormLabel>{t('description')}</FormLabel>
                               <FormControl>
-                                <Textarea placeholder="Описание платежа" {...field} value={field.value || ""} />
+                                <Textarea placeholder={t('cdPaymentDescriptionPlaceholder')} {...field} value={field.value || ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -788,10 +791,10 @@ export default function ClientDetailPage() {
                         />
                         <div className="flex gap-2 pt-2">
                           <button type="button" onClick={() => setIsPaymentDialogOpen(false)} className="flex-1 h-10 text-[13px] font-semibold" style={GHOST_BTN}>
-                            Отмена
+                            {t('cancel')}
                           </button>
                           <button type="submit" disabled={createPaymentMutation.isPending} className="flex-1 h-10 text-[13px] font-semibold disabled:opacity-50" style={PRIMARY_BTN}>
-                            {createPaymentMutation.isPending ? 'Добавление...' : 'Добавить'}
+                            {createPaymentMutation.isPending ? t('cdAdding') : t('add')}
                           </button>
                         </div>
                       </form>
@@ -811,15 +814,15 @@ export default function ClientDetailPage() {
                         <MoneyAED amount={payment.amount} size={16} weight={700} tone="pos" />
                       </div>
                       <p className="text-[12px]" style={{ color: 'var(--corp-ink-3)' }}>
-                        Проект: <span style={{ color: 'var(--corp-ink-2)' }}>{payment.projectName}</span>
+                        {t('cdProjectColon')} <span style={{ color: 'var(--corp-ink-2)' }}>{payment.projectName}</span>
                       </p>
                       <div className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--corp-muted)' }}>
                         <Calendar size={12} />
-                        <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(payment.paymentDate)}</span>
+                        <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDate(payment.paymentDate, language)}</span>
                       </div>
                       {payment.paymentMethod && (
                         <p className="text-[12px]" style={{ color: 'var(--corp-ink-3)' }}>
-                          <span style={{ color: 'var(--corp-muted)' }}>Способ:</span> {payment.paymentMethod}
+                          <span style={{ color: 'var(--corp-muted)' }}>{t('cdMethodColon')}</span> {payment.paymentMethod}
                         </p>
                       )}
                       {payment.description && (
@@ -842,7 +845,7 @@ export default function ClientDetailPage() {
               {(!safeClientPayments || safeClientPayments.length === 0) && (
                 <div className="p-8 text-center" style={SECTION_STYLE}>
                   <CreditCard size={28} className="mx-auto mb-2" style={{ color: 'var(--corp-muted)' }} />
-                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Платежи не найдены</p>
+                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>{t('cdNoPaymentsFound')}</p>
                 </div>
               )}
             </div>
@@ -851,7 +854,7 @@ export default function ClientDetailPage() {
           {/* Employees tab */}
           <TabsContent value="employees" className="space-y-3">
             <div className="flex justify-between items-center">
-              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Сотрудники заказчика</h3>
+              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('cdEmployeesTitle')}</h3>
               <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
                 <DialogTrigger asChild>
                   <button
@@ -859,21 +862,21 @@ export default function ClientDetailPage() {
                     className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold transition-colors"
                     style={PRIMARY_BTN}
                   >
-                    <Users size={14} /> Назначить сотрудников
+                    <Users size={14} /> {t('cdAssignEmployeesBtn')}
                   </button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Назначить сотрудников заказчика</DialogTitle>
+                    <DialogTitle>{t('cdAssignEmployeesTitle')}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
                     <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                      Выберите пользователей с ролью «client» для назначения к заказчику:
+                      {t('cdSelectClientRoleUsersHint')}
                     </p>
                     <div className="space-y-2 max-h-96 overflow-y-auto">
                       {clientUsers.length === 0 ? (
                         <div className="text-center py-4 text-[13px]" style={{ color: 'var(--corp-muted)' }}>
-                          Пользователи с ролью «client» не найдены
+                          {t('cdNoClientRoleUsers')}
                         </div>
                       ) : (
                         clientUsers.map((u: any) => {
@@ -897,7 +900,7 @@ export default function ClientDetailPage() {
                                 </label>
                                 <p className="text-[11px]" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>@{u.username}</p>
                                 {isAlreadyAssigned && (
-                                  <div className="mt-1"><StatusBadge>Уже назначен</StatusBadge></div>
+                                  <div className="mt-1"><StatusBadge>{t('cdAlreadyAssigned')}</StatusBadge></div>
                                 )}
                               </div>
                             </div>
@@ -913,7 +916,7 @@ export default function ClientDetailPage() {
                         className="flex-1 h-10 text-[13px] font-semibold"
                         style={GHOST_BTN}
                       >
-                        Отмена
+                        {t('cancel')}
                       </button>
                       <button
                         type="button"
@@ -922,7 +925,7 @@ export default function ClientDetailPage() {
                         className="flex-1 h-10 text-[13px] font-semibold disabled:opacity-50"
                         style={PRIMARY_BTN}
                       >
-                        {assignEmployeesMutation.isPending ? "Назначение..." : `Назначить (${selectedEmployees.length})`}
+                        {assignEmployeesMutation.isPending ? t('cdAssigning') : t('cdAssignWithCount').replace('{count}', String(selectedEmployees.length))}
                       </button>
                     </div>
                   </div>
@@ -953,7 +956,7 @@ export default function ClientDetailPage() {
                       className="inline-flex items-center gap-1 h-8 px-3 text-[11px] font-semibold disabled:opacity-50"
                       style={DANGER_BTN}
                     >
-                      <Trash2 size={12} /> Отвязать
+                      <Trash2 size={12} /> {t('cdUnlinkTitle')}
                     </button>
                   </div>
                 </div>
@@ -961,7 +964,7 @@ export default function ClientDetailPage() {
               {(!assignedEmployees || assignedEmployees.length === 0) && (
                 <div className="p-8 text-center" style={SECTION_STYLE}>
                   <Users size={28} className="mx-auto mb-2" style={{ color: 'var(--corp-muted)' }} />
-                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Сотрудники не назначены</p>
+                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>{t('cdNoEmployeesAssigned')}</p>
                 </div>
               )}
             </div>
@@ -973,7 +976,7 @@ export default function ClientDetailPage() {
       <Dialog open={isEditProjectDialogOpen} onOpenChange={setIsEditProjectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Редактировать информацию о проекте</DialogTitle>
+            <DialogTitle>{t('cdEditProjectInfoTitle')}</DialogTitle>
           </DialogHeader>
           <Form {...editProjectForm}>
             <form onSubmit={editProjectForm.handleSubmit(onEditProjectSubmit)} className="space-y-4">
@@ -983,7 +986,7 @@ export default function ClientDetailPage() {
                   name="contractAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Сумма договора, AED</FormLabel>
+                      <FormLabel>{t('cdContractAmountAed')}</FormLabel>
                       <FormControl>
                         <Input
                           type="number" step="0.01" placeholder="0.00"
@@ -1003,9 +1006,9 @@ export default function ClientDetailPage() {
                   name="contractNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Номер договора</FormLabel>
+                      <FormLabel>{t("contractNumberLabel")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Введите номер договора" {...field} value={field.value || ""} />
+                        <Input placeholder={t("enterContractNumber")} {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1018,7 +1021,7 @@ export default function ClientDetailPage() {
                 name="contractDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Дата договора</FormLabel>
+                    <FormLabel>{t("contractDateLabel")}</FormLabel>
                     <FormControl>
                       <Input
                         type="date" {...field}
@@ -1036,9 +1039,9 @@ export default function ClientDetailPage() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Описание</FormLabel>
+                    <FormLabel>{t("descriptionLabel")}</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Дополнительная информация" rows={3} {...field} value={field.value || ""} />
+                      <Textarea placeholder={t("additionalInfo")} rows={3} {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1050,15 +1053,15 @@ export default function ClientDetailPage() {
                 name="status"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Статус</FormLabel>
+                    <FormLabel>{t("statusLabel")}</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Выберите статус" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder={t("selectStatus")} /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="active">Активный</SelectItem>
-                        <SelectItem value="completed">Завершен</SelectItem>
-                        <SelectItem value="paused">Приостановлен</SelectItem>
+                        <SelectItem value="active">{t("statusActive")}</SelectItem>
+                        <SelectItem value="completed">{t("statusCompleted")}</SelectItem>
+                        <SelectItem value="paused">{t("statusPaused")}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -1068,10 +1071,10 @@ export default function ClientDetailPage() {
 
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setIsEditProjectDialogOpen(false)} className="flex-1 h-10 text-[13px] font-semibold" style={GHOST_BTN}>
-                  Отмена
+                  {t("cancel")}
                 </button>
                 <button type="submit" disabled={updateProjectMutation.isPending} className="flex-1 h-10 text-[13px] font-semibold disabled:opacity-50" style={PRIMARY_BTN}>
-                  {updateProjectMutation.isPending ? "Сохранение..." : "Сохранить"}
+                  {updateProjectMutation.isPending ? t("savingDots") : t("save")}
                 </button>
               </div>
             </form>

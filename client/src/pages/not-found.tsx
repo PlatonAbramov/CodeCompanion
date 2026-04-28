@@ -1,8 +1,10 @@
 import { useLocation } from "wouter";
 import { AlertCircle, Home } from "lucide-react";
+import { useLanguage } from "@/components/LanguageProvider";
 
 export default function NotFound() {
   const [, setLocation] = useLocation();
+  const { t } = useLanguage();
 
   return (
     <div
@@ -28,18 +30,18 @@ export default function NotFound() {
           className="text-[10px] font-bold uppercase mb-2"
           style={{ color: 'var(--corp-muted)', letterSpacing: '0.08em', fontFamily: 'var(--corp-mono)' }}
         >
-          Ошибка 404
+          {t('sys_notFoundError')}
         </p>
 
         <h1
           className="text-[22px] font-bold mb-2"
           style={{ color: 'var(--corp-ink)', letterSpacing: '-0.4px' }}
         >
-          Страница не найдена
+          {t('sys_notFoundTitle')}
         </h1>
 
         <p className="text-[13px] mb-6" style={{ color: 'var(--corp-ink-3)' }}>
-          Возможно, страница была удалена или вы перешли по неверной ссылке
+          {t('sys_notFoundDesc')}
         </p>
 
         <button
@@ -49,7 +51,7 @@ export default function NotFound() {
           style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
           data-testid="button-go-home"
         >
-          <Home size={14} /> На главную
+          <Home size={14} /> {t('sys_backToHome')}
         </button>
       </div>
     </div>

@@ -16,22 +16,31 @@ interface Expense {
   project: { id: string; name: string };
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  materials: 'Материалы',
-  tools: 'Инструменты',
-  transport: 'Транспорт',
-  services: 'Услуги',
-  salary_employees: 'Зарплата сотрудникам',
-  salary_daily: 'Зарплата поднёвщикам',
-  contractor_payments: 'Оплата подрядчикам',
-  other: 'Прочее',
-  uncategorized: 'Без категории',
+const CATEGORY_KEY_MAP: Record<string, string> = {
+  materials: 'materials',
+  tools: 'tools',
+  transport: 'transport',
+  services: 'services',
+  salary_employees: 'salaryEmployees',
+  salary_daily: 'salaryDaily',
+  contractor_payments: 'contractorPayments',
+  other: 'other',
+  uncategorized: 'uncategorized',
 };
+
+function getRecordWordRu(count: number): 'recordSingular' | 'recordFew' | 'recordMany' {
+  const n = Math.abs(count) % 100;
+  const n1 = n % 10;
+  if (n > 10 && n < 20) return 'recordMany';
+  if (n1 > 1 && n1 < 5) return 'recordFew';
+  if (n1 === 1) return 'recordSingular';
+  return 'recordMany';
+}
 
 export default function ExpensesList() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const projectId = location.split('/')[2];
 
@@ -58,7 +67,7 @@ export default function ExpensesList() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title="Все расходы"
+        title={t('allExpensesTitle')}
         subtitle={project?.name}
         onBack={() => setLocation(`/projects/${projectId}`)}
         action={
@@ -69,7 +78,7 @@ export default function ExpensesList() {
             style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
             data-testid="button-add-expense"
           >
-            <Plus size={14} /> <span className="hidden sm:inline">{t('addExpense') || 'Расход'}</span>
+            <Plus size={14} /> <span className="hidden sm:inline">{t('addExpenseShort')}</span>
           </button>
         }
       />
@@ -78,28 +87,32 @@ export default function ExpensesList() {
         {!isLoading && expenses.length === 0 ? (
           <CorpEmpty
             icon={<FileText size={28} />}
-            title="Нет расходов"
-            description="Добавьте первый расход для этого проекта"
-            actionLabel="Добавить расход"
+            title={t('noExpensesTitle')}
+            description={t('noExpensesDescription')}
+            actionLabel={t('addExpense')}
             onAction={() => setLocation('/add-expense')}
           />
         ) : (
           <>
             <CorpHeroSummary
-              label="Общая сумма расходов"
+              label={t('totalExpensesAmount')}
               amount={totalAmount}
-              subtext={`Записей: ${expenses.length}`}
+              subtext={`${t('recordsLabel')}: ${expenses.length}`}
             />
 
             <h3
               className="text-[10px] font-bold uppercase mb-2"
               style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
             >
-              По категориям
+              {t('byCategoryHeader')}
             </h3>
             <div className="flex flex-col gap-2">
               {Object.entries(expensesByCategory).map(([category, items]) => {
                 const categoryTotal = items.reduce((s, e) => s + parseFloat(e.amount), 0);
+                const categoryKey = CATEGORY_KEY_MAP[category] || category;
+                const recordWord = language === 'ru'
+                  ? t(getRecordWordRu(items.length))
+                  : t('recordMany');
                 return (
                   <button
                     key={category}
@@ -118,10 +131,10 @@ export default function ExpensesList() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-[14px]" style={{ color: 'var(--corp-ink)', letterSpacing: '-0.1px' }}>
-                        {CATEGORY_LABELS[category] || category}
+                        {t(categoryKey) || category}
                       </div>
                       <div className="text-[11px] mt-0.5" style={{ color: 'var(--corp-muted)' }}>
-                        {items.length} {items.length === 1 ? 'запись' : 'записей'}
+                        {items.length} {recordWord}
                       </div>
                     </div>
                     <div className="text-right">

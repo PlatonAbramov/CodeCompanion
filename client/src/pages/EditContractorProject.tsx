@@ -13,11 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Building2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { CorpHeader, CorpEmpty } from "@/components/corp-ui";
+import { useLanguage } from "@/components/LanguageProvider";
 
 const editContractorProjectSchema = z.object({
-  budgetAllocation: z.number().min(0, "Бюджет не может быть отрицательным"),
-  workDescription: z.string().min(1, "Описание работ обязательно"),
-  startDate: z.string().min(1, "Дата начала обязательна"),
+  budgetAllocation: z.number().min(0),
+  workDescription: z.string().min(1),
+  startDate: z.string().min(1),
   endDate: z.string().optional(),
   isActive: z.boolean(),
 });
@@ -68,6 +69,7 @@ export default function EditContractorProject() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
 
   const { data: assignment, isLoading } = useQuery<ContractorProject>({
@@ -121,14 +123,14 @@ export default function EditContractorProject() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Назначение обновлено", description: "Данные по проекту подрядчика успешно обновлены" });
+      toast({ title: t('assignmentUpdated'), description: t('assignmentUpdatedDescription') });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors', contractorId, 'projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors', contractorId, 'stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractor-projects', projectAssignmentId] });
       setLocation(`/contractor/${contractorId}`);
     },
     onError: (error: Error) => {
-      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+      toast({ title: t('error'), description: error.message, variant: "destructive" });
     },
   });
 
@@ -142,7 +144,7 @@ export default function EditContractorProject() {
   if (user.role !== 'admin' && user.role !== 'director') {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--corp-bg)' }}>
-        <p style={{ color: 'var(--corp-ink-2)' }}>Доступ запрещен</p>
+        <p style={{ color: 'var(--corp-ink-2)' }}>{t('accessDenied')}</p>
       </div>
     );
   }
@@ -150,7 +152,7 @@ export default function EditContractorProject() {
   if (isLoading) {
     return (
       <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
-        <CorpHeader title="Редактировать назначение" onBack={goBack} />
+        <CorpHeader title={t('editAssignmentTitle')} onBack={goBack} />
       </div>
     );
   }
@@ -158,13 +160,13 @@ export default function EditContractorProject() {
   if (!assignment || !contractor) {
     return (
       <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
-        <CorpHeader title="Редактировать назначение" onBack={goBack} />
+        <CorpHeader title={t('editAssignmentTitle')} onBack={goBack} />
         <div className="p-4">
           <CorpEmpty
             icon={<Building2 size={28} />}
-            title="Назначение не найдено"
-            description="Возможно, назначение было удалено"
-            actionLabel="Вернуться"
+            title={t('assignmentNotFound')}
+            description={t('assignmentMaybeDeleted')}
+            actionLabel={t('goBackLabel')}
             onAction={goBack}
           />
         </div>
@@ -176,12 +178,12 @@ export default function EditContractorProject() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }}>
-      <CorpHeader title="Редактировать назначение" subtitle={subtitle} onBack={goBack} />
+      <CorpHeader title={t('editAssignmentTitle')} subtitle={subtitle} onBack={goBack} />
 
       <div className="p-4 max-w-2xl mx-auto">
         <div className="p-4" style={SECTION_STYLE}>
           <h3 className="text-[10px] font-bold uppercase mb-4 flex items-center gap-1.5" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-            <Building2 size={12} /> Параметры назначения
+            <Building2 size={12} /> {t('assignmentParameters')}
           </h3>
 
           <Form {...form}>
@@ -191,7 +193,7 @@ export default function EditContractorProject() {
                 name="budgetAllocation"
                 render={({ field }) => (
                   <FormItem>
-                    <FieldLabel required>Бюджет подрядчика на проект, AED</FieldLabel>
+                    <FieldLabel required>{t('contractorBudgetLabel')}</FieldLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -218,10 +220,10 @@ export default function EditContractorProject() {
                 name="workDescription"
                 render={({ field }) => (
                   <FormItem>
-                    <FieldLabel required>Описание работ</FieldLabel>
+                    <FieldLabel required>{t('workDescriptionLabel')}</FieldLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Описание выполняемых работ"
+                        placeholder={t('workDescriptionPlaceholder')}
                         rows={3}
                         {...field}
                         data-testid="input-description"
@@ -238,7 +240,7 @@ export default function EditContractorProject() {
                   name="startDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FieldLabel required>Дата начала</FieldLabel>
+                      <FieldLabel required>{t('startDateLabel')}</FieldLabel>
                       <FormControl>
                         <Input type="date" {...field} data-testid="input-start-date" />
                       </FormControl>
@@ -252,7 +254,7 @@ export default function EditContractorProject() {
                   name="endDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FieldLabel>Дата окончания</FieldLabel>
+                      <FieldLabel>{t('endDateLabel')}</FieldLabel>
                       <FormControl>
                         <Input type="date" {...field} value={field.value || ""} data-testid="input-end-date" />
                       </FormControl>
@@ -267,7 +269,7 @@ export default function EditContractorProject() {
                 name="isActive"
                 render={({ field }) => (
                   <FormItem>
-                    <FieldLabel>Статус</FieldLabel>
+                    <FieldLabel>{t('statusLabel')}</FieldLabel>
                     <Select
                       onValueChange={(value) => field.onChange(value === 'true')}
                       value={field.value ? 'true' : 'false'}
@@ -278,8 +280,8 @@ export default function EditContractorProject() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="true">Активен</SelectItem>
-                        <SelectItem value="false">Завершен</SelectItem>
+                        <SelectItem value="true">{t('activeStatus')}</SelectItem>
+                        <SelectItem value="false">{t('completedStatus')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -299,7 +301,7 @@ export default function EditContractorProject() {
                   }}
                   data-testid="button-cancel"
                 >
-                  Отмена
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
@@ -312,7 +314,7 @@ export default function EditContractorProject() {
                   }}
                   data-testid="button-save"
                 >
-                  {updateMutation.isPending ? "Сохранение..." : "Сохранить"}
+                  {updateMutation.isPending ? t('saving') : t('save')}
                 </button>
               </div>
             </form>

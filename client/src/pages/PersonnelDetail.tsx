@@ -31,7 +31,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CorpHeader, MoneyAED, fmtDateRu } from "@/components/corp-ui";
+import { CorpHeader, MoneyAED } from "@/components/corp-ui";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDate } from "@/lib/locale";
 
 interface Personnel {
   id: string;
@@ -151,6 +153,7 @@ function InfoField({ label, value, mono = false }: { label: string; value: React
 export function PersonnelDetail() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, language } = useLanguage();
   const [, params] = useRoute("/personnel/:id");
   const [, setLocation] = useLocation();
   const personnelId = params?.id;
@@ -214,11 +217,11 @@ export function PersonnelDetail() {
       return await apiRequest(`/api/personnel/${personnelId}`, { method: "DELETE" });
     },
     onSuccess: () => {
-      toast({ title: "Успешно", description: "Сотрудник удален" });
+      toast({ title: t('success'), description: t('pd_personnelDeletedDesc') });
       setLocation("/personnel");
     },
     onError: (error) => {
-      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+      toast({ title: t('error'), description: error.message, variant: "destructive" });
     },
   });
 
@@ -233,7 +236,7 @@ export function PersonnelDetail() {
       });
       const json = await r.json().catch(() => ({}));
       if (!r.ok) {
-        const err: any = new Error(json?.error || 'Не удалось изменить роль');
+        const err: any = new Error(json?.error || t('pd_roleChangeFailed'));
         err.payload = json;
         err.status = r.status;
         throw err;
@@ -246,8 +249,8 @@ export function PersonnelDetail() {
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/role-audit-log`] });
       if (data?.changed !== false) {
         toast({
-          title: "Готово",
-          description: data?.person?.isDriver ? 'Назначена роль «Водитель»' : 'Снята роль «Водитель»',
+          title: t('pd_doneToast'),
+          description: data?.person?.isDriver ? t('pd_driverRoleAssignedDesc') : t('pd_driverRoleRemovedDesc'),
         });
       }
     },
@@ -257,8 +260,8 @@ export function PersonnelDetail() {
         ? `: ${linked.map((v) => `${v.brand} ${v.model} (${v.plateNumber})`).join(', ')}`
         : '';
       toast({
-        title: "Ошибка",
-        description: (error?.message || 'Не удалось изменить роль') + linkedTxt,
+        title: t('error'),
+        description: (error?.message || t('pd_roleChangeFailed')) + linkedTxt,
         variant: "destructive",
       });
     },
@@ -320,13 +323,13 @@ export function PersonnelDetail() {
       });
     },
     onSuccess: () => {
-      toast({ title: 'Готово', description: 'Привязка учётной записи обновлена' });
+      toast({ title: t('pd_doneToast'), description: t('pd_accountLinkUpdatedDesc') });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/personnel'] });
       setAccountMode('idle');
     },
     onError: (error: any) => {
-      toast({ title: 'Ошибка', description: error?.message || 'Не удалось обновить привязку', variant: 'destructive' });
+      toast({ title: t('error'), description: error?.message || t('pd_accountLinkUpdateFailedDesc'), variant: 'destructive' });
     },
   });
 
@@ -342,21 +345,21 @@ export function PersonnelDetail() {
       });
     },
     onSuccess: () => {
-      toast({ title: 'Готово', description: 'Учётная запись создана и привязана' });
+      toast({ title: t('pd_doneToast'), description: t('pd_accountCreatedDesc') });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/personnel'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       setAccountMode('idle');
     },
     onError: (error: any) => {
-      toast({ title: 'Ошибка', description: error?.message || 'Не удалось создать учётку', variant: 'destructive' });
+      toast({ title: t('error'), description: error?.message || t('pd_accountCreateFailedDesc'), variant: 'destructive' });
     },
   });
 
   const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
 
   const roleLabel = (r: string) => ({
-    admin: 'Админ', director: 'Директор', master: 'Мастер', worker: 'Рабочий', client: 'Клиент',
+    admin: t('roleAdmin'), director: t('roleDirector'), master: t('roleMaster'), worker: t('roleWorker'), client: t('roleClient'),
   } as Record<string, string>)[r] || r;
 
   const deleteDocMutation = useMutation({
@@ -364,11 +367,11 @@ export function PersonnelDetail() {
       return await apiRequest(`/api/personnel/documents/${docId}`, { method: "DELETE" });
     },
     onSuccess: () => {
-      toast({ title: "Успешно", description: "Документ удален" });
+      toast({ title: t('success'), description: t('pd_documentDeletedDesc') });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/documents`] });
     },
     onError: (error) => {
-      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+      toast({ title: t('error'), description: error.message, variant: "destructive" });
     },
   });
 
@@ -380,12 +383,12 @@ export function PersonnelDetail() {
       });
     },
     onSuccess: () => {
-      toast({ title: "Успешно", description: "Аванс отменен" });
+      toast({ title: t('success'), description: t('pd_advanceCancelledDesc') });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances`] });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances/summary`] });
     },
     onError: (error) => {
-      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+      toast({ title: t('error'), description: error.message, variant: "destructive" });
     },
   });
 
@@ -394,12 +397,12 @@ export function PersonnelDetail() {
       return await apiRequest(`/api/personnel/advances/${advanceId}`, { method: "DELETE" });
     },
     onSuccess: () => {
-      toast({ title: "Успешно", description: "Аванс удален" });
+      toast({ title: t('success'), description: t('pd_advanceDeletedDesc') });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances`] });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/advances/summary`] });
     },
     onError: (error) => {
-      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+      toast({ title: t('error'), description: error.message, variant: "destructive" });
     },
   });
 
@@ -411,11 +414,11 @@ export function PersonnelDetail() {
       });
     },
     onSuccess: () => {
-      toast({ title: "Успешно", description: "Фото загружено" });
+      toast({ title: t('success'), description: t('pd_photoUploadedDesc') });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}`] });
     },
     onError: (error) => {
-      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+      toast({ title: t('error'), description: error.message, variant: "destructive" });
     },
   });
 
@@ -425,16 +428,22 @@ export function PersonnelDetail() {
     const years = differenceInYears(now, start);
     const months = differenceInMonths(now, start) % 12;
     if (years > 0) {
-      return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'} ${months > 0 ? `${months} мес.` : ''}`;
+      const yearWord = language === 'ru'
+        ? (years === 1 ? t('yearOne') : years < 5 ? t('yearFew') : t('yearMany'))
+        : t('yearMany');
+      return `${years} ${yearWord}${months > 0 ? ` ${months} ${t('monthShort')}` : ''}`;
     }
-    return `${months} мес.`;
+    return `${months} ${t('monthShort')}`;
   };
 
   const calculateAge = (dateOfBirth: string) => {
     const birth = new Date(dateOfBirth);
     const now = new Date();
     const years = differenceInYears(now, birth);
-    return `${years} ${years === 1 ? 'год' : years < 5 ? 'года' : 'лет'}`;
+    const yearWord = language === 'ru'
+      ? (years === 1 ? t('yearOne') : years < 5 ? t('yearFew') : t('yearMany'))
+      : t('yearMany');
+    return `${years} ${yearWord}`;
   };
 
   const getDocumentStatus = (expiryDate?: string) => {
@@ -451,13 +460,13 @@ export function PersonnelDetail() {
   const getDocumentTypeName = (type: string) => {
     const types: Record<string, string> = {
       'emirates_id': 'Emirates ID',
-      'passport': 'Паспорт',
-      'visa': 'Виза',
-      'contract': 'Трудовой договор',
-      'medical': 'Медицинская карта',
-      'insurance': 'Страховка',
-      'qualification': 'Квалификация',
-      'other': 'Другое'
+      'passport': t('pd_docPassport'),
+      'visa': t('pd_docVisa'),
+      'contract': t('pd_docContract'),
+      'medical': t('pd_docMedical'),
+      'insurance': t('pd_docInsurance'),
+      'qualification': t('pd_docQualification'),
+      'other': t('pd_docOther')
     };
     return types[type] || type;
   };
@@ -476,7 +485,7 @@ export function PersonnelDetail() {
   };
 
   const handleCancelAdvance = (advanceId: string) => {
-    const reason = prompt("Укажите причину отмены аванса:");
+    const reason = prompt(t('pd_promptCancelReason'));
     if (reason) {
       cancelAdvanceMutation.mutate({ id: advanceId, reason });
     }
@@ -497,7 +506,7 @@ export function PersonnelDetail() {
       if (!data || !data.uploadURL) throw new Error("No upload URL received from server");
       return { method: "PUT" as const, url: data.uploadURL };
     } catch (error) {
-      toast({ title: "Ошибка", description: "Не удалось получить URL для загрузки", variant: "destructive" });
+      toast({ title: t('error'), description: t('pd_uploadUrlFailedDesc'), variant: "destructive" });
       throw error;
     }
   };
@@ -509,10 +518,10 @@ export function PersonnelDetail() {
       try {
         await uploadPhotoMutation.mutateAsync(uploadURL);
       } catch (error) {
-        toast({ title: "Ошибка", description: "Не удалось сохранить фото", variant: "destructive" });
+        toast({ title: t('error'), description: t('pd_photoSaveFailedDesc'), variant: "destructive" });
       }
     } else {
-      toast({ title: "Ошибка", description: "Не удалось загрузить фото", variant: "destructive" });
+      toast({ title: t('error'), description: t('pd_photoLoadFailedDesc'), variant: "destructive" });
     }
   };
 
@@ -520,7 +529,7 @@ export function PersonnelDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--corp-bg)' }}>
         <div className="max-w-md p-6 text-center" style={SECTION_STYLE}>
-          <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Нет доступа к разделу «Персонал»</p>
+          <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>{t('noAccessSection').replace('{section}', t('sectionPersonnel'))}</p>
         </div>
       </div>
     );
@@ -534,14 +543,14 @@ export function PersonnelDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--corp-bg)' }}>
         <div className="max-w-md p-6 text-center" style={SECTION_STYLE}>
-          <p className="text-[13px] mb-3" style={{ color: 'var(--corp-muted)' }}>Сотрудник не найден</p>
+          <p className="text-[13px] mb-3" style={{ color: 'var(--corp-muted)' }}>{t('pd_personNotFound')}</p>
           <button
             type="button"
             onClick={() => setLocation('/personnel')}
             className="inline-flex items-center gap-1 h-9 px-4 text-[12px] font-semibold"
             style={GHOST_BTN}
           >
-            Вернуться к списку
+            {t('backToList')}
           </button>
         </div>
       </div>
@@ -556,9 +565,9 @@ export function PersonnelDetail() {
     person.status === 'dismissed' ? 'neg' :
     person.status === 'vacation' ? 'warn' : 'neutral';
   const statusText =
-    person.status === 'active' ? 'Активен' :
-    person.status === 'dismissed' ? 'Уволен' :
-    person.status === 'vacation' ? 'Отпуск' : (person.status || '—');
+    person.status === 'active' ? t('statusActiveOption') :
+    person.status === 'dismissed' ? t('statusDismissed') :
+    person.status === 'vacation' ? t('statusVacation') : (person.status || '—');
 
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }} data-page-header>
@@ -575,14 +584,14 @@ export function PersonnelDetail() {
                 className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
                 style={PRIMARY_BTN}
               >
-                <Edit size={13} /> Редактировать
+                <Edit size={13} /> {t('edit')}
               </button>
               <button
                 type="button"
                 onClick={() => setShowDeleteDialog(true)}
                 className="w-9 h-9 flex items-center justify-center"
                 style={DANGER_BTN}
-                title="Удалить"
+                title={t('delete')}
               >
                 <Trash2 size={14} />
               </button>
@@ -632,7 +641,7 @@ export function PersonnelDetail() {
                 onComplete={handlePhotoComplete}
               >
                 <Upload className="w-4 h-4 mr-2" />
-                Загрузить фото
+                {t('pd_uploadPhoto')}
               </ObjectUploader>
             )}
 
@@ -641,7 +650,7 @@ export function PersonnelDetail() {
               <div className="mt-2 flex items-center justify-center gap-1 flex-wrap">
                 <StatusBadge tone={statusTone}>{statusText}</StatusBadge>
                 {person.isDriver && (
-                  <StatusBadge tone="accent">Водитель</StatusBadge>
+                  <StatusBadge tone="accent">{t('driverRoleBadge')}</StatusBadge>
                 )}
               </div>
             </div>
@@ -649,7 +658,7 @@ export function PersonnelDetail() {
 
           {/* Contact info */}
           <div className="p-4" style={SECTION_STYLE}>
-            <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Контактная информация</h3>
+            <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>{t('pd_contactInformation')}</h3>
             <div className="space-y-2 text-[13px]">
               {person.phone && (
                 <div className="flex items-center gap-2" style={{ color: 'var(--corp-ink-2)' }}>
@@ -666,7 +675,7 @@ export function PersonnelDetail() {
               {age && (
                 <div className="flex items-center gap-2" style={{ color: 'var(--corp-ink-2)' }}>
                   <Calendar size={14} style={{ color: 'var(--corp-ink-3)' }} />
-                  <span>Возраст: {age}</span>
+                  <span>{t('pd_ageLabel')}: {age}</span>
                 </div>
               )}
             </div>
@@ -674,12 +683,12 @@ export function PersonnelDetail() {
 
           {/* Роли */}
           <div className="p-4" style={SECTION_STYLE} data-testid="card-roles">
-            <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Роли</h3>
+            <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>{t('pd_rolesHeading')}</h3>
             <div className="flex items-center justify-between gap-3 py-1">
               <div className="min-w-0">
-                <p className="text-[13px] font-semibold" style={{ color: 'var(--corp-ink)' }}>Водитель</p>
+                <p className="text-[13px] font-semibold" style={{ color: 'var(--corp-ink)' }}>{t('driverRoleBadge')}</p>
                 <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                  Доступ к фотоконтролю автомобиля
+                  {t('pd_driverDescription')}
                 </p>
               </div>
               {(user?.role === 'admin' || user?.role === 'director') ? (
@@ -710,23 +719,23 @@ export function PersonnelDetail() {
                 </label>
               ) : (
                 <StatusBadge tone={person.isDriver ? 'accent' : 'neutral'}>
-                  {person.isDriver ? 'Назначен' : 'Не назначен'}
+                  {person.isDriver ? t('pd_assigned') : t('pd_notAssigned')}
                 </StatusBadge>
               )}
             </div>
             {roleAudit.length > 0 && (
               <div className="mt-3 pt-3 space-y-1" style={{ borderTop: '1px solid var(--corp-line)' }}>
                 <p className="text-[10px] uppercase font-bold" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-                  Журнал изменений
+                  {t('pd_changeLog')}
                 </p>
                 {roleAudit.slice(0, 5).map((a) => (
                   <div key={a.id} className="text-[11px] flex justify-between gap-2" data-testid={`role-audit-${a.id}`}>
                     <span style={{ color: 'var(--corp-ink-2)' }}>
-                      {a.action === 'grant_driver' ? 'Назначена «Водитель»' : 'Снята «Водитель»'}
+                      {a.action === 'grant_driver' ? t('pd_driverGranted') : t('pd_driverRevoked')}
                       {a.actorName ? ` · ${a.actorName}` : ''}
                     </span>
                     <span style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
-                      {fmtDateRu(a.createdAt || undefined)}
+                      {fmtDate(a.createdAt || undefined, language)}
                     </span>
                   </div>
                 ))}
@@ -739,7 +748,7 @@ export function PersonnelDetail() {
             <div className="p-4" style={SECTION_STYLE} data-testid="card-account">
               <h3 className="text-[14px] font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--corp-ink)' }}>
                 <KeyRound className="w-4 h-4" />
-                Учётная запись
+                {t('pd_accountTitle')}
               </h3>
 
               {person.userId ? (
@@ -747,23 +756,23 @@ export function PersonnelDetail() {
                   {linkedUser ? (
                     <div className="space-y-1 text-[13px]">
                       <div className="flex justify-between gap-2">
-                        <span style={{ color: 'var(--corp-muted)' }}>Логин:</span>
+                        <span style={{ color: 'var(--corp-muted)' }}>{t('pd_loginColon')}</span>
                         <span style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }} data-testid="text-account-username">
                           {linkedUser.username}
                         </span>
                       </div>
                       <div className="flex justify-between gap-2">
-                        <span style={{ color: 'var(--corp-muted)' }}>Имя:</span>
+                        <span style={{ color: 'var(--corp-muted)' }}>{t('pd_nameColon')}</span>
                         <span style={{ color: 'var(--corp-ink)' }}>{linkedUser.name}</span>
                       </div>
                       <div className="flex justify-between gap-2">
-                        <span style={{ color: 'var(--corp-muted)' }}>Роль:</span>
+                        <span style={{ color: 'var(--corp-muted)' }}>{t('pd_roleColon')}</span>
                         <StatusBadge tone="accent">{roleLabel(linkedUser.role)}</StatusBadge>
                       </div>
                     </div>
                   ) : (
                     <div className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                      Учётка привязана, но не найдена в списке (возможно, заблокирована).
+                      {t('pd_accountLinkedNotFound')}
                     </div>
                   )}
 
@@ -774,7 +783,7 @@ export function PersonnelDetail() {
                       onClick={() => setLocation('/permissions-and-access')}
                       data-testid="button-manage-permissions"
                     >
-                      Настроить права
+                      {t('pd_managePermissions')}
                     </Button>
                     <Button
                       size="sm"
@@ -784,20 +793,19 @@ export function PersonnelDetail() {
                       data-testid="button-unlink-account"
                     >
                       <Unlink className="w-3 h-3 mr-1" />
-                      Отвязать
+                      {t('pd_unlink')}
                     </Button>
                   </div>
                 </div>
               ) : accountMode === 'idle' ? (
                 <div className="space-y-3">
                   <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-                    У сотрудника нет учётной записи в системе. Без неё нельзя
-                    настраивать индивидуальные права.
+                    {t('pd_noAccountHint')}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" onClick={() => setAccountMode('create')} data-testid="button-create-account">
                       <Plus className="w-3 h-3 mr-1" />
-                      Создать учётку
+                      {t('pd_createAccount')}
                     </Button>
                     <Button
                       size="sm"
@@ -807,19 +815,19 @@ export function PersonnelDetail() {
                       data-testid="button-link-account"
                     >
                       <Link2 className="w-3 h-3 mr-1" />
-                      Привязать существующую
+                      {t('pd_linkExisting')}
                     </Button>
                   </div>
                   {availableUsers.length === 0 && (
                     <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                      Свободных учёток без привязки нет.
+                      {t('pd_noFreeAccounts')}
                     </p>
                   )}
                 </div>
               ) : accountMode === 'create' ? (
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-[12px]">Логин (например, email)</Label>
+                    <Label className="text-[12px]">{t('pd_loginExample')}</Label>
                     <Input
                       value={createUsername}
                       onChange={(e) => setCreateUsername(e.target.value)}
@@ -829,27 +837,27 @@ export function PersonnelDetail() {
                     />
                   </div>
                   <div>
-                    <Label className="text-[12px]">Пароль (мин. 6 символов)</Label>
+                    <Label className="text-[12px]">{t('pd_passwordHint')}</Label>
                     <Input
                       type="text"
                       value={createPassword}
                       onChange={(e) => setCreatePassword(e.target.value)}
-                      placeholder="временный пароль"
+                      placeholder={t('pd_temporaryPassword')}
                       autoComplete="new-password"
                       data-testid="input-new-password"
                     />
                   </div>
                   <div>
-                    <Label className="text-[12px]">Роль</Label>
+                    <Label className="text-[12px]">{t('pd_roleSelectLabel')}</Label>
                     <Select value={createRole} onValueChange={(v) => setCreateRole(v as any)}>
                       <SelectTrigger data-testid="select-new-role">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="worker">Рабочий</SelectItem>
-                        <SelectItem value="master">Мастер</SelectItem>
-                        <SelectItem value="director">Директор</SelectItem>
-                        <SelectItem value="client">Клиент</SelectItem>
+                        <SelectItem value="worker">{t('roleWorker')}</SelectItem>
+                        <SelectItem value="master">{t('roleMaster')}</SelectItem>
+                        <SelectItem value="director">{t('roleDirector')}</SelectItem>
+                        <SelectItem value="client">{t('roleClient')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -864,7 +872,7 @@ export function PersonnelDetail() {
                       }
                       data-testid="button-submit-create-account"
                     >
-                      {createUserMutation.isPending ? 'Создание...' : 'Создать и привязать'}
+                      {createUserMutation.isPending ? t('pd_creating') : t('pd_createAndLink')}
                     </Button>
                     <Button
                       size="sm"
@@ -872,7 +880,7 @@ export function PersonnelDetail() {
                       onClick={() => setAccountMode('idle')}
                       disabled={createUserMutation.isPending}
                     >
-                      Отмена
+                      {t('cancel')}
                     </Button>
                   </div>
                 </div>
@@ -880,10 +888,10 @@ export function PersonnelDetail() {
                 /* link mode */
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-[12px]">Свободные учётные записи</Label>
+                    <Label className="text-[12px]">{t('pd_freeAccounts')}</Label>
                     <Select value={linkUserId} onValueChange={setLinkUserId}>
                       <SelectTrigger data-testid="select-link-user">
-                        <SelectValue placeholder="Выберите учётку..." />
+                        <SelectValue placeholder={t('pd_selectAccountPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {availableUsers.map((u) => (
@@ -901,7 +909,7 @@ export function PersonnelDetail() {
                       disabled={!linkUserId || linkUserMutation.isPending}
                       data-testid="button-submit-link-account"
                     >
-                      {linkUserMutation.isPending ? 'Привязка...' : 'Привязать'}
+                      {linkUserMutation.isPending ? t('pd_linking') : t('pd_link')}
                     </Button>
                     <Button
                       size="sm"
@@ -909,7 +917,7 @@ export function PersonnelDetail() {
                       onClick={() => setAccountMode('idle')}
                       disabled={linkUserMutation.isPending}
                     >
-                      Отмена
+                      {t('cancel')}
                     </Button>
                   </div>
                 </div>
@@ -922,15 +930,15 @@ export function PersonnelDetail() {
         <div className="lg:col-span-2">
           <Tabs defaultValue="info">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="info">Информация</TabsTrigger>
+              <TabsTrigger value="info">{t('pd_tabInfo')}</TabsTrigger>
               <TabsTrigger value="documents">
-                Документы
+                {t('pd_tabDocuments')}
                 {documents.some(d => getDocumentStatus(d.expiryDate) !== 'normal') && (
                   <AlertTriangle className="w-3 h-3 ml-1" style={{ color: 'var(--corp-neg)' }} />
                 )}
               </TabsTrigger>
               <TabsTrigger value="advances">
-                Авансы
+                {t('pd_tabAdvances')}
                 <DollarSign className="w-3 h-3 ml-1" />
               </TabsTrigger>
             </TabsList>
@@ -938,11 +946,11 @@ export function PersonnelDetail() {
             {/* Info tab */}
             <TabsContent value="info" className="space-y-4 mt-4">
               <div className="p-4" style={SECTION_STYLE}>
-                <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Личные данные</h3>
+                <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>{t('pd_personalData')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InfoField label="ФИО" value={fullName} />
+                  <InfoField label={t('pd_fullName')} value={fullName} />
                   {person.dateOfBirth && (
-                    <InfoField label="Дата рождения" value={fmtDateRu(person.dateOfBirth)} mono />
+                    <InfoField label={t('pd_dateOfBirth')} value={fmtDate(person.dateOfBirth, language)} mono />
                   )}
                 </div>
               </div>
@@ -951,23 +959,23 @@ export function PersonnelDetail() {
                 <div className="p-4" style={SECTION_STYLE}>
                   <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Emirates ID</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InfoField label="Номер" value={person.emiratesId} mono />
+                    <InfoField label={t('pd_numberLabel')} value={person.emiratesId} mono />
                     {person.emiratesIdIssueDate && (
-                      <InfoField label="Дата выдачи" value={fmtDateRu(person.emiratesIdIssueDate)} mono />
+                      <InfoField label={t('pd_issueDate')} value={fmtDate(person.emiratesIdIssueDate, language)} mono />
                     )}
                     {person.emiratesIdExpiryDate && (
                       <div>
-                        <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Дата окончания</p>
+                        <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>{t('pd_endDateLabel')}</p>
                         <p className="text-[13px] font-semibold mb-1" style={{ color: 'var(--corp-ink)', fontFamily: 'var(--corp-mono)' }}>
-                          {fmtDateRu(person.emiratesIdExpiryDate)}
+                          {fmtDate(person.emiratesIdExpiryDate, language)}
                         </p>
                         {(() => {
                           const status = getDocumentStatus(person.emiratesIdExpiryDate);
                           if (status === 'normal') return null;
                           const tone: 'neg' | 'warn' = status === 'expired' || status === 'critical' ? 'neg' : 'warn';
                           const text =
-                            status === 'expired' ? 'Истёк' :
-                            status === 'critical' ? '≤14 дней' : '≤30 дней';
+                            status === 'expired' ? t('pd_expiredText') :
+                            status === 'critical' ? t('pd_days14') : t('pd_days30');
                           return <StatusBadge tone={tone}>{text}</StatusBadge>;
                         })()}
                       </div>
@@ -977,14 +985,14 @@ export function PersonnelDetail() {
               )}
 
               <div className="p-4" style={SECTION_STYLE}>
-                <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>Рабочая информация</h3>
+                <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--corp-ink)' }}>{t('pd_workInfo')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InfoField label="Специализация" value={person.specialization} />
-                  <InfoField label="Дата начала работы" value={fmtDateRu(person.startDate)} mono />
-                  <InfoField label="Стаж работы" value={experience} />
+                  <InfoField label={t('pd_specialization')} value={person.specialization} />
+                  <InfoField label={t('pd_startDate')} value={fmtDate(person.startDate, language)} mono />
+                  <InfoField label={t('pd_experience')} value={experience} />
                   {person.salary && (
                     <div>
-                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Зарплата</p>
+                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>{t('pd_salary')}</p>
                       <MoneyAED amount={person.salary} size={14} weight={700} tone="ink" />
                     </div>
                   )}
@@ -995,7 +1003,7 @@ export function PersonnelDetail() {
             {/* Documents tab */}
             <TabsContent value="documents" className="space-y-3 mt-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Документы сотрудника</h3>
+                <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('pd_personnelDocuments')}</h3>
                 {isAdmin && (
                   <button
                     type="button"
@@ -1003,7 +1011,7 @@ export function PersonnelDetail() {
                     className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
                     style={PRIMARY_BTN}
                   >
-                    <Plus size={14} /> Добавить документ
+                    <Plus size={14} /> {t('pd_addDocument')}
                   </button>
                 )}
               </div>
@@ -1031,10 +1039,10 @@ export function PersonnelDetail() {
                               )}
                               <div className="flex items-center gap-3 mt-1 text-[11px]" style={{ color: 'var(--corp-muted)' }}>
                                 {doc.issueDate && (
-                                  <span>Выдан: <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(doc.issueDate)}</span></span>
+                                  <span>{t('pd_issuedColon')}: <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDate(doc.issueDate, language)}</span></span>
                                 )}
                                 {doc.expiryDate && (
-                                  <span>Истекает: <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(doc.expiryDate)}</span></span>
+                                  <span>{t('pd_expiresColon')}: <span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDate(doc.expiryDate, language)}</span></span>
                                 )}
                               </div>
                             </div>
@@ -1043,7 +1051,7 @@ export function PersonnelDetail() {
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {status !== 'normal' && (
                               <StatusBadge tone={status === 'expired' || status === 'critical' ? 'neg' : 'warn'}>
-                                {status === 'expired' ? 'Истёк' : status === 'critical' ? '≤14 дней' : '≤30 дней'}
+                                {status === 'expired' ? t('pd_expiredText') : status === 'critical' ? t('pd_days14') : t('pd_days30')}
                               </StatusBadge>
                             )}
                             {doc.fileUrl && (
@@ -1053,7 +1061,7 @@ export function PersonnelDetail() {
                                   onClick={() => setSelectedDocument(doc.fileUrl || null)}
                                   className="w-8 h-8 flex items-center justify-center rounded"
                                   style={{ color: 'var(--corp-accent)' }}
-                                  title="Просмотр"
+                                  title={t('pd_view')}
                                 >
                                   <Eye size={15} />
                                 </button>
@@ -1063,7 +1071,7 @@ export function PersonnelDetail() {
                                   rel="noopener noreferrer"
                                   className="w-8 h-8 flex items-center justify-center rounded"
                                   style={{ color: 'var(--corp-pos)' }}
-                                  title="Скачать"
+                                  title={t('pd_download')}
                                 >
                                   <Download size={15} />
                                 </a>
@@ -1076,7 +1084,7 @@ export function PersonnelDetail() {
                                   onClick={() => { setSelectedDoc(doc); setShowDocForm(true); }}
                                   className="w-8 h-8 flex items-center justify-center rounded"
                                   style={{ color: 'var(--corp-ink-3)' }}
-                                  title="Редактировать"
+                                  title={t('edit')}
                                 >
                                   <Edit size={15} />
                                 </button>
@@ -1085,7 +1093,7 @@ export function PersonnelDetail() {
                                   onClick={() => { setDocToDelete(doc.id); setShowDocDeleteDialog(true); }}
                                   className="w-8 h-8 flex items-center justify-center rounded"
                                   style={{ color: 'var(--corp-neg)' }}
-                                  title="Удалить"
+                                  title={t('delete')}
                                 >
                                   <Trash2 size={15} />
                                 </button>
@@ -1100,7 +1108,7 @@ export function PersonnelDetail() {
               ) : (
                 <div className="p-8 text-center" style={SECTION_STYLE}>
                   <FileText size={28} className="mx-auto mb-2" style={{ color: 'var(--corp-muted)' }} />
-                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Документы не добавлены</p>
+                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>{t('pd_noDocuments')}</p>
                 </div>
               )}
             </TabsContent>
@@ -1111,7 +1119,7 @@ export function PersonnelDetail() {
               {advancesSummary && person.salary && (
                 <div className="p-4" style={SECTION_STYLE}>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Расчёт зарплаты</h3>
+                    <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('pd_salaryCalculation')}</h3>
                     <input
                       type="month"
                       value={selectedMonth.toISOString().slice(0, 7)}
@@ -1128,19 +1136,19 @@ export function PersonnelDetail() {
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="p-3" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
-                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Зарплата</p>
+                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>{t('pd_salary')}</p>
                       <MoneyAED amount={advancesSummary.salary.toFixed(2)} size={16} weight={700} tone="ink" />
                     </div>
                     <div className="p-3" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
-                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Взято авансов</p>
+                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>{t('pd_advancesTaken')}</p>
                       <MoneyAED amount={advancesSummary.totalAdvances.toFixed(2)} size={16} weight={700} tone="neg" />
                     </div>
                     <div className="p-3" style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}>
-                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>Долг с пр. месяца</p>
+                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>{t('pd_carryOverDebt')}</p>
                       <MoneyAED amount={advancesSummary.carryOver.toFixed(2)} size={16} weight={700} tone={advancesSummary.carryOver > 0 ? 'warn' : 'ink'} />
                     </div>
                     <div className="p-3" style={{ background: 'rgba(22,163,74,0.10)', borderRadius: 'var(--corp-r)' }}>
-                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-pos)', letterSpacing: '0.04em' }}>К выплате</p>
+                      <p className="text-[10px] uppercase font-bold mb-1" style={{ color: 'var(--corp-pos)', letterSpacing: '0.04em' }}>{t('pd_toPay')}</p>
                       <MoneyAED amount={advancesSummary.toPay.toFixed(2)} size={16} weight={700} tone="pos" />
                     </div>
                   </div>
@@ -1156,7 +1164,7 @@ export function PersonnelDetail() {
                     className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
                     style={GHOST_BTN}
                   >
-                    Обновить
+                    {t('pd_refresh')}
                   </button>
                   <button
                     type="button"
@@ -1164,7 +1172,7 @@ export function PersonnelDetail() {
                     className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
                     style={PRIMARY_BTN}
                   >
-                    <Plus size={14} /> Добавить аванс
+                    <Plus size={14} /> {t('pd_addAdvance')}
                   </button>
                 </div>
               )}
@@ -1180,18 +1188,18 @@ export function PersonnelDetail() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <MoneyAED amount={advance.amount} size={16} weight={700} tone={advance.status === 'cancelled' ? 'ink' : 'neg'} />
                             {advance.status === 'cancelled' && (
-                              <StatusBadge tone="neg">Отменён</StatusBadge>
+                              <StatusBadge tone="neg">{t('pd_cancelledStatus')}</StatusBadge>
                             )}
                           </div>
                           <p className="text-[11px] mt-1" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
-                            {fmtDateRu(advance.date)}
+                            {fmtDate(advance.date, language)}
                           </p>
                           {advance.description && (
                             <p className="text-[12px] mt-2" style={{ color: 'var(--corp-ink-2)' }}>{advance.description}</p>
                           )}
                           {advance.cancellationReason && (
                             <p className="text-[12px] mt-2" style={{ color: 'var(--corp-neg)' }}>
-                              Причина отмены: {advance.cancellationReason}
+                              {t('pd_cancellationReasonLabel')}: {advance.cancellationReason}
                             </p>
                           )}
                           {advance.fileUrl && (
@@ -1203,7 +1211,7 @@ export function PersonnelDetail() {
                               style={{ color: 'var(--corp-accent)' }}
                             >
                               <FileText size={11} />
-                              Документ
+                              {t('pd_documentLabel')}
                             </a>
                           )}
                         </div>
@@ -1215,7 +1223,7 @@ export function PersonnelDetail() {
                               onClick={() => handleCancelAdvance(advance.id)}
                               className="w-8 h-8 flex items-center justify-center rounded"
                               style={{ color: '#f59e0b' }}
-                              title="Отменить аванс"
+                              title={t('pd_cancelAdvanceTitle')}
                             >
                               <X size={15} />
                             </button>
@@ -1224,7 +1232,7 @@ export function PersonnelDetail() {
                               onClick={() => { setAdvanceToDelete(advance.id); setShowAdvanceDeleteDialog(true); }}
                               className="w-8 h-8 flex items-center justify-center rounded"
                               style={{ color: 'var(--corp-neg)' }}
-                              title="Удалить аванс"
+                              title={t('pd_deleteAdvanceTitle')}
                             >
                               <Trash2 size={15} />
                             </button>
@@ -1237,7 +1245,7 @@ export function PersonnelDetail() {
               ) : (
                 <div className="p-8 text-center" style={SECTION_STYLE}>
                   <DollarSign size={28} className="mx-auto mb-2" style={{ color: 'var(--corp-muted)' }} />
-                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>Авансы не найдены</p>
+                  <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>{t('pd_noAdvances')}</p>
                 </div>
               )}
             </TabsContent>
@@ -1288,15 +1296,15 @@ export function PersonnelDetail() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить сотрудника?</AlertDialogTitle>
+            <AlertDialogTitle>{t('pd_deletePersonnelConfTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Это действие необратимо. Сотрудник и все его документы будут удалены.
+              {t('pd_deletePersonnelConfDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeletePerson} style={{ background: 'var(--corp-neg)', color: '#fff' }}>
-              Удалить
+              {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1305,15 +1313,15 @@ export function PersonnelDetail() {
       <AlertDialog open={showDocDeleteDialog} onOpenChange={setShowDocDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить документ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('pd_deleteDocumentConfTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Это действие необратимо. Документ будет удалён.
+              {t('pd_deleteDocumentConfDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteDoc} style={{ background: 'var(--corp-neg)', color: '#fff' }}>
-              Удалить
+              {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1322,14 +1330,13 @@ export function PersonnelDetail() {
       <AlertDialog open={confirmUnlinkOpen} onOpenChange={setConfirmUnlinkOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Отвязать учётную запись?</AlertDialogTitle>
+            <AlertDialogTitle>{t('pd_unlinkAccountConfTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Сама учётная запись не удаляется — она просто перестанет быть привязанной
-              к этому сотруднику. Индивидуальные права учётки сохраняются.
+              {t('pd_unlinkAccountConfDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setConfirmUnlinkOpen(false);
@@ -1337,7 +1344,7 @@ export function PersonnelDetail() {
               }}
               data-testid="button-confirm-unlink"
             >
-              Отвязать
+              {t('pd_unlink')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1346,15 +1353,15 @@ export function PersonnelDetail() {
       <AlertDialog open={showAdvanceDeleteDialog} onOpenChange={setShowAdvanceDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить аванс?</AlertDialogTitle>
+            <AlertDialogTitle>{t('pd_deleteAdvanceConfTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Это действие необратимо. Аванс будет полностью удалён из системы.
+              {t('pd_deleteAdvanceConfDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteAdvance} style={{ background: 'var(--corp-neg)', color: '#fff' }}>
-              Удалить
+              {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1376,10 +1383,10 @@ export function PersonnelDetail() {
             </button>
             <img
               src={`/objects/${selectedPhoto.split('/').slice(-2).join('/')}`}
-              alt="Фото сотрудника"
+              alt={t('pd_personnelPhotoAlt')}
               className="max-w-full max-h-full object-contain"
               onError={() => {
-                toast({ title: "Ошибка", description: "Не удалось загрузить фото", variant: "destructive" });
+                toast({ title: t('error'), description: t('pd_photoLoadFailedDesc'), variant: "destructive" });
                 setSelectedPhoto(null);
               }}
             />
@@ -1404,9 +1411,9 @@ export function PersonnelDetail() {
             <iframe
               src={`/objects/${selectedDocument.split('/').slice(-2).join('/')}`}
               className="w-full h-full border-none rounded"
-              title="Документ"
+              title={t('pd_documentLabel')}
               onError={() => {
-                toast({ title: "Ошибка", description: "Не удалось загрузить документ", variant: "destructive" });
+                toast({ title: t('error'), description: t('pd_documentLoadFailedDesc'), variant: "destructive" });
                 setSelectedDocument(null);
               }}
             />

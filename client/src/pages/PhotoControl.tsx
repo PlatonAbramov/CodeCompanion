@@ -7,10 +7,15 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDate } from "@/lib/locale";
+import { fmtNum } from "@/components/corp-ui";
 import {
   ArrowLeft, Camera, Loader2, Check, RotateCcw, AlertTriangle,
   CheckCircle2, Clock, Gauge, FileText,
 } from "lucide-react";
+
+type Translator = (key: string) => string;
 
 interface Vehicle {
   id: string;
@@ -46,14 +51,14 @@ interface CapturedPhoto {
 }
 
 const STEPS = [
-  { n: 1, label: 'Вид спереди', hint: 'Сфотографируйте автомобиль спереди целиком' },
-  { n: 2, label: 'Вид сбоку слева', hint: 'Сторона водителя, целиком' },
-  { n: 3, label: 'Вид сбоку справа', hint: 'Сторона пассажира, целиком' },
-  { n: 4, label: 'Вид сзади', hint: 'Сфотографируйте автомобиль сзади целиком' },
-  { n: 5, label: 'Передний ряд сидений', hint: 'Салон, передний ряд' },
-  { n: 6, label: 'Задний ряд сидений', hint: 'Салон, задний ряд' },
-  { n: 7, label: 'Багажник (открытый)', hint: 'Откройте и сфотографируйте' },
-  { n: 8, label: 'Одометр', hint: 'Приборная панель с показаниями пробега' },
+  { n: 1, labelKey: 'pcStep1Label', hintKey: 'pcStep1Hint' },
+  { n: 2, labelKey: 'pcStep2Label', hintKey: 'pcStep2Hint' },
+  { n: 3, labelKey: 'pcStep3Label', hintKey: 'pcStep3Hint' },
+  { n: 4, labelKey: 'pcStep4Label', hintKey: 'pcStep4Hint' },
+  { n: 5, labelKey: 'pcStep5Label', hintKey: 'pcStep5Hint' },
+  { n: 6, labelKey: 'pcStep6Label', hintKey: 'pcStep6Hint' },
+  { n: 7, labelKey: 'pcStep7Label', hintKey: 'pcStep7Hint' },
+  { n: 8, labelKey: 'pcStep8Label', hintKey: 'pcStep8Hint' },
 ];
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
@@ -131,22 +136,22 @@ function watermarkImage(
   });
 }
 
-async function uploadBlob(blob: Blob): Promise<string> {
+async function uploadBlob(blob: Blob, t: Translator): Promise<string> {
   const r = await apiRequest('/api/objects/upload', { method: 'POST' });
   const data = await r.json();
-  if (!data?.uploadURL) throw new Error('Не удалось получить URL загрузки');
+  if (!data?.uploadURL) throw new Error(t('pcUploadUrlFailed'));
   const put = await fetch(data.uploadURL, {
     method: 'PUT',
     headers: { 'Content-Type': 'image/jpeg' },
     body: blob,
   });
-  if (!put.ok) throw new Error(`Загрузка не удалась (${put.status})`);
+  if (!put.ok) throw new Error(t('pcUploadFailedTpl').replace('{status}', String(put.status)));
   const ack = await apiRequest('/api/objects/acl', {
     method: 'POST',
     body: JSON.stringify({ objectUrl: data.uploadURL, visibility: 'public' }),
   });
   const ackData = await ack.json();
-  if (!ackData?.objectPath) throw new Error('Сервер не вернул путь объекта');
+  if (!ackData?.objectPath) throw new Error(t('pcServerNoPath'));
   return ackData.objectPath as string;
 }
 
@@ -155,6 +160,7 @@ export default function PhotoControl() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, language } = useLanguage();
   const qc = useQueryClient();
   const id = params?.id || '';
 
@@ -214,27 +220,27 @@ export default function PhotoControl() {
   const canPerform = !!timeWin?.canPerform || isAdmin;
   const blockReason = useMemo(() => {
     if (!vehicle) return null;
-    if (vehicle.status === 'archived') return 'Этот автомобиль в архиве.';
+    if (vehicle.status === 'archived') return t('pcVehicleArchivedMsg');
     if (!canPerform) {
       if (timeWin?.windowStartsAtUtcMs) {
-        return `Фотоконтроль доступен ежедневно с 08:00 до 18:00 (GST). Следующее окно: ${formatDateRu(timeWin.windowStartsAtUtcMs)}.`;
+        return t('pcWindowAvailableTpl').replace('{time}', formatDateRu(timeWin.windowStartsAtUtcMs));
       }
-      return 'Окно фотоконтроля закрыто. Доступно ежедневно с 08:00 до 18:00 (GST).';
+      return t('pcWindowClosedMsg');
     }
     return null;
-  }, [vehicle, canPerform, timeWin]);
+  }, [vehicle, canPerform, timeWin, t]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
       const km = parseInt(mileage.replace(/\D/g, ''), 10);
       if (!Number.isFinite(km) || km < 0) {
-        throw new Error('Введите корректный пробег');
+        throw new Error(t('pcEnterValidMileage'));
       }
       if (lastControl && km < lastControl.mileageKm) {
-        throw new Error(`Пробег должен быть не меньше предыдущего (${lastControl.mileageKm.toLocaleString('ru-RU')} км)`);
+        throw new Error(t('pcMileageMustBeAtLeastTpl').replace('{km}', `${fmtNum(lastControl.mileageKm)} ${t('kmUnit')}`));
       }
       if (photos.length !== 8) {
-        throw new Error('Не все шаги пройдены');
+        throw new Error(t('pcStepsNotComplete'));
       }
       const payload = {
         mileageKm: km,
@@ -266,7 +272,7 @@ export default function PhotoControl() {
       setStepIdx(9);
     },
     onError: (e: any) => {
-      toast({ title: 'Ошибка', description: e?.message || 'Не удалось сохранить', variant: 'destructive' });
+      toast({ title: t('errorToastTitle'), description: e?.message || t('pcSaveFailed'), variant: 'destructive' });
     },
   });
 
@@ -280,7 +286,7 @@ export default function PhotoControl() {
     e.target.value = ''; // allow reselect
     if (!file || !vehicle) return;
     if (!canPerform) {
-      toast({ title: 'Окно закрыто', description: blockReason || 'Фотоконтроль недоступен', variant: 'destructive' });
+      toast({ title: t('pcWindowClosedTitle'), description: blockReason || t('pcUnavailable'), variant: 'destructive' });
       return;
     }
     setProcessing(true);
@@ -288,19 +294,19 @@ export default function PhotoControl() {
       // Получаем свежее серверное время (GST iso) — единый источник
       const tr = await refetchTime();
       const fresh = tr.data;
-      if (!fresh) throw new Error('Не удалось получить серверное время');
+      if (!fresh) throw new Error(t('pcServerTimeFailed'));
       if (!fresh.canPerform && !isAdmin) {
-        throw new Error('Окно фотоконтроля закрыто');
+        throw new Error(t('pcWindowClosedShort'));
       }
       const blob = await watermarkImage(file, fresh.nowGstIso, vehicle.plateNumber);
       const previewUrl = URL.createObjectURL(blob);
-      const photoUrl = await uploadBlob(blob);
+      const photoUrl = await uploadBlob(blob, t);
       // Сохраняем как pending — даём возможность переснять или подтвердить
       setPendingPreview(previewUrl);
       setPendingPhoto({ photoUrl, takenAt: fresh.nowGstIso });
     } catch (err: any) {
       toast({
-        title: 'Не удалось обработать фото',
+        title: t('pcPhotoProcessFailed'),
         description: err?.message || String(err),
         variant: 'destructive',
       });
@@ -316,7 +322,7 @@ export default function PhotoControl() {
       ...prev,
       {
         step: stepDef.n,
-        label: stepDef.label,
+        label: t(stepDef.labelKey),
         photoUrl: pendingPhoto.photoUrl,
         takenAt: pendingPhoto.takenAt,
         previewUrl: pendingPreview,
@@ -338,7 +344,7 @@ export default function PhotoControl() {
       setLocation(`/vehicles/${id}`);
       return;
     }
-    if (window.confirm('Прервать фотоконтроль? Прогресс не сохранится.')) {
+    if (window.confirm(t('pcAbortConfirm'))) {
       photos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
       if (pendingPreview) URL.revokeObjectURL(pendingPreview);
       setLocation(`/vehicles/${id}`);
@@ -367,7 +373,7 @@ export default function PhotoControl() {
             <CheckCircle2 size={32} />
           </div>
           <h1 className="text-[18px] font-bold mb-2" style={{ color: 'var(--corp-ink)' }}>
-            Фотоконтроль завершён
+            {t("pcDoneTitle")}
           </h1>
           <p className="text-[13px] mb-4" style={{ color: 'var(--corp-muted)' }}>
             {vehicle.brand} {vehicle.model} · {vehicle.plateNumber}
@@ -377,21 +383,21 @@ export default function PhotoControl() {
             style={{ background: 'var(--corp-surface)', border: '1px solid var(--corp-line)' }}
           >
             <div className="flex justify-between py-1">
-              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>Дата</span>
+              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t('dateLabel')}</span>
               <span className="text-[13px] font-semibold" style={{ color: 'var(--corp-ink)' }}>
                 {formatDateRu(new Date(doneInfo.performedAtIso).getTime())}
               </span>
             </div>
             <div className="flex justify-between py-1">
-              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>Пробег</span>
+              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t('pcMileageWord')}</span>
               <span className="text-[13px] font-semibold" style={{ color: 'var(--corp-ink)' }}>
-                {doneInfo.mileageKm.toLocaleString('ru-RU')} км
+                {fmtNum(doneInfo.mileageKm)} {t('kmUnit')}
               </span>
             </div>
             <div className="flex justify-between py-1">
-              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>Фотографий</span>
+              <span className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t('pcPhotosWord')}</span>
               <span className="text-[13px] font-semibold" style={{ color: 'var(--corp-ink)' }}>
-                8 из 8
+                8 / 8
               </span>
             </div>
           </div>
@@ -409,11 +415,11 @@ export default function PhotoControl() {
               data-testid="link-pdf"
             >
               <FileText size={14} className="mr-2" />
-              Открыть PDF-отчёт
+              {t("pcOpenPdfReport")}
             </a>
           ) : (
             <p className="text-[11px] mb-2" style={{ color: 'var(--corp-muted)' }}>
-              PDF-отчёт ещё не сформирован — попробуйте обновить карточку через минуту.
+              {t("pcPdfNotReady")}
             </p>
           )}
           <Button
@@ -421,7 +427,7 @@ export default function PhotoControl() {
             data-testid="button-back-to-vehicle"
             onClick={() => setLocation(`/vehicles/${id}`)}
           >
-            К карточке автомобиля
+            {t("pcBackToVehicle")}
           </Button>
         </div>
       </div>
@@ -446,7 +452,7 @@ export default function PhotoControl() {
             >
               <ArrowLeft size={18} />
             </button>
-            <h2 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>Фотоконтроль</h2>
+            <h2 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>{t('photoControlTitle')}</h2>
           </div>
         </header>
         <div className="max-w-md mx-auto px-4 py-10 text-center">
@@ -457,7 +463,7 @@ export default function PhotoControl() {
             <Clock size={26} />
           </div>
           <h1 className="text-[16px] font-bold mb-2" style={{ color: 'var(--corp-ink)' }}>
-            Сейчас недоступно
+            {t("pcUnavailableNow")}
           </h1>
           <p className="text-[13px]" style={{ color: 'var(--corp-muted)' }}>{blockReason}</p>
         </div>
@@ -487,14 +493,14 @@ export default function PhotoControl() {
           </button>
           <div className="flex-1 min-w-0">
             <h2 className="text-[14px] font-bold truncate" style={{ color: 'var(--corp-ink)' }}>
-              Фотоконтроль
+              {t("pcTitle")}
             </h2>
             <p className="text-[11px] truncate" style={{ color: 'var(--corp-muted)' }}>
               {vehicle.brand} {vehicle.model} · {vehicle.plateNumber}
             </p>
           </div>
           <div className="text-[11px] font-semibold" style={{ color: 'var(--corp-muted)' }} data-testid="text-progress">
-            {isMileageStep ? 'Пробег' : `${stepIdx + 1} из 8`}
+            {isMileageStep ? t('pcMileageWord') : `${stepIdx + 1} / 8`}
           </div>
         </div>
         <div className="h-1 w-full" style={{ background: 'var(--corp-surface-2)' }}>
@@ -517,9 +523,9 @@ export default function PhotoControl() {
               }}
             >
               <h3 className="text-[15px] font-bold mb-1" style={{ color: 'var(--corp-ink)' }}>
-                Шаг {currentStep.n}. {currentStep.label}
+                {t('pcStepWord')} {currentStep.n}. {t(currentStep.labelKey)}
               </h3>
-              <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{currentStep.hint}</p>
+              <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>{t(currentStep.hintKey)}</p>
             </div>
 
             {/* Pending preview / capture area */}
@@ -547,14 +553,14 @@ export default function PhotoControl() {
                       onClick={retakePending}
                       data-testid="button-retake"
                     >
-                      <RotateCcw size={14} className="mr-2" /> Переснять
+                      <RotateCcw size={14} className="mr-2" /> {t("pcRetake")}
                     </Button>
                     <Button
                       className="h-10"
                       onClick={confirmPending}
                       data-testid="button-confirm-photo"
                     >
-                      <Check size={14} className="mr-2" /> Подтвердить
+                      <Check size={14} className="mr-2" /> {t("confirm")}
                     </Button>
                   </div>
                 </>
@@ -567,7 +573,7 @@ export default function PhotoControl() {
                     <Camera size={28} />
                   </div>
                   <p className="text-[12px] mb-3" style={{ color: 'var(--corp-muted)' }}>
-                    На фото будут автоматически нанесены дата, время (GST) и госномер.
+                    {t("pcWatermarkHint")}
                   </p>
                   <Button
                     className="h-10 px-6"
@@ -576,9 +582,9 @@ export default function PhotoControl() {
                     data-testid="button-take-photo"
                   >
                     {processing ? (
-                      <><Loader2 size={14} className="animate-spin mr-2" /> Обработка…</>
+                      <><Loader2 size={14} className="animate-spin mr-2" /> {t("pcProcessing")}</>
                     ) : (
-                      <><Camera size={14} className="mr-2" /> Сделать фото</>
+                      <><Camera size={14} className="mr-2" /> {t("pcTakePhoto")}</>
                     )}
                   </Button>
                   <input
@@ -635,11 +641,11 @@ export default function PhotoControl() {
               <div className="flex items-center gap-2 mb-2">
                 <Gauge size={16} style={{ color: 'var(--corp-accent)' }} />
                 <h3 className="text-[15px] font-bold" style={{ color: 'var(--corp-ink)' }}>
-                  Текущий пробег
+                  {t("pcCurrentMileage")}
                 </h3>
               </div>
               <p className="text-[12px] mb-3" style={{ color: 'var(--corp-muted)' }}>
-                Введите показания одометра (километры) с фотографии шага 8.
+                {t("pcEnterOdometerHint")}
               </p>
               {lastControl && (
                 <div
@@ -648,13 +654,13 @@ export default function PhotoControl() {
                 >
                   <AlertTriangle size={13} style={{ color: '#d97706' }} className="mt-0.5 flex-none" />
                   <span>
-                    Предыдущий пробег: <b>{lastControl.mileageKm.toLocaleString('ru-RU')} км</b>.
-                    Новое значение должно быть не меньше.
+                    {t('pcPrevMileage')}: <b>{fmtNum(lastControl.mileageKm)} {t('kmUnit')}</b>.
+                    {t("pcMustBeGreaterEq")}
                   </span>
                 </div>
               )}
               <Label htmlFor="pc-mileage" className="text-[12px] font-semibold" style={{ color: 'var(--corp-ink-2)' }}>
-                Пробег, км
+                {t("pcMileageKmLabel")}
               </Label>
               <Input
                 id="pc-mileage"
@@ -674,9 +680,9 @@ export default function PhotoControl() {
               data-testid="button-submit-control"
             >
               {submitMutation.isPending ? (
-                <><Loader2 size={14} className="animate-spin mr-2" /> Сохранение…</>
+                <><Loader2 size={14} className="animate-spin mr-2" /> {t("savingDots")}</>
               ) : (
-                'Завершить фотоконтроль'
+                t('pcCompleteBtn')
               )}
             </Button>
           </>

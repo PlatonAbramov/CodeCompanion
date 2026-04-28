@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { CorpHeader } from "@/components/corp-ui";
+import { fmtNumber } from "@/lib/locale";
 
 interface Project {
   id: string; name: string; location?: string; totalCost: string;
@@ -39,7 +40,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export default function AddAdvance() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -74,11 +75,11 @@ export default function AddAdvance() {
         queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'advances'] });
         queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'financial-summary'] });
       }
-      toast({ title: "Успешно", description: "Аванс добавлен" });
+      toast({ title: t('success'), description: t('advanceAddedTitle') });
       goBack();
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось добавить аванс", variant: "destructive" });
+      toast({ title: t('error'), description: t('advanceAddFailed'), variant: "destructive" });
     },
   });
 
@@ -91,7 +92,7 @@ export default function AddAdvance() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || !formData.date || !formData.recipient) {
-      toast({ title: "Ошибка", description: "Необходимо заполнить сумму, получателя и дату", variant: "destructive" });
+      toast({ title: t('error'), description: t('advanceFieldsRequired'), variant: "destructive" });
       return;
     }
     createAdvanceMutation.mutate(formData);
@@ -99,7 +100,7 @@ export default function AddAdvance() {
 
   const formatNum = (s: string) => {
     if (!s) return '';
-    return parseFloat(s || "0").toLocaleString("ru-RU");
+    return fmtNumber(parseFloat(s || "0"), language);
   };
 
   return (
@@ -108,8 +109,8 @@ export default function AddAdvance() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title="Новый аванс"
-        subtitle={project?.name || 'Аванс из своих средств'}
+        title={t('newAdvanceTitle')}
+        subtitle={project?.name || t('advanceFromOwnFunds')}
         onBack={goBack}
       />
 
@@ -117,13 +118,13 @@ export default function AddAdvance() {
         <form onSubmit={handleSubmit} className="space-y-3">
           {!projectId && (
             <div className="p-4" style={SECTION_STYLE}>
-              <FieldLabel required>Проект</FieldLabel>
+              <FieldLabel required>{t('project')}</FieldLabel>
               <Select
                 value={formData.projectId}
                 onValueChange={(v) => setFormData(p => ({ ...p, projectId: v }))}
               >
                 <SelectTrigger className="h-10 text-[13px]" data-testid="select-project">
-                  <SelectValue placeholder="Выберите проект" />
+                  <SelectValue placeholder={t('selectProject')} />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map(pr => (
@@ -136,7 +137,7 @@ export default function AddAdvance() {
 
           {/* Amount */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Сумма аванса</FieldLabel>
+            <FieldLabel required>{t('advanceAmountLabel')}</FieldLabel>
             <div className="relative">
               <Input
                 type="number"
@@ -164,13 +165,13 @@ export default function AddAdvance() {
 
           {/* Recipient */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Получатель аванса</FieldLabel>
+            <FieldLabel required>{t('advanceRecipientLabel')}</FieldLabel>
             <Select
               value={formData.recipient}
               onValueChange={(v) => setFormData(p => ({ ...p, recipient: v }))}
             >
               <SelectTrigger className="h-10 text-[13px]" data-testid="select-recipient">
-                <SelectValue placeholder="Выберите получателя" />
+                <SelectValue placeholder={t('selectRecipient')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Платон">Платон</SelectItem>
@@ -181,7 +182,7 @@ export default function AddAdvance() {
 
           {/* Date */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Дата взятия аванса</FieldLabel>
+            <FieldLabel required>{t('advanceDateLabel')}</FieldLabel>
             <Input
               type="date"
               value={formData.date}
@@ -195,11 +196,11 @@ export default function AddAdvance() {
 
           {/* Description */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Описание</FieldLabel>
+            <FieldLabel>{t('description')}</FieldLabel>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
-              placeholder="Укажите цель или детали аванса…"
+              placeholder={t('advanceDescriptionPlaceholder')}
               rows={3}
               className="text-[13px] resize-none"
               data-testid="input-description"
@@ -214,7 +215,7 @@ export default function AddAdvance() {
               style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-submit-advance"
             >
-              {createAdvanceMutation.isPending ? 'Добавление…' : 'Добавить аванс'}
+              {createAdvanceMutation.isPending ? t('addingProgress') : t('addAdvanceAction')}
             </button>
           </div>
         </form>

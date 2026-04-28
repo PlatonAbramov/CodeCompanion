@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { MessageSquare, Send, Trash2, Eye, EyeOff } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { ru, enUS } from "date-fns/locale";
+import { ru, enUS, hi } from "date-fns/locale";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
 
@@ -39,7 +39,7 @@ interface ImplementationItemCommentsProps {
 export function ImplementationItemComments({ itemId, projectId }: ImplementationItemCommentsProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const [newComment, setNewComment] = useState("");
   const [visibleToClient, setVisibleToClient] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,13 +68,13 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
       setVisibleToClient(false);
       queryClient.invalidateQueries({ queryKey: [`/api/implementation-items/${itemId}/comments`] });
       toast({
-        title: language === 'ru' ? "Комментарий добавлен" : "Comment added",
+        title: t('iic_commentAdded'),
         variant: "default"
       });
     },
     onError: (error: Error) => {
       toast({
-        title: language === 'ru' ? "Ошибка" : "Error",
+        title: t('errorToastTitle'),
         description: error.message,
         variant: "destructive"
       });
@@ -91,13 +91,13 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/implementation-items/${itemId}/comments`] });
       toast({
-        title: language === 'ru' ? "Комментарий удален" : "Comment deleted",
+        title: t('iic_commentDeleted'),
         variant: "default"
       });
     },
     onError: (error: Error) => {
       toast({
-        title: language === 'ru' ? "Ошибка" : "Error",
+        title: t('errorToastTitle'),
         description: error.message,
         variant: "destructive"
       });
@@ -119,7 +119,7 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
   };
 
   const handleDelete = (commentId: string) => {
-    if (confirm(language === 'ru' ? "Удалить комментарий?" : "Delete comment?")) {
+    if (confirm(t('iic_confirmDelete'))) {
       deleteCommentMutation.mutate(commentId);
     }
   };
@@ -141,24 +141,23 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
   };
 
   const getRoleLabel = (role: string) => {
-    if (language === 'ru') {
-      switch (role) {
-        case 'admin': return 'Админ';
-        case 'director': return 'Директор';
-        case 'master': return 'Мастер';
-        case 'client': return 'Клиент';
-        default: return role;
-      }
+    switch (role) {
+      case 'admin': return t('iic_roleAdmin');
+      case 'director': return t('iic_roleDirector');
+      case 'master': return t('iic_roleMaster');
+      case 'client': return t('iic_roleClient');
+      default: return role.charAt(0).toUpperCase() + role.slice(1);
     }
-    return role.charAt(0).toUpperCase() + role.slice(1);
   };
+
+  const dateLocale = language === 'ru' ? ru : language === 'hi' ? hi : enUS;
 
   if (isLoading) {
     return (
       <Card>
         <CardContent className="pt-6">
           <div className="text-center text-muted-foreground">
-            {language === 'ru' ? 'Загрузка комментариев...' : 'Loading comments...'}
+            {t('iic_loadingComments')}
           </div>
         </CardContent>
       </Card>
@@ -170,14 +169,14 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5" />
-          {language === 'ru' ? 'Комментарии' : 'Comments'} ({comments.length})
+          {t('iic_comments')} ({comments.length})
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Add comment form */}
         <div className="space-y-3">
           <Textarea
-            placeholder={language === 'ru' ? 'Написать комментарий...' : 'Write a comment...'}
+            placeholder={t('iic_writeComment')}
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             rows={3}
@@ -193,7 +192,7 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
               />
               <Label htmlFor="visible-to-client" className="flex items-center gap-1 cursor-pointer">
                 {visibleToClient ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                {language === 'ru' ? 'Видно клиенту' : 'Visible to client'}
+                {t('iic_visibleToClient')}
               </Label>
             </div>
           )}
@@ -204,7 +203,7 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
             className="w-full"
           >
             <Send className="h-4 w-4 mr-2" />
-            {language === 'ru' ? 'Отправить' : 'Send'}
+            {t('iic_send')}
           </Button>
         </div>
 
@@ -212,7 +211,7 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
         <div className="space-y-3">
           {comments.length === 0 ? (
             <div className="text-center text-muted-foreground py-4">
-              {language === 'ru' ? 'Нет комментариев' : 'No comments'}
+              {t('iic_noComments')}
             </div>
           ) : (
             comments.map((comment) => (
@@ -224,7 +223,7 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
                     </span>
                     <span className="font-medium">{comment.author.name}</span>
                     {comment.visibleToClient && (
-                      <span title={language === 'ru' ? 'Видно клиенту' : 'Visible to client'}>
+                      <span title={t('iic_visibleToClient')}>
                         <Eye className="h-4 w-4 text-muted-foreground" />
                       </span>
                     )}
@@ -246,7 +245,7 @@ export function ImplementationItemComments({ itemId, projectId }: Implementation
                 <div className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(comment.createdAt), {
                     addSuffix: true,
-                    locale: language === 'ru' ? ru : enUS
+                    locale: dateLocale
                   })}
                 </div>
               </div>

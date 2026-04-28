@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { CorpHeader } from "@/components/corp-ui";
+import { fmtNumber } from "@/lib/locale";
 
 interface Project {
   id: string; name: string; location?: string; totalCost: string;
@@ -39,7 +40,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export default function AddCustomerAdvance() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -73,11 +74,11 @@ export default function AddCustomerAdvance() {
         queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'customer-advances'] });
         queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'financial-summary'] });
       }
-      toast({ title: "Успешно", description: "Аванс от заказчика добавлен" });
+      toast({ title: t('success'), description: t('customerAdvanceAdded') });
       goBack();
     },
     onError: () => {
-      toast({ title: "Ошибка", description: "Не удалось добавить аванс от заказчика", variant: "destructive" });
+      toast({ title: t('error'), description: t('customerAdvanceAddFailed'), variant: "destructive" });
     },
   });
 
@@ -90,16 +91,13 @@ export default function AddCustomerAdvance() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || !formData.date) {
-      toast({ title: "Ошибка", description: "Необходимо заполнить сумму и дату", variant: "destructive" });
+      toast({ title: t('error'), description: t('amountAndDateRequired'), variant: "destructive" });
       return;
     }
     createCustomerAdvanceMutation.mutate(formData);
   };
 
-  const formatNum = (s: string) => {
-    if (!s) return '';
-    return parseFloat(s || "0").toLocaleString("ru-RU");
-  };
+  const formatNum = (s: string) => s ? fmtNumber(parseFloat(s || "0"), language) : '';
 
   return (
     <div
@@ -107,8 +105,8 @@ export default function AddCustomerAdvance() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title="Аванс от заказчика"
-        subtitle={project?.name || 'Поступление от клиента'}
+        title={t('customerAdvanceTitle')}
+        subtitle={project?.name || t('customerAdvanceSubtitle')}
         onBack={goBack}
       />
 
@@ -116,13 +114,13 @@ export default function AddCustomerAdvance() {
         <form onSubmit={handleSubmit} className="space-y-3">
           {!projectId && (
             <div className="p-4" style={SECTION_STYLE}>
-              <FieldLabel required>Проект</FieldLabel>
+              <FieldLabel required>{t('project')}</FieldLabel>
               <Select
                 value={formData.projectId}
                 onValueChange={(v) => setFormData(p => ({ ...p, projectId: v }))}
               >
                 <SelectTrigger className="h-10 text-[13px]" data-testid="select-project">
-                  <SelectValue placeholder="Выберите проект" />
+                  <SelectValue placeholder={t('selectProject')} />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map(pr => (
@@ -135,7 +133,7 @@ export default function AddCustomerAdvance() {
 
           {/* Amount */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Сумма аванса от заказчика</FieldLabel>
+            <FieldLabel required>{t('customerAdvanceAmountLabel')}</FieldLabel>
             <div className="relative">
               <Input
                 type="number"
@@ -163,7 +161,7 @@ export default function AddCustomerAdvance() {
 
           {/* Date */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Дата получения аванса</FieldLabel>
+            <FieldLabel required>{t('customerAdvanceDateLabel')}</FieldLabel>
             <Input
               type="date"
               value={formData.date}
@@ -177,11 +175,11 @@ export default function AddCustomerAdvance() {
 
           {/* Description */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Описание</FieldLabel>
+            <FieldLabel>{t('description')}</FieldLabel>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
-              placeholder="Укажите детали аванса от заказчика…"
+              placeholder={t('customerAdvanceDescriptionPlaceholder')}
               rows={3}
               className="text-[13px] resize-none"
               data-testid="input-description"
@@ -196,7 +194,7 @@ export default function AddCustomerAdvance() {
               style={{ background: 'var(--corp-pos)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-submit-customer-advance"
             >
-              {createCustomerAdvanceMutation.isPending ? 'Добавление…' : 'Добавить аванс от заказчика'}
+              {createCustomerAdvanceMutation.isPending ? t('addingProgressShort') : t('addCustomerAdvanceButton')}
             </button>
           </div>
         </form>

@@ -4,7 +4,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { Phone, Mail, Building2, User, FileText, Calendar, DollarSign, Edit, Plus, Briefcase } from "lucide-react";
 import { AssignContractorModal } from "@/components/AssignContractorModal";
-import { CorpHeader, MoneyAED, fmtDateRu, CorpEmpty } from "@/components/corp-ui";
+import { CorpHeader, MoneyAED, CorpEmpty } from "@/components/corp-ui";
+import { useLanguage } from "@/components/LanguageProvider";
+import { fmtDate } from "@/lib/locale";
 
 interface Contractor {
   id: string;
@@ -95,7 +97,10 @@ function StatCard({ icon, label, value, tone = 'ink', mono = true }: {
   );
 }
 
-function StatusPill({ active, labelOn = 'Активен', labelOff = 'Завершен' }: { active: boolean; labelOn?: string; labelOff?: string }) {
+function StatusPill({ active, labelOn, labelOff }: { active: boolean; labelOn?: string; labelOff?: string }) {
+  const { t } = useLanguage();
+  const onLabel = labelOn ?? t('statusActiveBadge');
+  const offLabel = labelOff ?? t('completedBadge');
   return (
     <span
       className="inline-flex items-center px-2 h-5 text-[10px] font-bold uppercase"
@@ -106,7 +111,7 @@ function StatusPill({ active, labelOn = 'Активен', labelOff = 'Завер
         letterSpacing: '0.04em',
       }}
     >
-      {active ? labelOn : labelOff}
+      {active ? onLabel : offLabel}
     </span>
   );
 }
@@ -115,6 +120,7 @@ export default function ContractorDetail() {
   const params = useParams();
   const contractorId = params.id;
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [, setLocation] = useLocation();
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
@@ -145,7 +151,7 @@ export default function ContractorDetail() {
   if (user.role !== 'admin' && user.role !== 'director') {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--corp-bg)' }}>
-        <p style={{ color: 'var(--corp-ink-2)' }}>Доступ запрещен</p>
+        <p style={{ color: 'var(--corp-ink-2)' }}>{t('accessDeniedShort')}</p>
       </div>
     );
   }
@@ -155,7 +161,7 @@ export default function ContractorDetail() {
   if (contractorLoading || expensesLoading) {
     return (
       <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
-        <CorpHeader title="Подрядчик" onBack={goBack} />
+        <CorpHeader title={t('contractorTitle')} onBack={goBack} />
       </div>
     );
   }
@@ -163,13 +169,13 @@ export default function ContractorDetail() {
   if (!contractor) {
     return (
       <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>
-        <CorpHeader title="Подрядчик" onBack={goBack} />
+        <CorpHeader title={t('contractorTitle')} onBack={goBack} />
         <div className="p-4">
           <CorpEmpty
             icon={<User size={28} />}
-            title="Подрядчик не найден"
-            description="Возможно, подрядчик был удален"
-            actionLabel="Вернуться к списку"
+            title={t('contractorNotFound')}
+            description={t('contractorMaybeDeleted')}
+            actionLabel={t('backToList')}
             onAction={goBack}
           />
         </div>
@@ -194,27 +200,27 @@ export default function ContractorDetail() {
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }}>
       <CorpHeader
-        title={`Подрядчик: ${contractor.company || contractor.name}`}
+        title={`${t('contractorTitle')}: ${contractor.company || contractor.name}`}
         onBack={goBack}
-        action={<StatusPill active={contractor.isActive} labelOn="Активен" labelOff="Неактивен" />}
+        action={<StatusPill active={contractor.isActive} labelOn={t('statusActiveBadge')} labelOff={t('statusInactiveBadge')} />}
       />
 
       <div className="p-4 space-y-4">
         {/* Contractor Information */}
         <div className="p-4" style={SECTION_STYLE}>
           <h3 className="text-[10px] font-bold uppercase mb-3 flex items-center gap-1.5" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-            <User size={12} /> Информация о подрядчике
+            <User size={12} /> {t('contractorInfo')}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {contractor.company && (
-              <InfoRow icon={<Building2 size={14} />} label="Компания" value={contractor.company} />
+              <InfoRow icon={<Building2 size={14} />} label={t('companyLabel')} value={contractor.company} />
             )}
-            <InfoRow label="Имя" value={contractor.name} />
-            <InfoRow label="Специализация" value={contractor.specialization} />
+            <InfoRow label={t('nameInfoLabel')} value={contractor.name} />
+            <InfoRow label={t('specializationLabel')} value={contractor.specialization} />
             {contractor.phone && (
               <InfoRow
                 icon={<Phone size={14} />}
-                label="Телефон"
+                label={t('phoneLabel')}
                 value={
                   <a href={`tel:${contractor.phone}`} style={{ color: 'var(--corp-accent)' }}>
                     {contractor.phone}
@@ -235,8 +241,8 @@ export default function ContractorDetail() {
             )}
             <InfoRow
               icon={<Calendar size={14} />}
-              label="Дата регистрации"
-              value={<span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDateRu(contractor.createdAt)}</span>}
+              label={t('registrationDateLabel')}
+              value={<span style={{ fontFamily: 'var(--corp-mono)' }}>{fmtDate(contractor.createdAt, language)}</span>}
             />
           </div>
         </div>
@@ -246,20 +252,20 @@ export default function ContractorDetail() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard
               icon={<DollarSign size={18} />}
-              label="Общая сумма выплат"
+              label={t('totalPayoutsLabel')}
               value={<MoneyAED amount={stats.totalExpenses} size={16} weight={700} tone="pos" />}
               tone="pos"
               mono={false}
             />
             <StatCard
               icon={<FileText size={18} />}
-              label="Количество проектов"
+              label={t('projectsCountLabel')}
               value={stats.totalProjects}
               tone="accent"
             />
             <StatCard
               icon={<DollarSign size={18} />}
-              label="Осталось выплатить"
+              label={t('remainingToPayLabel')}
               value={<MoneyAED amount={stats.remainingBudget || 0} size={16} weight={700} tone="ink" />}
               tone="ink"
               mono={false}
@@ -271,7 +277,7 @@ export default function ContractorDetail() {
         <div className="p-4" style={SECTION_STYLE}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[10px] font-bold uppercase flex items-center gap-1.5" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-              <Briefcase size={12} /> Привязанные проекты
+              <Briefcase size={12} /> {t('linkedProjectsLabel')}
             </h3>
             <button
               type="button"
@@ -280,13 +286,13 @@ export default function ContractorDetail() {
               style={{ background: 'var(--corp-accent)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-assign-project"
             >
-              <Plus size={14} /> Назначить
+              <Plus size={14} /> {t('assignLabel')}
             </button>
           </div>
 
           {projects.length === 0 ? (
             <div className="text-center py-6 text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-              Подрядчик пока не привязан к проектам
+              {t('noLinkedProjects')}
             </div>
           ) : (
             <div className="space-y-3">
@@ -329,8 +335,8 @@ export default function ContractorDetail() {
                           </p>
                         )}
                         <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
-                          <span>Начат: {fmtDateRu(project.startDate)}</span>
-                          {project.endDate && <span>Завершен: {fmtDateRu(project.endDate)}</span>}
+                          <span>{t('startedColon')}: {fmtDate(project.startDate, language)}</span>
+                          {project.endDate && <span>{t('finishedColon')}: {fmtDate(project.endDate, language)}</span>}
                         </div>
                       </div>
                       <StatusPill active={project.isActive} />
@@ -341,15 +347,15 @@ export default function ContractorDetail() {
                       style={{ borderTop: '1px solid var(--corp-line)' }}
                     >
                       <div className="text-center">
-                        <p className="text-[10px]" style={{ color: 'var(--corp-muted)' }}>Бюджет</p>
+                        <p className="text-[10px]" style={{ color: 'var(--corp-muted)' }}>{t('budgetShort')}</p>
                         <MoneyAED amount={project.budgetAllocation} size={12} weight={600} tone="ink" />
                       </div>
                       <div className="text-center">
-                        <p className="text-[10px]" style={{ color: 'var(--corp-muted)' }}>Выплачено</p>
+                        <p className="text-[10px]" style={{ color: 'var(--corp-muted)' }}>{t('paidShort')}</p>
                         <MoneyAED amount={totalPaid} size={12} weight={600} tone="pos" />
                       </div>
                       <div className="text-center">
-                        <p className="text-[10px]" style={{ color: 'var(--corp-muted)' }}>Осталось</p>
+                        <p className="text-[10px]" style={{ color: 'var(--corp-muted)' }}>{t('remainingShort')}</p>
                         <MoneyAED amount={remaining} size={12} weight={600} tone={remaining > 0 ? 'neg' : 'pos'} />
                       </div>
                     </div>
@@ -363,11 +369,11 @@ export default function ContractorDetail() {
         {/* Expenses History */}
         <div className="p-4" style={SECTION_STYLE}>
           <h3 className="text-[10px] font-bold uppercase mb-3" style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}>
-            История выплат
+            {t('paymentsHistory')}
           </h3>
           {expenses.length === 0 ? (
             <div className="text-center py-6 text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-              Выплат этому подрядчику еще не было
+              {t('noPaymentsYet')}
             </div>
           ) : (
             <div className="space-y-2">
@@ -386,7 +392,7 @@ export default function ContractorDetail() {
                         {expense.projectName}
                       </span>
                       <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
-                        {fmtDateRu(expense.createdAt)}
+                        {fmtDate(expense.createdAt, language)}
                       </span>
                     </div>
                     {expense.description && (

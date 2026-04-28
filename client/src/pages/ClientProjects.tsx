@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { MoneyAED, fmtNum } from "@/components/corp-ui";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface ClientProject {
   id: string;
@@ -20,6 +21,7 @@ interface ClientProject {
 export default function ClientProjects() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const { t } = useLanguage();
 
   const {
     data: clientProjects,
@@ -50,7 +52,7 @@ export default function ClientProjects() {
         style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)' }}
       >
         <div className="text-[14px]" style={{ color: 'var(--corp-neg)' }}>
-          Ошибка загрузки проектов
+          {t('projectsLoadError')}
         </div>
       </div>
     );
@@ -73,7 +75,7 @@ export default function ClientProjects() {
             className="text-[16px] font-bold flex-1 min-w-0 truncate"
             style={{ color: 'var(--corp-ink)', letterSpacing: '-0.3px' }}
           >
-            Мои проекты
+            {t('myProjects')}
           </h1>
           <LanguageSwitcher />
         </div>
@@ -96,10 +98,10 @@ export default function ClientProjects() {
               <Building2 size={28} />
             </div>
             <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--corp-ink-2)' }}>
-              Проектов не найдено
+              {t('noProjectsFound')}
             </p>
             <p className="text-[12px]" style={{ color: 'var(--corp-muted)' }}>
-              На вас ещё не назначен ни один проект
+              {t('noProjectsAssigned')}
             </p>
           </div>
         ) : (
@@ -150,7 +152,7 @@ export default function ClientProjects() {
                         letterSpacing: '0.04em',
                       }}
                     >
-                      {isActive ? 'Активный' : 'Завершён'}
+                      {isActive ? t('statusActive') : t('statusCompleted')}
                     </span>
                   </div>
 
@@ -164,7 +166,7 @@ export default function ClientProjects() {
                   {/* Payment progress */}
                   <div className="mt-2 space-y-1.5">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span style={{ color: 'var(--corp-muted)' }}>Оплачено</span>
+                      <span style={{ color: 'var(--corp-muted)' }}>{t('paid')}</span>
                       <span style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)', fontWeight: 600 }}>
                         {fmtNum(paidPct)}%
                       </span>
@@ -189,7 +191,7 @@ export default function ClientProjects() {
                         className="text-[9px] uppercase font-bold"
                         style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                       >
-                        Стоимость
+                        {t('cost')}
                       </p>
                       <div className="mt-0.5">
                         <MoneyAED amount={totalCost} size={11} weight={700} tone="ink" />
@@ -200,7 +202,7 @@ export default function ClientProjects() {
                         className="text-[9px] uppercase font-bold"
                         style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                       >
-                        Оплачено
+                        {t('paid')}
                       </p>
                       <div className="mt-0.5">
                         <MoneyAED amount={totalPaid} size={11} weight={700} tone="pos" />
@@ -211,7 +213,7 @@ export default function ClientProjects() {
                         className="text-[9px] uppercase font-bold"
                         style={{ color: 'var(--corp-muted)', letterSpacing: '0.04em' }}
                       >
-                        Остаток
+                        {t('balance')}
                       </p>
                       <div className="mt-0.5">
                         <MoneyAED amount={remaining} size={11} weight={700} tone={remaining > 0 ? 'neg' : 'muted'} />
@@ -227,7 +229,7 @@ export default function ClientProjects() {
                       {project.contractNumber && (
                         <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--corp-muted)' }}>
                           <FileText size={11} />
-                          <span>Договор: <span style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}>{project.contractNumber}</span></span>
+                          <span>{t('contract')}: <span style={{ color: 'var(--corp-ink-2)', fontFamily: 'var(--corp-mono)' }}>{project.contractNumber}</span></span>
                         </div>
                       )}
                       {project.description && (

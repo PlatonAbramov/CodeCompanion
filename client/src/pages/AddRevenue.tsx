@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CorpHeader } from "@/components/corp-ui";
+import { fmtNumber } from "@/lib/locale";
 
 const SECTION_STYLE: React.CSSProperties = {
   background: 'var(--corp-surface)',
@@ -30,7 +31,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 export default function AddRevenue() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -61,15 +62,15 @@ export default function AddRevenue() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Доход добавлен", description: "Доход успешно добавлен в проект" });
+      toast({ title: t('revenueAdded'), description: t('revenueAddedDescription') });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', formData.projectId, 'financial-summary'] });
       goBack();
     },
     onError: (error: any) => {
       toast({
-        title: "Ошибка",
-        description: error.message || "Не удалось добавить доход",
+        title: t('error'),
+        description: error.message || t('revenueAddFailed'),
         variant: "destructive",
       });
     },
@@ -85,7 +86,7 @@ export default function AddRevenue() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || !formData.projectId) {
-      toast({ title: "Ошибка", description: "Пожалуйста, заполните все обязательные поля", variant: "destructive" });
+      toast({ title: t('error'), description: t('fillRequiredFields'), variant: "destructive" });
       return;
     }
     addRevenue({
@@ -98,23 +99,20 @@ export default function AddRevenue() {
     });
   };
 
-  const formatNum = (s: string) => {
-    if (!s) return '';
-    return parseFloat(s || "0").toLocaleString("ru-RU");
-  };
+  const formatNum = (s: string) => s ? fmtNumber(parseFloat(s || "0"), language) : '';
 
   return (
     <div
       className="min-h-screen pb-24"
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
-      <CorpHeader title="Новый доход" subtitle="Поступление по проекту" onBack={goBack} />
+      <CorpHeader title={t('newRevenueTitle')} subtitle={t('newRevenueSubtitle')} onBack={goBack} />
 
       <main className="px-4 pt-4">
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Amount */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Сумма</FieldLabel>
+            <FieldLabel required>{t('amount')}</FieldLabel>
             <div className="relative">
               <Input
                 id="amount"
@@ -144,7 +142,7 @@ export default function AddRevenue() {
 
           {/* Date */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel required>Дата</FieldLabel>
+            <FieldLabel required>{t('dateLabel')}</FieldLabel>
             <Input
               id="date"
               type="date"
@@ -159,10 +157,10 @@ export default function AddRevenue() {
 
           {/* Source */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Источник дохода</FieldLabel>
+            <FieldLabel>{t('revenueSourceLabel')}</FieldLabel>
             <Input
               id="source"
-              placeholder="Например: Оплата от заказчика, доп. работы"
+              placeholder={t('revenueSourcePlaceholder')}
               value={formData.source}
               onChange={(e) => setFormData(p => ({ ...p, source: e.target.value }))}
               className="h-10 text-[13px]"
@@ -172,10 +170,10 @@ export default function AddRevenue() {
 
           {/* Description */}
           <div className="p-4" style={SECTION_STYLE}>
-            <FieldLabel>Описание</FieldLabel>
+            <FieldLabel>{t('description')}</FieldLabel>
             <Textarea
               id="description"
-              placeholder="Дополнительная информация о доходе"
+              placeholder={t('revenueDescriptionPlaceholder')}
               value={formData.description}
               onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
               rows={3}
@@ -198,7 +196,7 @@ export default function AddRevenue() {
               }}
               data-testid="button-cancel"
             >
-              Отмена
+              {t('cancel')}
             </button>
             <button
               type="submit"
@@ -207,7 +205,7 @@ export default function AddRevenue() {
               style={{ background: 'var(--corp-pos)', color: '#fff', borderRadius: 'var(--corp-r)' }}
               data-testid="button-submit-revenue"
             >
-              {isPending ? 'Добавление…' : 'Добавить доход'}
+              {isPending ? t('addingProgressShort') : t('addRevenueButton')}
             </button>
           </div>
         </form>

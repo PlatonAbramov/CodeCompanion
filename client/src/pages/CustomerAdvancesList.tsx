@@ -1,11 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, DollarSign } from "lucide-react";
 import {
-  CorpHeader, CorpEmpty, CorpHeroSummary, MoneyAED, fmtDateRu,
+  CorpHeader, CorpEmpty, CorpHeroSummary, MoneyAED,
 } from "@/components/corp-ui";
+import { fmtDate } from "@/lib/locale";
 import { AdvanceMenu } from "./AdvancesList";
 
 interface CustomerAdvance {
@@ -22,9 +24,18 @@ interface Project {
   name: string;
 }
 
+function getAdvanceWordRu(count: number): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'аванс';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'аванса';
+  return 'авансов';
+}
+
 export default function CustomerAdvancesList() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -43,7 +54,7 @@ export default function CustomerAdvancesList() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Аванс удалён", description: "Аванс от заказчика успешно удалён" });
+      toast({ title: t('customerAdvanceDeleted'), description: t('customerAdvanceDeletedDescription') });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'customer-advances'] });
@@ -52,11 +63,14 @@ export default function CustomerAdvancesList() {
       queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка", description: error.message || "Не удалось удалить аванс от заказчика", variant: "destructive" });
+      toast({ title: t('error'), description: error.message || t('customerAdvanceDeleteFailed'), variant: "destructive" });
     },
   });
 
   const total = customerAdvances.reduce((s, a) => s + parseFloat(a.amount), 0);
+  const countLabel = language === 'ru'
+    ? `${customerAdvances.length} ${getAdvanceWordRu(customerAdvances.length)}`
+    : `${customerAdvances.length} ${t('addCustomerAdvanceShort').toLowerCase()}${customerAdvances.length === 1 ? '' : language === 'en' ? 's' : ''}`;
 
   return (
     <div
@@ -64,7 +78,7 @@ export default function CustomerAdvancesList() {
       style={{ background: 'var(--corp-bg)', fontFamily: 'var(--corp-font)', color: 'var(--corp-ink)' }}
     >
       <CorpHeader
-        title="Авансы от заказчика"
+        title={t('customerAdvancesTitle')}
         subtitle={project?.name}
         onBack={() => setLocation(`/projects/${projectId}`)}
         action={isAdminOrDirector ? (
@@ -75,7 +89,7 @@ export default function CustomerAdvancesList() {
             style={{ background: 'var(--corp-pos)', color: '#fff', borderRadius: 'var(--corp-r)' }}
             data-testid="button-add-customer-advance"
           >
-            <Plus size={14} /> <span className="hidden sm:inline">Аванс</span>
+            <Plus size={14} /> <span className="hidden sm:inline">{t('addCustomerAdvanceShort')}</span>
           </button>
         ) : null}
       />
@@ -84,17 +98,17 @@ export default function CustomerAdvancesList() {
         {!isLoading && customerAdvances.length === 0 ? (
           <CorpEmpty
             icon={<DollarSign size={28} />}
-            title="Нет авансов от заказчика"
-            description="Полученные платежи от клиента появятся здесь"
-            actionLabel={isAdminOrDirector ? "Добавить аванс" : undefined}
+            title={t('noCustomerAdvancesTitle')}
+            description={t('noCustomerAdvancesDescription')}
+            actionLabel={isAdminOrDirector ? t('addCustomerAdvanceAction') : undefined}
             onAction={isAdminOrDirector ? () => setLocation(`/add-customer-advance/${projectId}`) : undefined}
           />
         ) : (
           <>
             <CorpHeroSummary
-              label="Всего получено"
+              label={t('totalReceived')}
               amount={total}
-              subtext={`${customerAdvances.length} ${customerAdvances.length === 1 ? 'аванс' : 'авансов'}`}
+              subtext={countLabel}
               tone="pos"
             />
 
@@ -102,7 +116,7 @@ export default function CustomerAdvancesList() {
               className="text-[10px] font-bold uppercase mb-2"
               style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
             >
-              История поступлений
+              {t('receivedHistory')}
             </h3>
             <div className="flex flex-col gap-2">
               {customerAdvances.map((advance) => (
@@ -123,14 +137,17 @@ export default function CustomerAdvancesList() {
                         className="text-[11px]"
                         style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)', whiteSpace: 'nowrap' }}
                       >
-                        {fmtDateRu(advance.date)}
+                        {fmtDate(advance.date, language)}
                       </span>
                       {isAdminOrDirector && (
                         <AdvanceMenu
                           onEdit={() => setLocation(`/edit-customer-advance/${projectId}/${advance.id}`)}
                           onDelete={() => deleteCustomerAdvance(advance.id)}
-                          deleteTitle="Удалить аванс от заказчика?"
-                          deleteDescription="Это действие нельзя отменить. Аванс будет удалён безвозвратно."
+                          deleteTitle={t('deleteCustomerAdvanceConfirmTitle')}
+                          deleteDescription={t('deleteCustomerAdvanceConfirmDescription')}
+                          editLabel={t('edit')}
+                          deleteLabel={t('delete')}
+                          cancelLabel={t('cancel')}
                         />
                       )}
                     </div>
@@ -142,7 +159,7 @@ export default function CustomerAdvancesList() {
                     </p>
                   )}
                   <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                    Добавил: {advance.user?.name || 'Неизвестно'}
+                    {t('addedByLabelShort')}: {advance.user?.name || t('unknownUser')}
                   </p>
                 </div>
               ))}

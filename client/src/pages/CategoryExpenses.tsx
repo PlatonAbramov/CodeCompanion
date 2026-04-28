@@ -14,8 +14,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Eye, Edit, MoreVertical, Trash2, Briefcase } from "lucide-react";
 import {
-  CorpHeader, CorpEmpty, CorpHeroSummary, MoneyAED, fmtDateRu,
+  CorpHeader, CorpEmpty, CorpHeroSummary, MoneyAED,
 } from "@/components/corp-ui";
+import { fmtDate } from "@/lib/locale";
 
 interface Expense {
   id: string;
@@ -29,22 +30,31 @@ interface Expense {
   contractor?: { name: string; company?: string };
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  materials: 'Материалы',
-  tools: 'Инструменты',
-  transport: 'Транспорт',
-  services: 'Услуги',
-  salary_employees: 'Зарплата сотрудникам',
-  salary_daily: 'Зарплата поднёвщикам',
-  contractor_payments: 'Оплата подрядчикам',
-  other: 'Прочее',
-  uncategorized: 'Без категории',
+const CATEGORY_KEY_MAP: Record<string, string> = {
+  materials: 'materials',
+  tools: 'tools',
+  transport: 'transport',
+  services: 'services',
+  salary_employees: 'salaryEmployees',
+  salary_daily: 'salaryDaily',
+  contractor_payments: 'contractorPayments',
+  other: 'other',
+  uncategorized: 'uncategorized',
 };
+
+function getRecordWordRu(count: number): 'recordSingular' | 'recordFew' | 'recordMany' {
+  const n = Math.abs(count) % 100;
+  const n1 = n % 10;
+  if (n > 10 && n < 20) return 'recordMany';
+  if (n1 > 1 && n1 < 5) return 'recordFew';
+  if (n1 === 1) return 'recordSingular';
+  return 'recordMany';
+}
 
 export default function CategoryExpenses() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -67,7 +77,7 @@ export default function CategoryExpenses() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Расход удалён", description: "Расход успешно удалён" });
+      toast({ title: t('expenseDeleted'), description: t('expenseDeletedSuccess') });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'expenses'] });
@@ -75,7 +85,7 @@ export default function CategoryExpenses() {
       queryClient.invalidateQueries({ queryKey: ['/api/financial-overview'] });
     },
     onError: (error: any) => {
-      toast({ title: "Ошибка", description: error.message || "Не удалось удалить расход", variant: "destructive" });
+      toast({ title: t('error'), description: error.message || t('deleteExpenseFailed'), variant: "destructive" });
     },
   });
 
@@ -85,11 +95,15 @@ export default function CategoryExpenses() {
 
   const total = expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
   const isAdminOrDirector = user?.role === 'admin' || user?.role === 'director';
-  const categoryLabel = CATEGORY_LABELS[category] || category;
+  const categoryKey = CATEGORY_KEY_MAP[category] || category;
+  const categoryLabel = t(categoryKey) || category;
+  const recordWord = language === 'ru'
+    ? t(getRecordWordRu(expenses.length))
+    : t('recordMany');
 
   const openReceipt = (receiptUrl: string) => {
     if (!receiptUrl) {
-      toast({ title: "Ошибка", description: "Файл не найден или повреждён", variant: "destructive" });
+      toast({ title: t('error'), description: t('fileNotFound'), variant: "destructive" });
       return;
     }
     // Поддерживаем оба варианта хранения: локальный /api/files/... и облачный /objects/...
@@ -101,7 +115,7 @@ export default function CategoryExpenses() {
     ) {
       window.open(receiptUrl, '_blank');
     } else {
-      toast({ title: "Ошибка", description: "Файл не найден или повреждён", variant: "destructive" });
+      toast({ title: t('error'), description: t('fileNotFound'), variant: "destructive" });
     }
   };
 
@@ -122,7 +136,7 @@ export default function CategoryExpenses() {
             style={{ background: 'var(--corp-ink)', color: '#fff', borderRadius: 'var(--corp-r)' }}
             data-testid="button-add-expense"
           >
-            <Plus size={14} /> <span className="hidden sm:inline">{t('addExpense') || 'Расход'}</span>
+            <Plus size={14} /> <span className="hidden sm:inline">{t('addExpenseShort')}</span>
           </button>
         }
       />
@@ -131,9 +145,9 @@ export default function CategoryExpenses() {
         {!isLoading && expenses.length === 0 ? (
           <CorpEmpty
             icon={<Briefcase size={28} />}
-            title="Нет расходов"
-            description={`В категории «${categoryLabel}» пока нет расходов`}
-            actionLabel={isAdminOrDirector ? "Добавить расход" : undefined}
+            title={t('noExpensesTitle')}
+            description={`${t('noCategoryExpensesPrefix')} «${categoryLabel}» ${t('noCategoryExpensesSuffix')}`.trim()}
+            actionLabel={isAdminOrDirector ? t('addExpense') : undefined}
             onAction={isAdminOrDirector ? () => setLocation('/add-expense') : undefined}
           />
         ) : (
@@ -141,14 +155,14 @@ export default function CategoryExpenses() {
             <CorpHeroSummary
               label={categoryLabel}
               amount={total}
-              subtext={`${expenses.length} ${expenses.length === 1 ? 'запись' : 'записей'}`}
+              subtext={`${expenses.length} ${recordWord}`}
             />
 
             <h3
               className="text-[10px] font-bold uppercase mb-2"
               style={{ color: 'var(--corp-muted)', letterSpacing: '0.05em' }}
             >
-              Все расходы
+              {t('allExpensesTitle')}
             </h3>
             <div className="flex flex-col gap-2">
               {expenses.map((expense) => {
@@ -171,7 +185,7 @@ export default function CategoryExpenses() {
                           className="text-[11px]"
                           style={{ color: 'var(--corp-ink-3)', fontFamily: 'var(--corp-mono)', whiteSpace: 'nowrap' }}
                         >
-                          {fmtDateRu(expense.createdAt)}
+                          {fmtDate(expense.createdAt, language)}
                         </span>
                         {canEdit && (
                           <DropdownMenu>
@@ -189,11 +203,11 @@ export default function CategoryExpenses() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => setLocation(`/edit-expense/${projectId}/${expense.id}`)}>
-                                <Edit size={14} className="mr-2" /> Редактировать
+                                <Edit size={14} className="mr-2" /> {t('edit')}
                               </DropdownMenuItem>
                               {expense.receiptUrl && (
                                 <DropdownMenuItem onClick={() => openReceipt(expense.receiptUrl)}>
-                                  <Eye size={14} className="mr-2" /> Просмотреть чек
+                                  <Eye size={14} className="mr-2" /> {t('viewReceiptAction')}
                                 </DropdownMenuItem>
                               )}
                               {isAdminOrDirector && (
@@ -205,23 +219,23 @@ export default function CategoryExpenses() {
                                         onSelect={(e) => e.preventDefault()}
                                         className="text-red-600 focus:text-red-600"
                                       >
-                                        <Trash2 size={14} className="mr-2" /> Удалить
+                                        <Trash2 size={14} className="mr-2" /> {t('delete')}
                                       </DropdownMenuItem>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                       <AlertDialogHeader>
-                                        <AlertDialogTitle>Удалить расход?</AlertDialogTitle>
+                                        <AlertDialogTitle>{t('deleteExpenseConfirmTitle')}</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          Это действие нельзя отменить. Расход будет удалён безвозвратно.
+                                          {t('deleteExpenseConfirmDescription')}
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
-                                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                        <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
                                         <AlertDialogAction
                                           onClick={() => deleteExpense(expense.id)}
                                           className="bg-red-600 hover:bg-red-700"
                                         >
-                                          Удалить
+                                          {t('delete')}
                                         </AlertDialogAction>
                                       </AlertDialogFooter>
                                     </AlertDialogContent>
@@ -242,7 +256,7 @@ export default function CategoryExpenses() {
 
                     {expense.contractor && (
                       <p className="text-[11px] mb-0.5">
-                        <span style={{ color: 'var(--corp-muted)' }}>Подрядчик: </span>
+                        <span style={{ color: 'var(--corp-muted)' }}>{t('contractorLabel')}: </span>
                         <span style={{ color: 'var(--corp-accent)', fontWeight: 600 }}>
                           {expense.contractor.company || expense.contractor.name}
                         </span>
@@ -250,7 +264,7 @@ export default function CategoryExpenses() {
                     )}
 
                     <p className="text-[11px]" style={{ color: 'var(--corp-muted)' }}>
-                      Добавил: {expense.user?.name || 'Неизвестно'}
+                      {t('addedByLabel')}: {expense.user?.name || t('unknownUser')}
                     </p>
                   </div>
                 );
