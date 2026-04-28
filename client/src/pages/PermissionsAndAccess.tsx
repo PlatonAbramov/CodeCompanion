@@ -422,15 +422,9 @@ export default function PermissionsAndAccess() {
                         <div className="divide-y border rounded-md">
                           {perms.map((p) => {
                             const v = draftRole[p.key] ?? false;
-                            const inputId = `role-perm-${p.key}`;
                             return (
-                              <label
-                                key={p.key}
-                                htmlFor={inputId}
-                                className="flex items-start gap-3 p-3 cursor-pointer hover:bg-slate-50"
-                              >
+                              <div key={p.key} className="flex items-start gap-3 p-3">
                                 <Checkbox
-                                  id={inputId}
                                   checked={v}
                                   onCheckedChange={(checked) =>
                                     setDraftRole((s) => ({ ...s, [p.key]: !!checked }))
@@ -442,7 +436,7 @@ export default function PermissionsAndAccess() {
                                   <div className="font-medium text-sm">{p.name}</div>
                                   <div className="text-xs text-slate-500">{p.description}</div>
                                 </div>
-                              </label>
+                              </div>
                             );
                           })}
                         </div>
