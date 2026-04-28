@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -422,20 +422,27 @@ export default function PermissionsAndAccess() {
                         <div className="divide-y border rounded-md">
                           {perms.map((p) => {
                             const v = draftRole[p.key] ?? false;
+                            const inputId = `role-perm-${p.key}`;
                             return (
-                              <div key={p.key} className="flex items-start justify-between gap-4 p-3">
-                                <div className="min-w-0">
-                                  <div className="font-medium text-sm">{p.name}</div>
-                                  <div className="text-xs text-slate-500">{p.description}</div>
-                                </div>
-                                <Switch
+                              <label
+                                key={p.key}
+                                htmlFor={inputId}
+                                className="flex items-start gap-3 p-3 cursor-pointer hover:bg-slate-50"
+                              >
+                                <Checkbox
+                                  id={inputId}
                                   checked={v}
                                   onCheckedChange={(checked) =>
                                     setDraftRole((s) => ({ ...s, [p.key]: !!checked }))
                                   }
-                                  data-testid={`switch-role-${p.key}`}
+                                  className="mt-1"
+                                  data-testid={`checkbox-role-${p.key}`}
                                 />
-                              </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-medium text-sm">{p.name}</div>
+                                  <div className="text-xs text-slate-500">{p.description}</div>
+                                </div>
+                              </label>
                             );
                           })}
                         </div>
