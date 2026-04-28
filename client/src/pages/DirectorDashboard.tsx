@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
@@ -733,6 +734,7 @@ export default function DirectorDashboard() {
               {user?.name || 'Пользователь'}
             </p>
           </div>
+          <LanguageSwitcher />
           <button
             type="button"
             className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -800,6 +802,7 @@ export default function DirectorDashboard() {
             <HeaderIconButton title="Уведомления">
               <Bell size={17} />
             </HeaderIconButton>
+            <LanguageSwitcher />
             {user?.role === 'admin' && (
               <HeaderIconButton
                 onClick={() => setLocation('/admin')}

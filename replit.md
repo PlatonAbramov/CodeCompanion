@@ -14,7 +14,7 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS for responsive design with CSS variables.
 - **State Management**: TanStack Query (React Query) for server state.
 - **Routing**: Wouter for lightweight client-side routing.
-- **Internationalization**: Custom language provider for Russian and English.
+- **Internationalization**: Custom language provider for Russian, English and Hindi (`ru` / `en` / `hi`), persisted in localStorage. Compact globe-icon `LanguageSwitcher` lives in the top header of the main dashboard and on the login page.
 
 ## Backend Architecture
 - **Runtime**: Node.js with Express.js.

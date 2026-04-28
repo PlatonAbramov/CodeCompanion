@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLocation } from "wouter";
-import { Globe } from "lucide-react";
 import logoImage from "@assets/1 (1)_1756713794265.jpg";
 
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const { user, login, isLoggingIn, isLoading } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
+  const { t } = useLanguage();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -27,10 +27,6 @@ export default function Login() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     login({ username, password });
-  };
-
-  const toggleLanguage = () => {
-    setLanguage(language === 'ru' ? 'en' : 'ru');
   };
 
   return (
@@ -180,25 +176,8 @@ export default function Login() {
               </button>
             </form>
 
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={toggleLanguage}
-                className="inline-flex items-center gap-1.5 text-[13px] py-2 px-3 rounded-md transition-colors"
-                style={{ color: 'var(--corp-muted)' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'var(--corp-ink-2)';
-                  e.currentTarget.style.background = 'var(--corp-surface-2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'var(--corp-muted)';
-                  e.currentTarget.style.background = 'transparent';
-                }}
-                data-testid="button-toggle-language"
-              >
-                <Globe size={14} />
-                {language === 'ru' ? 'English' : 'Русский'}
-              </button>
+            <div className="mt-6 flex justify-center">
+              <LanguageSwitcher variant="compact" />
             </div>
           </div>
         </div>
