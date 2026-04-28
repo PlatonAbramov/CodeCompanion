@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "R0pWNRzz88Bp07x-QbqNC"
+uri = "file://DESCRIPTION.md"
+type = "text"
+title = "Описание системы Pag CRM"
