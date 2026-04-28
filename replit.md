@@ -6,6 +6,28 @@ This is a mobile application for internal use by a construction and HVAC service
 
 Preferred communication style: Simple, everyday language.
 
+# Localization Rule (MANDATORY for all future changes)
+
+**Every UI change must be done in all three languages — Russian (`ru`), English (`en`), and Hindi (`hi`) — at the same time. No exceptions.**
+
+Hard rules for any new feature, edit, bug fix, refactor, or addition that touches the UI:
+
+1. **No hardcoded strings.** Every visible string in JSX, props, placeholders, labels, button text, toasts, modal titles/descriptions, alerts, table headers, validation messages, empty states, tooltips, etc. must be wrapped in `t('keyName')` from `useLanguage()` (`@/components/LanguageProvider`).
+2. **Add the key to all three blocks at once.** Whenever a new translation key is added to `client/src/lib/translations.ts`, it must be added to **all three** language blocks (`ru`, `en`, `hi`) in the same edit. Never leave a key in only one or two languages.
+3. **Real translations only.** Hindi must be real Devanagari, English must be professional English. No Russian-into-English copy-paste, no `TODO` placeholders, no transliteration.
+4. **Reuse before adding.** Before adding a new key, grep `client/src/lib/translations.ts` for an existing key with the same meaning and reuse it. Avoid duplicates and near-synonyms.
+5. **Unique prefixes for new feature scopes.** When adding a batch of keys for a new screen/component, use a short unique prefix (e.g. `myFeature_xxx`) to prevent collisions.
+6. **Dates and numbers via locale helpers.** Never call `toLocaleDateString('ru-RU')` / `toLocaleString('ru-RU')` directly. Use `fmtDate(date, language)` / `fmtDateTime(date, language)` / `fmtMonth(date, language)` from `@/lib/locale` and `fmtNum` from `@/components/corp-ui`. The `language` value comes from `useLanguage()`.
+7. **Server error messages.** Errors surfaced to the user from API responses must go through `getServerErrorMessage(err, t)` from `@/lib/serverErrors` so unknown statuses fall back to the localized `err_*` keys.
+8. **Interpolation pattern.** For dynamic values inside translated strings, use `t('keyTpl').replace('{var}', String(value))`. Define the template with `{var}` placeholders in all three languages.
+9. **Verification before completing the change.** After any UI edit, the developer agent must run:
+   - `grep -n "[А-Яа-яЁё]" <changed-file>` — only matches inside JS/JSX comments are allowed.
+   - `npx tsc --noEmit` — must be clean for the changed files.
+   - Confirm every new key exists in all three language blocks.
+10. **Comments are exempt.** Russian text inside `//` or `/* */` code comments does not need to be translated — only user-visible strings.
+
+This rule overrides any conflicting instruction. If a task description says “just add a button”, the button still must be localized in all three languages.
+
 # System Architecture
 
 ## Frontend Architecture
