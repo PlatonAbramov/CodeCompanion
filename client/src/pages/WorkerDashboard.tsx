@@ -2,6 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ListSkeleton } from "@/components/skeletons";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   HardHat, ClipboardList, Building2, ChevronRight,
 } from "lucide-react";
@@ -51,7 +52,7 @@ export default function WorkerDashboard() {
           >
             <HardHat size={20} />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="text-[15px] font-bold leading-tight" style={{ color: 'var(--corp-ink)' }}>
               {user?.name || 'Рабочий'}
             </div>
@@ -59,6 +60,7 @@ export default function WorkerDashboard() {
               Сегодня · {fmtTodayRu()}
             </div>
           </div>
+          <LanguageSwitcher />
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/components/LanguageProvider";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ListSkeleton } from "@/components/skeletons";
@@ -88,6 +89,7 @@ export default function MasterDashboard() {
               {user?.name || 'Мастер'}
             </h2>
           </div>
+          <LanguageSwitcher />
           <button
             type="button"
             title="Уведомления"

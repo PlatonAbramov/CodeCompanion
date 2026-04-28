@@ -3,6 +3,7 @@ import { Building2, MapPin, FileText } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { MoneyAED, fmtNum } from "@/components/corp-ui";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface ClientProject {
   id: string;
@@ -67,13 +68,14 @@ export default function ClientProjects() {
         className="sticky top-0 z-40"
         style={{ background: 'var(--corp-surface)', borderBottom: '1px solid var(--corp-line)' }}
       >
-        <div className="px-4 h-14 flex items-center">
+        <div className="px-4 h-14 flex items-center gap-3">
           <h1
-            className="text-[16px] font-bold"
+            className="text-[16px] font-bold flex-1 min-w-0 truncate"
             style={{ color: 'var(--corp-ink)', letterSpacing: '-0.3px' }}
           >
             Мои проекты
           </h1>
+          <LanguageSwitcher />
         </div>
       </header>
 
