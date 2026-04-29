@@ -10,7 +10,13 @@ export function usePermissions() {
   const { data, isLoading } = useQuery<MePermissionsResponse>({
     queryKey: ["/api/permissions/me"],
     enabled: !!user,
-    staleTime: 60_000,
+    // Короткий staleTime + лёгкий polling — чтобы изменения роли/прав
+    // (выполненные другим админом) подхватывались максимум за ~30 секунд
+    // и сразу при возврате во вкладку.
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
   const map = data?.permissions ?? {};
   const has = (key: string): boolean => {

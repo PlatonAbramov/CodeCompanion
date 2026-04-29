@@ -247,6 +247,11 @@ export function PersonnelDetail() {
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/personnel'] });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}/role-audit-log`] });
+      // Изменение роли «Водитель» влияет на эффективные права привязанной
+      // учётки — обновляем кэш прав и пользователя у админа.
+      queryClient.invalidateQueries({ queryKey: ['/api/permissions/me'] });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       if (data?.changed !== false) {
         toast({
           title: t('pd_doneToast'),
@@ -326,6 +331,11 @@ export function PersonnelDetail() {
       toast({ title: t('pd_doneToast'), description: t('pd_accountLinkUpdatedDesc') });
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/personnel'] });
+      // Привязка отвязка учётки меняет состав «прав, действующих у этого
+      // человека», поэтому сразу же освежаем сводку и текущего пользователя.
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/permissions/me'] });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       setAccountMode('idle');
     },
     onError: (error: any) => {
@@ -349,6 +359,10 @@ export function PersonnelDetail() {
       queryClient.invalidateQueries({ queryKey: [`/api/personnel/${personnelId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/personnel'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      // Создание+линковка учётки могут затронуть моё представление о правах
+      // (если привязали меня самого) — на всякий случай сбрасываем кэш прав.
+      queryClient.invalidateQueries({ queryKey: ['/api/permissions/me'] });
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       setAccountMode('idle');
     },
     onError: (error: any) => {

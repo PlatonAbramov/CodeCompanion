@@ -43,8 +43,14 @@ export function useAuth() {
   } = useQuery<User | null>({
     queryKey: AUTH_KEY,
     queryFn: fetchAuthMe,
-    staleTime: Infinity,
-    gcTime: Infinity,
+    // Раньше стоял Infinity — это значило, что после смены роли админом
+    // у активного пользователя в UI висела старая роль до перезахода. Теперь
+    // — short staleTime + лёгкий polling и refetch при возврате во вкладку.
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   // Login mutation

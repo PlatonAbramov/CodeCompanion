@@ -24,9 +24,14 @@ import {
 import {
   requirePermission as requirePermissionMiddleware,
   requireAnyPermission as requireAnyPermissionMiddleware,
-  getEffectivePermissions,
   userHasPermission,
+  getEffectivePermissions,
 } from "./lib/permissions";
+import {
+  refreshSessionUserFromDb,
+  invalidateUserVersion,
+  invalidateUserVersions,
+} from "./lib/sessionRefresh";
 import { cache, cacheKeys, invalidateProjectCache, invalidateUserCache, invalidateContractorCache, invalidateClientCache, invalidateToolCache } from "./cache";
 import { notifyExpenseCreatedAsync, isTelegramConfigured } from "./telegramNotifier";
 
@@ -43,7 +48,7 @@ import {
   type InsertContractorProject, type InsertClientProject, type InsertClientPayment,
   type InsertTool, type InsertToolMovement, type CreateUser, type ClientEmployee
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 // Extend session data type
 declare module 'express-session' {
@@ -117,10 +122,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   }));
 
-  // Auth middleware
-  const requireAuth = (req: any, res: any, next: any) => {
+  // Auth middleware.
+  // Помимо проверки наличия сессии: раз в ~15 сек подтягивает свежие данные
+  // пользователя из БД (role/name/isActive/isBlocked) и обновляет
+  // `req.session.user`. Так смена роли / прав / блокировки начинает действовать
+  // у активного пользователя при следующем же его действии — без ручного
+  // перелогина и без ожидания, пока кэш React Query истечёт.
+  const requireAuth = async (req: any, res: any, next: any) => {
     if (!req.session?.user) {
       return res.status(401).json({ error: "Authentication required" });
+    }
+    try {
+      const result = await refreshSessionUserFromDb(req);
+      if (result.kind === "kill") {
+        // Пользователь удалён / деактивирован / заблокирован — рвём сессию.
+        try { req.session.destroy(() => {}); } catch {}
+        return res.status(401).json({
+          error: "Authentication required",
+          reason: result.reason,
+        });
+      }
+    } catch (err) {
+      // Refresh не должен валить запрос — логируем и продолжаем.
+      console.warn("requireAuth: session refresh failed", err);
     }
     next();
   };
@@ -2127,12 +2151,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.session?.user) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      
-      const user = await storage.getUserById(req.session.user.id);
-      if (!user || !allowedRoles.includes(user.role)) {
+      // Те же гарантии, что и requireAuth: освежаем session.user из БД и
+      // проверяем, что пользователя не удалили / не отключили / не
+      // заблокировали. Иначе заблокированный admin мог бы пользоваться
+      // /api/admin/* до 15-секундного окна refresh.
+      try {
+        const result = await refreshSessionUserFromDb(req);
+        if (result.kind === "kill") {
+          try { req.session.destroy(() => {}); } catch {}
+          return res.status(401).json({
+            error: "Authentication required",
+            reason: result.reason,
+          });
+        }
+      } catch (err) {
+        console.warn("requireRole: session refresh failed", err);
+      }
+      const role = req.session?.user?.role;
+      if (!role || !allowedRoles.includes(role)) {
         return res.status(403).json({ error: "Access denied" });
       }
-      
       next();
     };
   };
@@ -2247,6 +2285,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { blocked } = req.body;
       
       await storage.updateUserBlockStatus(userId, blocked);
+      // Сразу же сообщаем рантайму: версия пользователя устарела. Это
+      // приведёт к тому, что requireAuth увидит свежий isBlocked в БД и,
+      // если пользователь заблокирован, корректно выкинет его (kill).
+      invalidateUserVersion(userId);
       
       // Логируем действие админа
       await storage.logAdminAction({
@@ -2378,10 +2420,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const oldRole = target.role;
       await storage.updateUserRole(userId, role);
 
-      // Завершаем все активные сессии пользователя (включая реальные
-      // express-session записи), чтобы при следующем запросе он переавторизовался
-      // уже с новой ролью / эффективными правами.
-      try { await storage.deactivateUserSessions(userId); } catch {}
+      // Помечаем версию пользователя как dirty: при следующем его HTTP-запросе
+      // requireAuth пересчитает session.user из БД и применит новую роль —
+      // без принудительного logout (как требует ТЗ «синхронизации ролей»).
+      invalidateUserVersion(userId);
+      // Дополнительно: переписываем поле `role` прямо в активных
+      // express-session записях этого пользователя — чтобы изменения роли
+      // действовали даже на самом первом следующем запросе, до 15-секундного
+      // окна refresh. Безопасно: используем jsonb_set с привязкой параметра.
+      try {
+        await db.execute(sql`
+          UPDATE session
+             SET sess = jsonb_set(sess::jsonb, '{user,role}', to_jsonb(${role}::text), false)::text
+           WHERE (sess::jsonb -> 'user' ->> 'id') = ${userId}
+        `);
+      } catch (err) {
+        console.warn("change role: live express-session patch failed", err);
+      }
 
       await storage.logAdminAction({
         adminUserId: me.id,
@@ -3789,8 +3844,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Если меняется привязка к учётной записи (userId) — даём дружелюбные ошибки
       // ещё до DB FK / UNIQUE: «такой учётки нет» или «уже привязана к другому сотруднику».
+      const personBefore = await storage.getPersonnel(req.params.id);
+      const oldUserId = personBefore?.userId ?? null;
+      let newUserIdRequested: string | null | undefined = undefined;
       if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'userId')) {
         const newUserId: string | null = req.body.userId ?? null;
+        newUserIdRequested = newUserId;
         if (newUserId) {
           const targetUser = await storage.getUser(newUserId);
           if (!targetUser) {
@@ -3805,6 +3864,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       const person = await storage.updatePersonnel(req.params.id, req.body);
+      // Сменилась привязка userId — у обоих затронутых пользователей могли
+      // измениться эффективные права (роль «Водитель» отвязывается от старого
+      // и появляется у нового). Помечаем оба.
+      if (newUserIdRequested !== undefined && newUserIdRequested !== oldUserId) {
+        if (oldUserId) invalidateUserVersion(oldUserId);
+        if (newUserIdRequested) invalidateUserVersion(newUserIdRequested);
+      }
       res.json(person);
     } catch (error: any) {
       // Защита от гонки: если второй запрос успел занять userId — отдадим 409.
@@ -3859,6 +3925,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // если линковка упала — откатываем созданного user, чтобы не оставлять «сирот».
       try {
         const updated = await storage.updatePersonnel(person.id, { userId: user.id } as any);
+        // Свежесозданная учётка ещё не имела сессии, но всё равно зафиксируем
+        // её версию как dirty — на случай мгновенного логина в другой вкладке.
+        invalidateUserVersion(user.id);
         return res.status(201).json({
           user: { id: user.id, username: user.username, name: user.name, role: user.role },
           personnel: updated,
@@ -3939,6 +4008,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           personnelName: `${person.lastName} ${person.firstName}`.trim(),
         },
       });
+      // Флаг «Водитель» влияет на доступ к разделу авто (vehicles.*) у
+      // привязанной учётки — сообщаем системе, что её эффективные права
+      // могли поменяться.
+      if (person.userId) invalidateUserVersion(person.userId);
       res.json({ success: true, person: updated, changed: true });
     } catch (error: any) {
       console.error("Failed to update driver role:", error);
@@ -4984,6 +5057,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
 
+    // Изменение прав роли затрагивает всех её носителей: помечаем их версии
+    // как dirty, чтобы /api/permissions/me пересобирался свежий, а кэш
+    // прав на запрос не переиспользовался для тех, кто прямо сейчас
+    // онлайн.
+    if (changed.length > 0) {
+      try {
+        const allUsers = await storage.getAllUsers();
+        invalidateUserVersions(
+          allUsers.filter((u) => u.role === role).map((u) => u.id),
+        );
+      } catch (err) {
+        console.warn("permissions/role: invalidate users failed", err);
+      }
+    }
+
     res.json({ ok: true, changed: changed.length });
   });
 
@@ -5012,6 +5100,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newValue: dflt ? "enabled" : "disabled",
         });
         changed++;
+      }
+    }
+    // Сброс прав роли затрагивает всех её носителей — помечаем их сессии
+    // как dirty, чтобы изменения подхватились мгновенно при следующем запросе.
+    if (changed > 0) {
+      try {
+        const allUsers = await storage.getAllUsers();
+        invalidateUserVersions(
+          allUsers.filter((u) => u.role === role).map((u) => u.id),
+        );
+      } catch (err) {
+        console.warn("permissions/role/reset: invalidate users failed", err);
       }
     }
     res.json({ ok: true, changed });
@@ -5129,6 +5229,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
 
+    // Эффективные права пользователя поменялись — заставляем его сессию
+    // подхватить изменения при следующем же запросе.
+    if (changed.length > 0) invalidateUserVersion(target.id);
+
     res.json({ ok: true, changed: changed.length });
   });
 
@@ -5152,6 +5256,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newValue: "inherit",
       });
     }
+    // Сброс персональных переопределений = смена эффективных прав → инвалидируем.
+    invalidateUserVersion(target.id);
     res.json({ ok: true, changed: before.length });
   });
 
