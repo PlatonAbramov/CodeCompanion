@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useMyPersonnel } from "@/hooks/useMyPersonnel";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, Car, Edit2, Archive, RotateCcw, Camera, BarChart3, ClipboardList, FileText, ImageIcon, Pencil, History, Loader2 } from "lucide-react";
@@ -70,6 +72,8 @@ export default function VehicleDetail() {
   const id = params?.id || '';
   const isDirector = user?.role === 'admin' || user?.role === 'director';
   const isMaster = user?.role === 'master';
+  const { hasAny } = usePermissions();
+  const { personnel: myPersonnel } = useMyPersonnel();
 
   const { data: vehicle, isLoading } = useQuery<Vehicle>({
     queryKey: ['/api/vehicles', id],
@@ -182,7 +186,19 @@ export default function VehicleDetail() {
 
   const isArchived = vehicle?.status === 'archived';
   const canManage = isDirector;
-  const canPhotoControl = (isMaster || isDirector || user?.role === 'admin') && !isArchived;
+  // Право на фотоконтроль:
+  // — admin / director / master могут на любом авто (исторически),
+  // — остальные роли (worker / client) — только если у них есть право
+  //   vehicles.photo_control И авто закреплено за их карточкой «Персонал».
+  const isAdmin = user?.role === 'admin';
+  const hasPhotoControlPerm = hasAny('vehicles.photo_control');
+  const isAssignedToMe =
+    !!myPersonnel && !!vehicle && (vehicle as any).assignedPersonnelId === myPersonnel.id;
+  const canPhotoControl =
+    !isArchived && (
+      isMaster || isDirector || isAdmin ||
+      (hasPhotoControlPerm && isAssignedToMe)
+    );
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }}>

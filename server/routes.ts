@@ -4130,11 +4130,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const u = req.session.user;
       const status = req.query.status as string | undefined;
-      const opts: { status?: string } = {};
+      const opts: { status?: string; assignedPersonnelId?: string } = {};
       if (status) opts.status = status;
       // Для мастера показываем только активные авто (архив скрываем).
       if (u.role === 'master' && !opts.status) {
         opts.status = 'active';
+      }
+      // «Узкий» доступ: пользователь без широких прав (vehicles.view / manage /
+      // audit_log) видит только закреплённые за ним по справочнику «Персонал»
+      // автомобили. Это случай worker / client с персональным оверрайдом
+      // на vehicles.photo_control.
+      const hasBroadAccess =
+        u.role === 'admin' || u.role === 'director' || u.role === 'master' ||
+        (await userHasPermission(req, 'vehicles.view')) ||
+        (await userHasPermission(req, 'vehicles.manage')) ||
+        (await userHasPermission(req, 'vehicles.audit_log'));
+      if (!hasBroadAccess) {
+        const personRec = await storage.getPersonnelByUserId(u.id);
+        if (!personRec) {
+          return res.json([]);
+        }
+        opts.assignedPersonnelId = personRec.id;
       }
       const list = await storage.getAllVehicles(opts);
       res.json(list);
@@ -4143,6 +4159,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
+  /**
+   * Общая проверка доступа к конкретному автомобилю для пользователей,
+   * у которых нет «широких» прав (vehicles.view / manage / audit_log).
+   * Для них доступ ограничен авто, закреплёнными за их карточкой «Персонал».
+   *
+   * Возвращает true, если запрос можно пропускать дальше; false — если
+   * уже отправлен ответ (401/403/404).
+   */
+  async function assertVehicleAccess(
+    req: any,
+    res: any,
+    vehicle: any,
+  ): Promise<boolean> {
+    if (!vehicle) {
+      res.status(404).json({ error: "Not found" });
+      return false;
+    }
+    const u = req.session.user;
+    if (!u) {
+      res.status(401).json({ error: "Не авторизован" });
+      return false;
+    }
+    const hasBroadAccess =
+      u.role === 'admin' || u.role === 'director' || u.role === 'master' ||
+      (await userHasPermission(req, 'vehicles.view')) ||
+      (await userHasPermission(req, 'vehicles.manage')) ||
+      (await userHasPermission(req, 'vehicles.audit_log'));
+    if (hasBroadAccess) return true;
+    const personRec = await storage.getPersonnelByUserId(u.id);
+    if (!personRec || vehicle.assignedPersonnelId !== personRec.id) {
+      res.status(403).json({ error: "Forbidden" });
+      return false;
+    }
+    return true;
+  }
 
   // Получить один автомобиль
   app.get("/api/vehicles/:id", requireAuth, requireAnyPermissionMiddleware("vehicles.view", "vehicles.manage", "vehicles.photo_control", "vehicles.audit_log"), async (req: any, res) => {
@@ -4154,6 +4206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (u.role === 'master' && v.status === 'archived') {
         return res.status(403).json({ error: "Forbidden" });
       }
+      if (!(await assertVehicleAccess(req, res, v))) return;
       res.json(v);
     } catch (error) {
       console.error("get vehicle error:", error);
@@ -4581,15 +4634,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const u = req.session.user;
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Автомобиль не найден" });
+      // Сначала закрываем доступ (чтобы посторонний не получал 400-«в архиве»
+      // как сигнал о существовании авто), потом уже проверяем статус.
+      if (!(await assertVehicleAccess(req, res, v))) return;
       if (v.status === 'archived') {
         return res.status(400).json({ error: "Автомобиль в архиве" });
       }
-
-      // Закрепление идёт из «Персонала» (без login-связи). Доступ к фотоконтролю
-      // определяется правом vehicles.photo_control (проверяется в middleware
-      // выше) — это позволяет admin'у выдать персональный оверрайд водителю
-      // с ролью «Рабочий» / «Клиент». Имя выполнившего пишется
-      // в performedByUserId и в журнал аудита.
       const isAdmin = u.role === 'admin';
 
       // Серверная проверка окна (ежедневно 08:00–18:00 GST)
@@ -4735,6 +4785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
+      if (!(await assertVehicleAccess(req, res, v))) return;
       const u = req.session.user;
       if (u.role === 'master' && v.status === 'archived') {
         return res.status(403).json({ error: "Forbidden" });
@@ -4753,6 +4804,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
+      if (!(await assertVehicleAccess(req, res, v))) return;
       const u = req.session.user;
       if (u.role === 'master' && v.status === 'archived') {
         return res.status(403).json({ error: "Forbidden" });
@@ -5057,6 +5109,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       prevValue: e.prevValue,
       newValue: e.newValue,
     })));
+  });
+
+  // Карточка «Персонал», привязанная к текущему пользователю (если есть).
+  // Используется фронтом, чтобы понять, какие авто закреплены за пользователем,
+  // и показать, например, кнопку «Начать фотоконтроль».
+  app.get("/api/me/personnel", requireAuth, async (req: any, res) => {
+    try {
+      const u = req.session.user;
+      const personRec = await storage.getPersonnelByUserId(u.id);
+      if (!personRec) return res.json({ personnel: null });
+      res.json({
+        personnel: {
+          id: personRec.id,
+          firstName: personRec.firstName,
+          lastName: personRec.lastName,
+          isDriver: (personRec as any).isDriver ?? false,
+        },
+      });
+    } catch (err) {
+      console.error("get me/personnel error", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   // Текущие эффективные права авторизованного пользователя — для UI, чтобы
