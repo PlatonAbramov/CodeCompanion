@@ -24,6 +24,7 @@ import {
 import {
   requirePermission as requirePermissionMiddleware,
   getEffectivePermissions,
+  userHasPermission,
 } from "./lib/permissions";
 import { cache, cacheKeys, invalidateProjectCache, invalidateUserCache, invalidateContractorCache, invalidateClientCache, invalidateToolCache } from "./cache";
 import { notifyExpenseCreatedAsync, isTelegramConfigured } from "./telegramNotifier";
@@ -133,7 +134,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Защита разделов, к которым «Рабочий» не имеет доступа по ТЗ.
   // Должно быть зарегистрировано ДО соответствующих маршрутов.
-  app.use("/api/expenses", denyWorker);
+  // ВНИМАНИЕ: для /api/expenses используется per-endpoint requirePermission,
+  // а не общий denyWorker — иначе персональные оверрайды
+  // (expenses.view_own / expenses.create / expenses.delete_own) для роли «Рабочий»
+  // не работают (роутер режет запрос ещё до permission-middleware).
   app.use("/api/revenues", denyWorker);
   app.use("/api/advances", denyWorker);
   app.use("/api/customer-advances", denyWorker);
@@ -615,7 +619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Expense routes
-  app.get("/api/expenses", requireAuth, async (req, res) => {
+  app.get("/api/expenses", requireAuth, requirePermissionMiddleware("expenses.view_own"), async (req, res) => {
     try {
       const user = req.session.user!;
       const expenses = await storage.getUserExpenses(user.id);
@@ -626,7 +630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/projects/:id/expenses", requireAuth, denyWorker, async (req, res) => {
+  app.get("/api/projects/:id/expenses", requireAuth, requirePermissionMiddleware("expenses.view_all"), async (req, res) => {
     try {
       const user = req.session.user!;
       const projectId = req.params.id;
@@ -661,7 +665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/expenses", requireAuth, async (req, res) => {
+  app.post("/api/expenses", requireAuth, requirePermissionMiddleware("expenses.create"), async (req, res) => {
     try {
       const expenseData = insertExpenseSchema.parse({
         ...req.body,
@@ -986,6 +990,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user!;
+      const existing = await storage.getExpenseById(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Expense not found" });
+      }
+      // Свои расходы — нужен expenses.create (право создавать/менять собственные).
+      // Чужие — admin/director (исторически); права редактирования чужих в реестре нет,
+      // поэтому ограничиваем ролью.
+      if (existing.userId === user.id) {
+        const ok = await userHasPermission(req, "expenses.create");
+        if (!ok) {
+          return res.status(403).json({ error: "Недостаточно прав", missingPermission: "expenses.create" });
+        }
+      } else if (user.role !== "admin" && user.role !== "director") {
+        return res.status(403).json({ error: "Access denied" });
+      }
       const expenseData = {
         ...req.body,
         amount: req.body.amount.toString()
@@ -1060,14 +1080,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
-      // Only admin and director can delete expenses
-      const userRole = req.session.user!.role;
-      if (userRole !== 'admin' && userRole !== 'director') {
-        return res.status(403).json({ error: "Access denied" });
-      }
-      
-      // Get the expense to find its project ID
+      const user = req.session.user!;
+      // Get the expense to find its project ID and owner
       const expense = await storage.getExpenseById(req.params.id);
+      if (!expense) {
+        return res.status(404).json({ error: "Expense not found" });
+      }
+      // Свой расход — нужен expenses.delete_own; чужой — expenses.delete_any.
+      const isOwn = expense.userId === user.id;
+      const requiredKey = isOwn ? "expenses.delete_own" : "expenses.delete_any";
+      const ok = await userHasPermission(req, requiredKey);
+      if (!ok) {
+        return res.status(403).json({ error: "Недостаточно прав", missingPermission: requiredKey });
+      }
       
       await storage.deleteExpense(req.params.id);
       
@@ -1080,7 +1105,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create audit log for expense deletion
-      const user = req.session.user!;
       await storage.createAuditLog({
         entityType: 'expense',
         entityId: req.params.id,
@@ -4096,17 +4120,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Внутренний guard: разрешён только admin/director/master
-  const requireVehicleRole = (req: any, res: any, next: any) => {
-    const role = req.session?.user?.role;
-    if (role === 'admin' || role === 'director' || role === 'master') return next();
-    return res.status(403).json({ error: "Forbidden" });
-  };
-
   // Список автомобилей.
   // Закрепление сотрудника производится из справочника «Персонал», поэтому
   // прямой связи между login-пользователем (master) и автомобилем больше нет.
   // Мастер видит все активные авто (любой может выполнять фотоконтроль на любом авто).
-  app.get("/api/vehicles", requireAuth, requireVehicleRole, async (req: any, res) => {
+  // Доступ управляется правом vehicles.view + персональными оверрайдами.
+  app.get("/api/vehicles", requireAuth, requirePermissionMiddleware("vehicles.view"), async (req: any, res) => {
     try {
       const u = req.session.user;
       const status = req.query.status as string | undefined;
@@ -4125,7 +4144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Получить один автомобиль
-  app.get("/api/vehicles/:id", requireAuth, requireVehicleRole, async (req: any, res) => {
+  app.get("/api/vehicles/:id", requireAuth, requirePermissionMiddleware("vehicles.view"), async (req: any, res) => {
     try {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
@@ -4556,7 +4575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Сабмит результата фотоконтроля (8 фото + пробег)
-  app.post("/api/vehicles/:id/photo-control", requireAuth, requireVehicleRole, async (req: any, res) => {
+  app.post("/api/vehicles/:id/photo-control", requireAuth, requirePermissionMiddleware("vehicles.photo_control"), async (req: any, res) => {
     try {
       const u = req.session.user;
       const v = await storage.getVehicle(req.params.id);
@@ -4712,7 +4731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // История фотоконтролей
-  app.get("/api/vehicles/:id/photo-controls", requireAuth, requireVehicleRole, async (req: any, res) => {
+  app.get("/api/vehicles/:id/photo-controls", requireAuth, requirePermissionMiddleware("vehicles.view"), async (req: any, res) => {
     try {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
@@ -4730,7 +4749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Статистика пробега: неделя/месяц/год/всё время.
   // Дельта в окне = последний пробег в окне − (последний пробег ДО окна, либо первый В окне).
-  app.get("/api/vehicles/:id/mileage-stats", requireAuth, requireVehicleRole, async (req: any, res) => {
+  app.get("/api/vehicles/:id/mileage-stats", requireAuth, requirePermissionMiddleware("vehicles.view"), async (req: any, res) => {
     try {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
