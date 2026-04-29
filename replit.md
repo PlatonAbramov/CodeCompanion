@@ -52,7 +52,7 @@ This rule overrides any conflicting instruction. If a task description says “j
 
 ## Authentication & Authorization
 - **Session Management**: Express-session.
-- **Role-Based Access Control**: Five tiers (Admin, Director, Master, Worker, Client) with specific permissions enforced via middleware.
+- **Role-Based Access Control**: Five tiers (Admin, Director, Master, Worker, Client) with default permissions per role, plus per-role and personal per-user overrides. All API endpoints enforce permissions via `requirePermission` / `requireAnyPermission` middleware (`server/lib/permissions.ts`); the frontend mirrors these checks via the `usePermissions` hook backed by `GET /api/permissions/me`. Hard role gates in route handlers must NOT be reintroduced — always use permission keys so admin-issued personal overrides work.
 - **User Creation**: Admin-only user creation; no public registration.
 - **Password Security**: Bcrypt hashing.
 - **Client User Permissions**: Client users have standardized read-only access to assigned projects, implementation sheets, and photos, but cannot edit content or change completion status.

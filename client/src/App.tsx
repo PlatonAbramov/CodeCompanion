@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useLocation } from "wouter";
 import { useEffect, lazy, Suspense } from "react";
 import Login from "@/pages/Login";
@@ -63,10 +64,25 @@ const PersonnelDetail = lazy(() =>
 
 function AuthenticatedApp() {
   const { user, isLoading } = useAuth();
+  const { hasAny, isLoading: permsLoading } = usePermissions();
   const [location, setLocation] = useLocation();
+  // Для admin/director/master доступ к авто гарантирован ролью —
+  // не ждём загрузки прав. Для worker/client — ждём, иначе редирект-эффект
+  // успеет «выкинуть» с /vehicles до того, как придут эффективные права.
+  const canAccessVehicles = !!user && (
+    user.role === 'admin' || user.role === 'director' || user.role === 'master' ||
+    hasAny('vehicles.view', 'vehicles.manage', 'vehicles.photo_control', 'vehicles.audit_log')
+  );
+  const permsReadyForVehicles =
+    !user ||
+    user.role === 'admin' || user.role === 'director' || user.role === 'master' ||
+    !permsLoading;
 
   useEffect(() => {
     if (isLoading) return;
+    // Не дёргаем редиректы, пока не подгрузились права (для worker/client),
+    // иначе попытка зайти на /vehicles по прямой ссылке схлопнется в /worker.
+    if (!permsReadyForVehicles) return;
 
     if (!user) {
       // User not authenticated, redirect to login only if not already there
@@ -90,30 +106,32 @@ function AuthenticatedApp() {
       }
     }
     
-    // For clients, allow access to implementation sheets and projects only
+    // For clients, allow access to implementation sheets, projects and vehicles
+    // (vehicles only when admin granted vehicles.* override).
     if (user?.role === 'client' && 
         !location.startsWith('/client-projects') && 
         !location.startsWith('/projects/') && 
         !location.startsWith('/implementation-sheets/') &&
+        !(canAccessVehicles && location.startsWith('/vehicles')) &&
         location !== '/' && 
         location !== '/login') {
       console.log('Redirecting client from', location, 'to /client-projects');
       setLocation('/client-projects');
     }
 
-    // Для роли «Рабочий»: разрешено только список проектов, карточка проекта
-    // и листы реализации. Доступ к автомобилям вяжется на флаг «Водитель»
-    // на уровне Personnel и пока не подключён сквозным образом.
+    // Для роли «Рабочий»: разрешено только список проектов, карточка проекта,
+    // листы реализации и автомобили (если admin выдал vehicles.* права).
     if (user?.role === 'worker' &&
         location !== '/worker' &&
         !location.startsWith('/projects/') &&
         !location.startsWith('/implementation-sheets/') &&
+        !(canAccessVehicles && location.startsWith('/vehicles')) &&
         location !== '/' &&
         location !== '/login') {
       console.log('Redirecting worker from', location, 'to /worker');
       setLocation('/worker');
     }
-  }, [user, isLoading, location, setLocation]);
+  }, [user, isLoading, location, setLocation, canAccessVehicles, permsReadyForVehicles]);
 
   if (isLoading) {
     return <div className="min-h-screen bg-slate-50" />;
@@ -169,9 +187,9 @@ function AuthenticatedApp() {
         <Route path="/history/:projectId" component={(user.role === 'admin' || user.role === 'director') ? History : NotFound} />
         <Route path="/archived-projects" component={(user.role === 'admin' || user.role === 'director') ? ArchivedProjects : NotFound} />
         <Route path="/projects-list" component={(user.role === 'admin' || user.role === 'director') ? MobileProjectsList : NotFound} />
-        <Route path="/vehicles" component={(user.role === 'admin' || user.role === 'director' || user.role === 'master') ? Vehicles : NotFound} />
-        <Route path="/vehicles/:id/photo-control" component={(user.role === 'admin' || user.role === 'director' || user.role === 'master') ? PhotoControl : NotFound} />
-        <Route path="/vehicles/:id" component={(user.role === 'admin' || user.role === 'director' || user.role === 'master') ? VehicleDetail : NotFound} />
+        <Route path="/vehicles" component={canAccessVehicles ? Vehicles : NotFound} />
+        <Route path="/vehicles/:id/photo-control" component={canAccessVehicles ? PhotoControl : NotFound} />
+        <Route path="/vehicles/:id" component={canAccessVehicles ? VehicleDetail : NotFound} />
         <Route path="/worker" component={user.role === 'worker' ? WorkerDashboard : NotFound} />
         <Route component={NotFound} />
       </Switch>

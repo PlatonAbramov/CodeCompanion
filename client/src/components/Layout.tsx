@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import {
@@ -28,6 +29,7 @@ interface BottomTab extends NavItem {
 
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
+  const { has, hasAny } = usePermissions();
   const [location, setLocation] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -212,14 +214,6 @@ export function Layout({ children }: LayoutProps) {
         matches: (l) => l.startsWith('/tools'),
         testId: 'menu-tools',
       });
-      extraItems.push({
-        key: 'vehicles',
-        label: 'Автомобили',
-        icon: Car,
-        path: '/vehicles',
-        matches: (l) => l.startsWith('/vehicles'),
-        testId: 'menu-vehicles',
-      });
     }
     if (user.role === 'admin' || user.role === 'director') {
       extraItems.push({
@@ -247,6 +241,24 @@ export function Layout({ children }: LayoutProps) {
         path: '/permissions',
         matches: (l) => l.startsWith('/permissions'),
         testId: 'menu-permissions',
+      });
+    }
+  }
+
+  // «Автомобили» — доступно ВСЕМ ролям при наличии vehicles.* права
+  // (включая персональные оверрайды для роли «Рабочий» / «Клиент»).
+  if (user) {
+    const canSeeVehicles =
+      user.role === 'admin' || user.role === 'director' || user.role === 'master' ||
+      hasAny('vehicles.view', 'vehicles.manage', 'vehicles.photo_control', 'vehicles.audit_log');
+    if (canSeeVehicles) {
+      extraItems.push({
+        key: 'vehicles',
+        label: 'Автомобили',
+        icon: Car,
+        path: '/vehicles',
+        matches: (l) => l.startsWith('/vehicles'),
+        testId: 'menu-vehicles',
       });
     }
   }

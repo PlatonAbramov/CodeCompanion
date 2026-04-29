@@ -110,6 +110,34 @@ export function requirePermission(key: string) {
 }
 
 /**
+ * Express-middleware: пускает запрос дальше, если у пользователя есть ХОТЯ БЫ
+ * одно из перечисленных прав. Удобно для эндпоинтов, к которым валидно ходят
+ * сразу несколько ролей-смежников (например, авто читают и `vehicles.view`,
+ * и `vehicles.photo_control`).
+ */
+export function requireAnyPermission(...keys: string[]) {
+  return async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const user = req.session?.user;
+      if (!user) {
+        return res.status(401).json({ error: "Не авторизован" });
+      }
+      for (const k of keys) {
+        if (await userHasPermission(req, k)) return next();
+      }
+      return res.status(403).json({
+        error: "Недостаточно прав",
+        missingPermission: keys[0],
+        anyOf: keys,
+      });
+    } catch (err) {
+      console.error("requireAnyPermission error", { keys, err });
+      return res.status(500).json({ error: "Ошибка проверки прав" });
+    }
+  };
+}
+
+/**
  * Идемпотентная инициализация дефолтов прав для всех ролей при старте сервера.
  * Создаёт строки в `role_permissions` только для тех (role, key), которых там
  * ещё нет — существующие настройки администратора не затрагиваются.

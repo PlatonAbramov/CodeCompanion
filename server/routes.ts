@@ -23,6 +23,7 @@ import {
 } from "@shared/permissions";
 import {
   requirePermission as requirePermissionMiddleware,
+  requireAnyPermission as requireAnyPermissionMiddleware,
   getEffectivePermissions,
   userHasPermission,
 } from "./lib/permissions";
@@ -4125,7 +4126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // прямой связи между login-пользователем (master) и автомобилем больше нет.
   // Мастер видит все активные авто (любой может выполнять фотоконтроль на любом авто).
   // Доступ управляется правом vehicles.view + персональными оверрайдами.
-  app.get("/api/vehicles", requireAuth, requirePermissionMiddleware("vehicles.view"), async (req: any, res) => {
+  app.get("/api/vehicles", requireAuth, requireAnyPermissionMiddleware("vehicles.view", "vehicles.manage", "vehicles.photo_control", "vehicles.audit_log"), async (req: any, res) => {
     try {
       const u = req.session.user;
       const status = req.query.status as string | undefined;
@@ -4144,7 +4145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Получить один автомобиль
-  app.get("/api/vehicles/:id", requireAuth, requirePermissionMiddleware("vehicles.view"), async (req: any, res) => {
+  app.get("/api/vehicles/:id", requireAuth, requireAnyPermissionMiddleware("vehicles.view", "vehicles.manage", "vehicles.photo_control", "vehicles.audit_log"), async (req: any, res) => {
     try {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
@@ -4584,12 +4585,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Автомобиль в архиве" });
       }
 
-      // Закрепление теперь идёт из «Персонала» (без login-связи), поэтому
-      // фотоконтроль может выполнить любой пользователь с ролью master/director/admin.
-      // Имя выполнившего сохраняется в performedByUserId и в журнале аудита.
-      if (u.role !== 'master' && u.role !== 'director' && u.role !== 'admin') {
-        return res.status(403).json({ error: "Недостаточно прав" });
-      }
+      // Закрепление идёт из «Персонала» (без login-связи). Доступ к фотоконтролю
+      // определяется правом vehicles.photo_control (проверяется в middleware
+      // выше) — это позволяет admin'у выдать персональный оверрайд водителю
+      // с ролью «Рабочий» / «Клиент». Имя выполнившего пишется
+      // в performedByUserId и в журнал аудита.
       const isAdmin = u.role === 'admin';
 
       // Серверная проверка окна (ежедневно 08:00–18:00 GST)
@@ -4731,7 +4731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // История фотоконтролей
-  app.get("/api/vehicles/:id/photo-controls", requireAuth, requirePermissionMiddleware("vehicles.view"), async (req: any, res) => {
+  app.get("/api/vehicles/:id/photo-controls", requireAuth, requireAnyPermissionMiddleware("vehicles.view", "vehicles.manage", "vehicles.photo_control", "vehicles.audit_log"), async (req: any, res) => {
     try {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
@@ -4749,7 +4749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Статистика пробега: неделя/месяц/год/всё время.
   // Дельта в окне = последний пробег в окне − (последний пробег ДО окна, либо первый В окне).
-  app.get("/api/vehicles/:id/mileage-stats", requireAuth, requirePermissionMiddleware("vehicles.view"), async (req: any, res) => {
+  app.get("/api/vehicles/:id/mileage-stats", requireAuth, requireAnyPermissionMiddleware("vehicles.view", "vehicles.manage", "vehicles.photo_control", "vehicles.audit_log"), async (req: any, res) => {
     try {
       const v = await storage.getVehicle(req.params.id);
       if (!v) return res.status(404).json({ error: "Not found" });
