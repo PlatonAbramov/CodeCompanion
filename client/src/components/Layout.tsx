@@ -150,6 +150,12 @@ export function Layout({ children }: LayoutProps) {
     testId: 'tab-projects',
   };
 
+  // «Финансы» / «Расходы» в нижней навигации:
+  // — admin / director видят полный раздел «Финансы» (/analytics);
+  // — master или ЛЮБОЙ пользователь с правом expenses.create (включая
+  //   персональный оверрайд для рабочего/клиента) видит кнопку «Расходы»,
+  //   ведущую на форму создания расхода.
+  const canCreateExpense = has('expenses.create');
   const financeItem: NavItem | null =
     user && (user.role === 'admin' || user.role === 'director') ? {
       key: 'finance',
@@ -174,7 +180,7 @@ export function Layout({ children }: LayoutProps) {
         l.startsWith('/owner-investments/'),
       testId: 'tab-finance',
     } :
-    user && user.role === 'master' ? {
+    user && (user.role === 'master' || canCreateExpense) ? {
       key: 'finance',
       label: 'Расходы',
       icon: Receipt,

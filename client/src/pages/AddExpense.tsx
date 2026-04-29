@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -45,8 +46,18 @@ export default function AddExpense() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  if (user && user.role !== 'admin' && user.role !== 'director' && user.role !== 'master') {
-    setLocation('/master');
+  // Доступ к созданию расхода — по праву expenses.create. Это позволяет
+  // admin'у выдать персональный оверрайд рабочему/клиенту. Жёсткой проверки
+  // по роли больше нет.
+  const { has, isLoading: permsLoading } = usePermissions();
+  if (user && !permsLoading && !has('expenses.create')) {
+    const fallback =
+      user.role === 'worker' ? '/worker' :
+      user.role === 'client' ? '/client-projects' :
+      user.role === 'master' ? '/master' :
+      user.role === 'director' ? '/director' :
+      '/admin';
+    setLocation(fallback);
     return null;
   }
 
