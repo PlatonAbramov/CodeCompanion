@@ -2324,6 +2324,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Админ-панель: смена роли пользователя.
+  // Защиты:
+  //   1) роль обязана быть из enum;
+  //   2) нельзя изменить собственную роль (чтобы админ не разлогинил себя);
+  //   3) нельзя понизить последнего активного admin'а (иначе панель станет недоступна).
+  app.patch("/api/admin/users/:userId/role", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body || {};
+      const allowed = ["admin", "director", "master", "worker", "client"];
+      if (!role || !allowed.includes(role)) {
+        return res.status(400).json({
+          error: "Недопустимая роль",
+          code: "invalid_role",
+        });
+      }
+      const me = req.session.user!;
+      if (me.id === userId) {
+        return res.status(400).json({
+          error: "Нельзя сменить собственную роль",
+          code: "cannot_change_own_role",
+        });
+      }
+      const target = await storage.getUserById(userId);
+      if (!target) {
+        return res.status(404).json({
+          error: "Пользователь не найден",
+          code: "user_not_found",
+        });
+      }
+      if (target.role === role) {
+        return res.json({ success: true, unchanged: true });
+      }
+      // Защита от понижения последнего АКТИВНОГО администратора.
+      // Понижение засчитывается, только если сам target прямо сейчас числится
+      // как активный admin — иначе количество живых админов не меняется.
+      if (target.role === "admin" && role !== "admin") {
+        const allUsers = await storage.getAllUsers();
+        const activeAdmins = allUsers.filter(
+          (u) => u.role === "admin" && u.isActive && !u.isBlocked,
+        );
+        const targetIsActiveAdmin = target.isActive && !target.isBlocked;
+        const remaining = activeAdmins.length - (targetIsActiveAdmin ? 1 : 0);
+        if (remaining < 1) {
+          return res.status(400).json({
+            error: "Нельзя понизить последнего активного администратора",
+            code: "last_admin",
+          });
+        }
+      }
+
+      const oldRole = target.role;
+      await storage.updateUserRole(userId, role);
+
+      // Завершаем все активные сессии пользователя (включая реальные
+      // express-session записи), чтобы при следующем запросе он переавторизовался
+      // уже с новой ролью / эффективными правами.
+      try { await storage.deactivateUserSessions(userId); } catch {}
+
+      await storage.logAdminAction({
+        adminUserId: me.id,
+        action: "change_role",
+        targetUserId: userId,
+        details: { oldRole, newRole: role },
+        ipAddress: req.ip || "unknown",
+        userAgent: req.get("User-Agent") || "unknown",
+      });
+
+      res.json({ success: true, role });
+    } catch (error) {
+      console.error("Failed to update user role:", error);
+      res.status(500).json({ error: "Internal server error", code: "internal" });
+    }
+  });
+
   // Админ-панель: принудительный выход
   app.post("/api/admin/users/:userId/force-logout", requireAdmin, async (req, res) => {
     try {

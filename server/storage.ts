@@ -46,6 +46,7 @@ export interface IStorage {
   updateUserLastLogin(id: string): Promise<void>;
   updateUserBlockStatus(id: string, blocked: boolean): Promise<void>;
   updateUserPassword(id: string, password: string, mustChangePassword?: boolean): Promise<void>;
+  updateUserRole(id: string, role: string): Promise<void>;
   deleteUser(id: string): Promise<void>;
   getAllUsers(): Promise<User[]>;
   
@@ -2267,10 +2268,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deactivateUserSessions(userId: string): Promise<void> {
+    // 1) Помечаем «внутренние» сессии (таблица userSessions — наш аудит-учёт)
+    //    как неактивные.
     await db
       .update(userSessions)
       .set({ isActive: false })
       .where(eq(userSessions.userId, userId));
+    // 2) Реальные сессии express-session живут в таблице `session`
+    //    (connect-pg-simple): {sid, sess(jsonb-like text), expire}.
+    //    Чтобы пользователь действительно вылетел, удаляем все её записи,
+    //    в чьём sess.user.id совпадает с userId.
+    //    Используем JSONB-каст и оператор `->>`. Если таблица ещё не создана
+    //    (свежий запуск без сессий) — игнорируем ошибку.
+    try {
+      await db.execute(
+        sql`DELETE FROM session WHERE (sess::jsonb -> 'user' ->> 'id') = ${userId}`,
+      );
+    } catch (err) {
+      console.warn("deactivateUserSessions: could not purge express sessions", err);
+    }
   }
 
   async updateUserBlockStatus(id: string, blocked: boolean): Promise<void> {
@@ -2288,6 +2304,13 @@ export class DatabaseStorage implements IStorage {
         mustChangePassword,
         tempPassword: mustChangePassword ? password : null
       })
+      .where(eq(users.id, id));
+  }
+
+  async updateUserRole(id: string, role: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ role })
       .where(eq(users.id, id));
   }
 

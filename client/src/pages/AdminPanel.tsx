@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Users, UserPlus, Shield, ShieldOff, RotateCcw, LogOut,
   Activity, Search, AlertTriangle, CheckCircle, XCircle,
-  Clock, Edit, Trash2, Send
+  Clock, Edit, Trash2, Send, UserCheck
 } from "lucide-react";
 import { CorpHeader } from "@/components/corp-ui";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -115,6 +115,7 @@ export default function AdminPanel() {
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isSetPasswordOpen, setIsSetPasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [selectedRole, setSelectedRole] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -238,6 +239,44 @@ export default function AdminPanel() {
     },
     onError: (error: any) => {
       toast({ title: t('error'), description: error.message || t('userDeleteFailed'), variant: "destructive" });
+    },
+  });
+
+  const changeRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      const res = await apiRequest(`/api/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: t('success'), description: t('roleChangedToast') });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+      setIsEditUserOpen(false);
+    },
+    onError: (error: any) => {
+      // Бэкенд возвращает {error, code}; apiRequest бросает строку
+      // вида "400: {json}". Достаём code и показываем локализованный текст.
+      let code = '';
+      const msg = error?.message || '';
+      const m = msg.match(/^\d+:\s*(.+)$/);
+      if (m) {
+        try {
+          const body = JSON.parse(m[1]);
+          code = body?.code || '';
+        } catch {}
+      }
+      const localized =
+        code === 'cannot_change_own_role' ? t('cannotChangeOwnRole') :
+        code === 'last_admin' ? t('cannotDemoteLastAdmin') :
+        t('roleChangeFailed');
+      toast({
+        title: t('error'),
+        description: localized,
+        variant: 'destructive',
+      });
     },
   });
 
@@ -580,6 +619,7 @@ export default function AdminPanel() {
                               type="button"
                               onClick={() => {
                                 setEditingUser(u);
+                                setSelectedRole(u.role);
                                 setIsEditUserOpen(true);
                               }}
                               className="inline-flex items-center gap-1 h-8 px-3 text-[11px] font-semibold transition-colors"
@@ -802,6 +842,61 @@ export default function AdminPanel() {
                 <Edit className="h-4 w-4" />
                 {t('buttonSetPassword')}
               </button>
+
+              {/* Смена роли пользователя. Скрыто, если редактируем самого себя
+                  (бэкенд тоже это запрещает, но скрываем для UX). */}
+              {editingUser && editingUser.id !== user?.id && (
+                <div
+                  className="space-y-2"
+                  style={{ borderTop: '1px solid var(--corp-line)', paddingTop: 12 }}
+                >
+                  <Label htmlFor="edit-user-role" className="text-[12px] font-semibold">
+                    {t('changeRoleLabel')}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Select value={selectedRole} onValueChange={setSelectedRole}>
+                      <SelectTrigger
+                        id="edit-user-role"
+                        className="flex-1 h-10"
+                        data-testid="select-edit-user-role"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">{t('roleAdmin')}</SelectItem>
+                        <SelectItem value="director">{t('roleDirector')}</SelectItem>
+                        <SelectItem value="master">{t('roleMaster')}</SelectItem>
+                        <SelectItem value="worker">{t('roleWorker')}</SelectItem>
+                        <SelectItem value="client">{t('roleClient')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          editingUser &&
+                          selectedRole &&
+                          selectedRole !== editingUser.role &&
+                          confirm(`${t('confirmChangeRolePrefix')} ${editingUser.name}? ${t('confirmChangeRoleSuffix')}`)
+                        ) {
+                          changeRoleMutation.mutate({ userId: editingUser.id, role: selectedRole });
+                        }
+                      }}
+                      disabled={
+                        changeRoleMutation.isPending ||
+                        !selectedRole ||
+                        selectedRole === editingUser.role
+                      }
+                      className="inline-flex items-center justify-center gap-2 h-10 px-3 text-[12px] font-semibold transition-colors disabled:opacity-50"
+                      style={PRIMARY_BTN}
+                      data-testid="button-edit-change-role"
+                    >
+                      <UserCheck className="h-4 w-4" />
+                      {t('buttonChangeRole')}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <button
                 type="button"
