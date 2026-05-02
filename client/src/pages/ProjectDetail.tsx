@@ -1369,8 +1369,107 @@ export default function ProjectDetail() {
           </div>
         )}
 
-        {/* Other tabs render existing collapsible content (already in mobile block) */}
-        {activeTab !== 'overview' && (
+        {/* === DESKTOP: Documents tab — полноценный UI ============ */}
+        {activeTab === 'documents' && canViewDocuments && (
+          <div
+            className="p-5"
+            style={{
+              background: 'var(--corp-surface)',
+              border: '1px solid var(--corp-line)',
+              borderRadius: 'var(--corp-r-lg)',
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[14px] font-bold" style={{ color: 'var(--corp-ink)' }}>
+                {t('documents')}
+              </h3>
+              {canUploadDocs && (
+                <FileUploader
+                  onUpload={handleFilesUpload}
+                  maxFiles={5}
+                  maxFileSize={50 * 1024 * 1024}
+                  accept="*/*"
+                >
+                  <Plus size={14} className="mr-1" />
+                  {t('addDocument') || 'Add Document'}
+                </FileUploader>
+              )}
+            </div>
+            {documents.length === 0 ? (
+              <p className="text-center py-8 text-[13px]" style={{ color: 'var(--corp-muted)' }}>
+                {t('prDet_noDocuments')}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center p-3 gap-3"
+                    style={{ background: 'var(--corp-surface-2)', borderRadius: 'var(--corp-r)' }}
+                  >
+                    <div
+                      className="w-9 h-9 flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'rgba(37,99,235,0.10)', borderRadius: 'var(--corp-r-sm)' }}
+                    >
+                      <FileText size={16} style={{ color: 'var(--corp-accent)' }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--corp-ink)' }}>{doc.name}</p>
+                      <p className="text-[11px] truncate" style={{ color: 'var(--corp-muted)', fontFamily: 'var(--corp-mono)' }}>
+                        {formatFileSize(doc.fileSize)} • {doc.mimeType}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleViewDocument(doc)}
+                        className="w-8 h-8 flex items-center justify-center rounded"
+                        style={{ color: 'var(--corp-accent)' }}
+                        title={t('prDet_viewDoc')}
+                      >
+                        <Eye size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDocument(doc)}
+                        className="w-8 h-8 flex items-center justify-center rounded"
+                        style={{ color: 'var(--corp-pos)' }}
+                        title={t('prDet_downloadDoc')}
+                      >
+                        <Download size={15} />
+                      </button>
+                      {isAdminOrDirector && doc.fileName.toLowerCase().startsWith('invoice') && (
+                        <button
+                          type="button"
+                          onClick={() => handleCreateSheetFromInvoice(doc)}
+                          className="w-8 h-8 flex items-center justify-center rounded"
+                          style={{ color: '#9333ea' }}
+                          title={t('prDet_createSheetFromInvoiceTitle')}
+                        >
+                          <Upload size={15} />
+                        </button>
+                      )}
+                      {canDeleteDocs && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          className="w-8 h-8 flex items-center justify-center rounded"
+                          style={{ color: 'var(--corp-neg)' }}
+                          title={t('prDet_deleteDoc')}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* === DESKTOP: остальные не-overview вкладки ============== */}
+        {activeTab !== 'overview' && activeTab !== 'documents' && (
           <div
             className="p-6 text-center text-[13px]"
             style={{
@@ -1388,16 +1487,6 @@ export default function ProjectDetail() {
                 style={{ color: 'var(--corp-accent)' }}
               >
                 {t('prDet_openFullExpenses')} <ChevronRight size={14} />
-              </button>
-            )}
-            {activeTab === 'documents' && (
-              <button
-                type="button"
-                onClick={() => setIsDocumentsOpen(true)}
-                className="inline-flex items-center gap-2 text-[13px] font-semibold"
-                style={{ color: 'var(--corp-accent)' }}
-              >
-                {t('prDet_documentsSectionMobileNote')} <ChevronRight size={14} />
               </button>
             )}
             {activeTab === 'team' && (
