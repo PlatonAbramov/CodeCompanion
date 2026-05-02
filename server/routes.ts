@@ -157,12 +157,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // Защита разделов, к которым «Рабочий» не имеет доступа по ТЗ.
+  // Защита разделов, к которым «Рабочий» не имеет доступа.
   // Должно быть зарегистрировано ДО соответствующих маршрутов.
-  // ВНИМАНИЕ: для /api/expenses используется per-endpoint requirePermission,
-  // а не общий denyWorker — иначе персональные оверрайды
-  // (expenses.view_own / expenses.create / expenses.delete_own) для роли «Рабочий»
-  // не работают (роутер режет запрос ещё до permission-middleware).
+  // ВНИМАНИЕ: для разделов, которые могут быть выданы рабочему через
+  // персональные оверрайды (/api/expenses, /api/personnel, /api/documents),
+  // НЕ ставим общий denyWorker — иначе роутер режет запрос ещё ДО
+  // permission-middleware и оверрайды не работают. Контроль ведём
+  // per-endpoint через requirePermissionMiddleware(...) — это единственный
+  // источник правды.
   app.use("/api/revenues", denyWorker);
   app.use("/api/advances", denyWorker);
   app.use("/api/customer-advances", denyWorker);
@@ -171,13 +173,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/dashboard-stats", denyWorker);
   app.use("/api/contractors", denyWorker);
   app.use("/api/clients", denyWorker);
-  app.use("/api/personnel", denyWorker);
+  // /api/personnel — БЕЗ denyWorker. На каждом endpoint стоит
+  // requirePermissionMiddleware("personnel.view"|"personnel.manage").
   app.use("/api/tools", denyWorker);
   app.use("/api/employees", denyWorker);
   app.use("/api/analytics", denyWorker);
   app.use("/api/history", denyWorker);
   app.use("/api/admin", denyWorker);
-  app.use("/api/documents", denyWorker);
+  // /api/documents — БЕЗ denyWorker. Контроль через
+  // requirePermissionMiddleware("documents.view"|"documents.upload"|"documents.delete").
 
 
 
@@ -613,7 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/projects/:id/financial-summary", requireAuth, denyWorker, async (req, res) => {
+  app.get("/api/projects/:id/financial-summary", requireAuth, requirePermissionMiddleware("finances.view_summary"), async (req, res) => {
     try {
       const user = req.session.user!;
       const projectId = req.params.id;
@@ -655,23 +659,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/projects/:id/expenses", requireAuth, requirePermissionMiddleware("expenses.view_all"), async (req, res) => {
+  app.get("/api/projects/:id/expenses", requireAuth, requireAnyPermissionMiddleware("expenses.view_all", "expenses.view_own"), async (req, res) => {
     try {
       const user = req.session.user!;
       const projectId = req.params.id;
-      
+
       // Check access for clients
       if (user.role === 'client') {
         const userProjects = await storage.getUserProjects(user.id);
         const hasAccess = userProjects.some(p => p.id === projectId);
-        
+
         if (!hasAccess) {
           return res.status(403).json({ error: "Access denied to this project" });
         }
       }
-      
+
+      // Если у пользователя есть только expenses.view_own (без view_all),
+      // отдаём только его собственные расходы по этому проекту. Это нужно,
+      // чтобы фронт мог открывать вкладку «Расходы» проекта работнику с
+      // личным оверрайдом, не выдавая ему чужие чеки.
+      const effective = await getEffectivePermissions(user);
+      const canViewAll = effective.get("expenses.view_all") === true;
+
+      if (!canViewAll) {
+        // view_own only — фильтруем по userId, кэш не используем (per-user).
+        const all = await storage.getProjectExpenses(projectId);
+        const own = all.filter((e: any) => e.user?.id === user.id || e.userId === user.id);
+        return res.json(own);
+      }
+
       const cacheKey = cacheKeys.projectExpenses(projectId);
-      
+
       // Try cache first (30 seconds)
       const cached = cache.get(cacheKey);
       if (cached) {
@@ -679,10 +697,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const expenses = await storage.getProjectExpenses(projectId);
-      
+
       // Cache for 30 seconds
       cache.set(cacheKey, expenses, 30);
-      
+
       res.json(expenses);
     } catch (error) {
       console.error("Get project expenses error:", error);
@@ -747,7 +765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Document routes
-  app.get("/api/projects/:id/documents", requireAuth, denyWorker, async (req, res) => {
+  app.get("/api/projects/:id/documents", requireAuth, requirePermissionMiddleware("documents.view"), async (req, res) => {
     try {
       const user = req.session.user!;
       const projectId = req.params.id;

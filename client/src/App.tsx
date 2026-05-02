@@ -29,6 +29,7 @@ const EditAdvance = lazy(() => import("@/pages/EditAdvance"));
 const EditCustomerAdvance = lazy(() => import("@/pages/EditCustomerAdvance"));
 const EditExpense = lazy(() => import("@/pages/EditExpense"));
 const ExpensesList = lazy(() => import("@/pages/ExpensesList"));
+const MyExpenses = lazy(() => import("@/pages/MyExpenses"));
 const CategoryExpenses = lazy(() => import("@/pages/CategoryExpenses"));
 const EmployeeManagement = lazy(() => import("@/pages/EmployeeManagement"));
 const OwnerInvestmentsList = lazy(() => import("@/pages/OwnerInvestmentsList"));
@@ -72,6 +73,11 @@ function AuthenticatedApp() {
   const canAccessVehicles = !!user && (
     user.role === 'admin' || user.role === 'director' || user.role === 'master' ||
     hasAny('vehicles.view', 'vehicles.manage', 'vehicles.photo_control', 'vehicles.audit_log')
+  );
+  const canAccessPersonnel = !!user && (user.role === 'admin' || user.role === 'director' || hasAny('personnel.view', 'personnel.manage'));
+  const canAccessExpensesPage = !!user && (
+    user.role === 'admin' || user.role === 'director' || user.role === 'master' ||
+    hasAny('expenses.view_all', 'expenses.view_own', 'expenses.create')
   );
   const permsReadyForVehicles =
     !user ||
@@ -120,12 +126,16 @@ function AuthenticatedApp() {
     }
 
     // Для роли «Рабочий»: разрешено только список проектов, карточка проекта,
-    // листы реализации и автомобили (если admin выдал vehicles.* права).
+    // листы реализации, автомобили и расходы — если admin выдал
+    // соответствующие персональные оверрайды (vehicles.*, personnel.view,
+    // expenses.*). Без оверрайдов — редирект на /worker.
     if (user?.role === 'worker' &&
         location !== '/worker' &&
         !location.startsWith('/projects/') &&
         !location.startsWith('/implementation-sheets/') &&
         !(canAccessVehicles && location.startsWith('/vehicles')) &&
+        !(canAccessPersonnel && location.startsWith('/personnel')) &&
+        !(canAccessExpensesPage && (location === '/expenses' || location.startsWith('/add-expense') || location.startsWith('/edit-expense'))) &&
         location !== '/' &&
         location !== '/login') {
       console.log('Redirecting worker from', location, 'to /worker');
@@ -164,6 +174,7 @@ function AuthenticatedApp() {
         <Route path="/edit-advance/:projectId/:advanceId" component={(user.role === 'admin' || user.role === 'director') ? EditAdvance : NotFound} />
         <Route path="/edit-customer-advance/:projectId/:advanceId" component={(user.role === 'admin' || user.role === 'director') ? EditCustomerAdvance : NotFound} />
         <Route path="/edit-expense/:projectId/:expenseId" component={EditExpense} />
+        <Route path="/expenses" component={canAccessExpensesPage ? MyExpenses : NotFound} />
         <Route path="/expenses/:projectId" component={ExpensesList} />
         <Route path="/expenses/:projectId/:category" component={CategoryExpenses} />
         <Route path="/owner-investments/:projectId" component={OwnerInvestmentsList} />
@@ -177,8 +188,8 @@ function AuthenticatedApp() {
         <Route path="/test-client" component={TestClient} />
         <Route path="/clients/:id" component={(user.role === 'admin' || user.role === 'director') ? ClientDetail : NotFound} />
         <Route path="/tools" component={(user.role === 'admin' || user.role === 'director' || user.role === 'master') ? Tools : NotFound} />
-        <Route path="/personnel" component={(user.role === 'admin' || user.role === 'director') ? Personnel : NotFound} />
-        <Route path="/personnel/:id" component={(user.role === 'admin' || user.role === 'director') ? PersonnelDetail : NotFound} />
+        <Route path="/personnel" component={canAccessPersonnel ? Personnel : NotFound} />
+        <Route path="/personnel/:id" component={canAccessPersonnel ? PersonnelDetail : NotFound} />
         <Route path="/admin" component={user.role === 'admin' ? AdminPanel : NotFound} />
         <Route path="/permissions" component={user.role === 'admin' ? PermissionsAndAccess : NotFound} />
         <Route path="/projects/:projectId/implementation-sheets" component={ImplementationSheets} />

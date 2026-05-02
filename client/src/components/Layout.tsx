@@ -156,6 +156,8 @@ export function Layout({ children }: LayoutProps) {
   //   персональный оверрайд для рабочего/клиента) видит кнопку «Расходы»,
   //   ведущую на форму создания расхода.
   const canCreateExpense = has('expenses.create');
+  const canViewExpenses = hasAny('expenses.view_all', 'expenses.view_own');
+  const canSeeFinancesTab = canCreateExpense || canViewExpenses || user?.role === 'master';
   const financeItem: NavItem | null =
     user && (user.role === 'admin' || user.role === 'director') ? {
       key: 'finance',
@@ -164,6 +166,7 @@ export function Layout({ children }: LayoutProps) {
       path: '/analytics',
       matches: (l) =>
         l.startsWith('/analytics') ||
+        l.startsWith('/expenses') ||
         l.startsWith('/add-expense') ||
         l.startsWith('/add-revenue') ||
         l.startsWith('/add-advance') ||
@@ -180,20 +183,31 @@ export function Layout({ children }: LayoutProps) {
         l.startsWith('/owner-investments/'),
       testId: 'tab-finance',
     } :
-    user && (user.role === 'master' || canCreateExpense) ? {
+    user && canSeeFinancesTab ? {
       key: 'finance',
       label: 'Расходы',
       icon: Receipt,
-      path: '/add-expense',
-      matches: (l) => l.startsWith('/add-expense') || l.startsWith('/edit-expense'),
+      path: '/expenses',
+      matches: (l) => l === '/expenses' || l.startsWith('/add-expense') || l.startsWith('/edit-expense'),
       testId: 'tab-finance',
     } :
     null;
 
-  // Дополнительные пункты для «Ещё» / боковой панели
+  // Дополнительные пункты для «Ещё» / боковой панели.
+  // Каждый пункт гейтится по правам (источник истины — role_permissions
+  // + user_permission_overrides), а не по роли. Это позволяет, например,
+  // дать «бизнес-ассистенту» (роль master) пункт «Персонал» через
+  // персональный оверрайд personnel.view, не повышая роль.
+  // Большинство пунктов навигации (clients/contractors/tools/admin/permissions)
+  // ведут на маршруты, которые в App.tsx до сих пор гейтятся по роли (admin/director/master).
+  // Чтобы пункт меню не оказался «битой ссылкой» (NotFound), для них сохраняем
+  // ролевой фильтр. Пункт «Персонал» — исключение: маршрут в App.tsx уже открыт
+  // по `personnel.view`, поэтому показываем его всем ролям при наличии права.
   const extraItems: NavItem[] = [];
-  if (user && user.role !== 'client' && user.role !== 'worker') {
-    if (user.role !== 'master') {
+  if (user) {
+    const isStaff = user.role !== 'client' && user.role !== 'worker';
+
+    if (isStaff && has('clients.view')) {
       extraItems.push({
         key: 'clients',
         label: 'Заказчики',
@@ -203,15 +217,17 @@ export function Layout({ children }: LayoutProps) {
         testId: 'menu-customers',
       });
     }
-    extraItems.push({
-      key: 'contractors',
-      label: 'Подрядчики',
-      icon: Users,
-      path: '/contractors',
-      matches: (l) => l.startsWith('/contractors') || l.startsWith('/contractor/'),
-      testId: 'menu-contractors',
-    });
-    if (user.role === 'admin' || user.role === 'director' || user.role === 'master') {
+    if (isStaff && has('contractors.view')) {
+      extraItems.push({
+        key: 'contractors',
+        label: 'Подрядчики',
+        icon: Users,
+        path: '/contractors',
+        matches: (l) => l.startsWith('/contractors') || l.startsWith('/contractor/'),
+        testId: 'menu-contractors',
+      });
+    }
+    if (isStaff && has('tools.view')) {
       extraItems.push({
         key: 'tools',
         label: 'Инструменты',
@@ -221,7 +237,9 @@ export function Layout({ children }: LayoutProps) {
         testId: 'menu-tools',
       });
     }
-    if (user.role === 'admin' || user.role === 'director') {
+    // Персонал — единственный пункт, гейтящийся ТОЛЬКО по праву.
+    // Маршрут /personnel в App.tsx синхронно открыт по personnel.view.
+    if (has('personnel.view')) {
       extraItems.push({
         key: 'personnel',
         label: 'Персонал',
@@ -231,7 +249,7 @@ export function Layout({ children }: LayoutProps) {
         testId: 'menu-personnel',
       });
     }
-    if (user.role === 'admin') {
+    if (isStaff && has('users.view')) {
       extraItems.push({
         key: 'admin',
         label: 'Сотрудники',
@@ -240,6 +258,8 @@ export function Layout({ children }: LayoutProps) {
         matches: (l) => l.startsWith('/admin'),
         testId: 'menu-staff',
       });
+    }
+    if (isStaff && has('users.manage_permissions')) {
       extraItems.push({
         key: 'permissions',
         label: 'Права и доступ',
@@ -250,6 +270,7 @@ export function Layout({ children }: LayoutProps) {
       });
     }
   }
+
 
   // «Автомобили» — доступно ВСЕМ ролям при наличии vehicles.* права
   // (включая персональные оверрайды для роли «Рабочий» / «Клиент»).

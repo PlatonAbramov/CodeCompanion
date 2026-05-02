@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -522,21 +523,32 @@ export default function ProjectDetail() {
     queryKey: ['/api/projects', projectId],
   });
 
-  const isWorker = user?.role === 'worker';
+  const { has, hasAny } = usePermissions();
+
+  // Гейтинг данных по эффективным правам (role + overrides), а не по роли.
+  // Серверные эндпоинты тоже проверяют права, но фронт не должен дёргать
+  // запросы, которые гарантированно вернут 403.
+  const canViewFinances = has('finances.view_summary');
+  const canViewExpenses = hasAny('expenses.view_all', 'expenses.view_own');
+  const canViewDocuments = has('documents.view');
+  const canCreateExpense = has('expenses.create');
+  const canUploadDocs = has('documents.upload');
+  const canDeleteDocs = has('documents.delete');
+  const canViewImplSheets = has('implementation_sheets.view');
 
   const { data: financialSummary } = useQuery<FinancialSummary>({
     queryKey: ['/api/projects', projectId, 'financial-summary'],
-    enabled: !!projectId && !isWorker,
+    enabled: !!projectId && canViewFinances,
   });
 
   const { data: expenses = [] } = useQuery<Expense[]>({
     queryKey: ['/api/projects', projectId, 'expenses'],
-    enabled: !!projectId && !isWorker,
+    enabled: !!projectId && canViewExpenses,
   });
 
   const { data: documents = [] } = useQuery<Document[]>({
     queryKey: ['/api/projects', projectId, 'documents'],
-    enabled: !!projectId && !isWorker,
+    enabled: !!projectId && canViewDocuments,
   });
 
   const { data: clientPayments = [] } = useQuery<Array<{
@@ -787,9 +799,12 @@ export default function ProjectDetail() {
     return <div className="min-h-screen" style={{ background: 'var(--corp-bg)' }} />;
   }
 
-  // Минимальный экран карточки проекта для роли «Рабочий»:
-  // имя, статус и кнопка «Листы реализации». Никаких финансов, документов и т.п.
-  if (user?.role === 'worker') {
+  // Минимальный экран карточки проекта для роли «Рабочий» БЕЗ доп. прав:
+  // имя, статус и кнопка «Листы реализации». Если рабочему через
+  // персональные оверрайды выданы права (expenses.*, documents.*, finances.*),
+  // показываем полноценный экран — переключение делается ниже.
+  const workerHasExtraAccess = canViewFinances || canViewExpenses || canViewDocuments || canCreateExpense || canUploadDocs;
+  if (user?.role === 'worker' && !workerHasExtraAccess) {
     return (
       <div className="min-h-screen pb-24" style={{ background: 'var(--corp-bg)' }}>
         <CorpHeader title={project.name} subtitle={project.location || undefined} onBack={goBack} />
@@ -846,10 +861,12 @@ export default function ProjectDetail() {
   })();
   const desktopRecentExpenses = filteredAndSortedExpenses.slice(0, 5);
 
+  // Состав вкладок зависит от эффективных прав. «Обзор» / «Команда» / «Хронология»
+  // показываем всем; «Расходы» — при canViewExpenses; «Документы» — при canViewDocuments.
   const tabsConfig = [
     { key: 'overview' as const, label: t('prDet_tabOverview'), count: undefined as number | undefined },
-    { key: 'expenses' as const, label: t('expenses'), count: expenses.length },
-    { key: 'documents' as const, label: t('documents'), count: documents.length },
+    ...(canViewExpenses ? [{ key: 'expenses' as const, label: t('expenses'), count: expenses.length }] : []),
+    ...(canViewDocuments ? [{ key: 'documents' as const, label: t('documents'), count: documents.length }] : []),
     { key: 'team' as const, label: t('prDet_teamLabel'), count: uniqueUsers.length },
     { key: 'timeline' as const, label: t('prDet_timelineLabel'), count: undefined },
   ];
@@ -972,7 +989,7 @@ export default function ProjectDetail() {
             <Bell size={16} />
           </button>
 
-          {user?.role !== 'client' && (
+          {canCreateExpense && (
             <button
               type="button"
               onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
@@ -1088,7 +1105,7 @@ export default function ProjectDetail() {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {user?.role !== 'client' && (
+            {canCreateExpense && (
               <button
                 type="button"
                 onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
@@ -1413,7 +1430,7 @@ export default function ProjectDetail() {
 
         {/* === MOBILE 2x2 ACTION GRID (lg:hidden) ================ */}
         <div className="lg:hidden grid grid-cols-2 gap-2">
-          {user?.role !== 'client' && (
+          {canCreateExpense && (
             <MobileActionTile
               onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
               icon={<Plus size={16} />}
@@ -1422,13 +1439,15 @@ export default function ProjectDetail() {
               testId="button-add-expense-mobile"
             />
           )}
-          <MobileActionTile
-            onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
-            icon={<FileText size={16} />}
-            label={t('prDet_implSheetShort')}
-            variant="ghost"
-            testId="button-impl-sheets-mobile"
-          />
+          {canViewImplSheets && (
+            <MobileActionTile
+              onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
+              icon={<FileText size={16} />}
+              label={t('prDet_implSheetShort')}
+              variant="ghost"
+              testId="button-impl-sheets-mobile"
+            />
+          )}
           {isAdminOrDirector && (
             <MobileActionTile
               onClick={() => setIsAssignClientModalOpen(true)}
@@ -1463,7 +1482,7 @@ export default function ProjectDetail() {
 
         {/* === DESKTOP ACTION BUTTONS (hidden lg:flex) ============ */}
         <div className="hidden lg:flex flex-col gap-2">
-          {user?.role !== 'client' && (
+          {canCreateExpense && (
             <button
               type="button"
               onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
@@ -1476,16 +1495,18 @@ export default function ProjectDetail() {
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
-            className="inline-flex items-center justify-center gap-2 h-11 px-4 text-[13px] font-semibold transition-colors"
-            style={GHOST_BTN}
-            data-testid="button-implementation-sheets"
-          >
-            <FileText size={16} style={{ color: 'var(--corp-pos)' }} />
-            {t('prDet_implSheetsTitle')}
-          </button>
+          {canViewImplSheets && (
+            <button
+              type="button"
+              onClick={() => setLocation(`/projects/${projectId}/implementation-sheets`)}
+              className="inline-flex items-center justify-center gap-2 h-11 px-4 text-[13px] font-semibold transition-colors"
+              style={GHOST_BTN}
+              data-testid="button-implementation-sheets"
+            >
+              <FileText size={16} style={{ color: 'var(--corp-pos)' }} />
+              {t('prDet_implSheetsTitle')}
+            </button>
+          )}
 
           {isAdminOrDirector && (
             <>
@@ -1775,7 +1796,8 @@ export default function ProjectDetail() {
           </div>
         )}
 
-        {/* Project Documents */}
+        {/* Project Documents — гейтим всю секцию по documents.view */}
+        {canViewDocuments && (
         <div className="p-4" style={SECTION_STYLE}>
           <Collapsible open={isDocumentsOpen} onOpenChange={setIsDocumentsOpen}>
             <CollapsibleTrigger asChild>
@@ -1789,7 +1811,7 @@ export default function ProjectDetail() {
 
             <CollapsibleContent>
               <div className="mt-3">
-                {isAdminOrDirector && (
+                {canUploadDocs && (
                   <div className="mb-3 flex justify-end">
                     <FileUploader
                       onUpload={handleFilesUpload}
@@ -1854,7 +1876,7 @@ export default function ProjectDetail() {
                               <Upload size={15} />
                             </button>
                           )}
-                          {isAdminOrDirector && (
+                          {canDeleteDocs && (
                             <button
                               type="button"
                               onClick={() => handleDeleteDocument(doc.id)}
@@ -1874,9 +1896,10 @@ export default function ProjectDetail() {
             </CollapsibleContent>
           </Collapsible>
         </div>
+        )}
 
-        {/* Project Expenses */}
-        {isAdminOrDirector && (
+        {/* Project Expenses — гейтим по expenses.view_all/own */}
+        {canViewExpenses && (
           <div className="p-4" style={SECTION_STYLE}>
             <Collapsible open={isExpensesOpen} onOpenChange={setIsExpensesOpen}>
               <CollapsibleTrigger asChild>
@@ -1896,14 +1919,16 @@ export default function ProjectDetail() {
               <CollapsibleContent>
                 <div className="mt-3">
                   <div className="mb-3 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
-                      className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
-                      style={PRIMARY_BTN}
-                    >
-                      <Plus size={14} /> {t('addExpense')}
-                    </button>
+                    {canCreateExpense && (
+                      <button
+                        type="button"
+                        onClick={() => setLocation(`/add-expense?projectId=${projectId}`)}
+                        className="inline-flex items-center gap-1 h-9 px-3 text-[12px] font-semibold"
+                        style={PRIMARY_BTN}
+                      >
+                        <Plus size={14} /> {t('addExpense')}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setLocation(`/expenses/${projectId}`)}
