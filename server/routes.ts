@@ -171,11 +171,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/owner-investments", denyWorker);
   app.use("/api/financial-overview", denyWorker);
   app.use("/api/dashboard-stats", denyWorker);
-  app.use("/api/contractors", denyWorker);
-  app.use("/api/clients", denyWorker);
+  // /api/contractors — БЕЗ denyWorker. На каждом endpoint стоит
+  // requireAnyPermissionMiddleware("contractors.view","contractors.manage"),
+  // что позволяет admin/director, а также worker/client с персональным оверрайдом.
+  // /api/clients — аналогично, с requireAnyPermissionMiddleware("clients.view","clients.manage").
   // /api/personnel — БЕЗ denyWorker. На каждом endpoint стоит
   // requirePermissionMiddleware("personnel.view"|"personnel.manage").
-  app.use("/api/tools", denyWorker);
+  // /api/tools — БЕЗ denyWorker. requireAnyPermissionMiddleware("tools.view","tools.manage").
   app.use("/api/employees", denyWorker);
   app.use("/api/analytics", denyWorker);
   app.use("/api/history", denyWorker);
@@ -1031,7 +1033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/expenses/:id", requireAuth, async (req, res) => {
+  app.put("/api/expenses/:id", requireAuth, requireAnyPermissionMiddleware("expenses.create", "expenses.delete_any"), async (req, res) => {
     try {
       const user = req.session.user!;
       const existing = await storage.getExpenseById(req.params.id);
@@ -1121,7 +1123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/expenses/:id", requireAuth, async (req, res) => {
+  app.delete("/api/expenses/:id", requireAuth, requireAnyPermissionMiddleware("expenses.delete_own", "expenses.delete_any"), async (req, res) => {
     try {
       const user = req.session.user!;
       // Get the expense to find its project ID and owner
@@ -1182,7 +1184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Owner Investments routes
-  app.get("/api/projects/:projectId/owner-investments", requireAuth, async (req, res) => {
+  app.get("/api/projects/:projectId/owner-investments", requireAuth, requirePermissionMiddleware("owner_investments.manage"), async (req, res) => {
     try {
       const ownerInvestments = await storage.getProjectOwnerInvestments(req.params.projectId);
       res.json(ownerInvestments);
@@ -1192,7 +1194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/owner-investments/:id", requireAuth, async (req, res) => {
+  app.get("/api/owner-investments/:id", requireAuth, requirePermissionMiddleware("owner_investments.manage"), async (req, res) => {
     try {
       const ownerInvestment = await storage.getOwnerInvestment(req.params.id);
       if (!ownerInvestment) {
@@ -1205,7 +1207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/projects/:projectId/owner-investments", requireAuth, async (req, res) => {
+  app.post("/api/projects/:projectId/owner-investments", requireAuth, requirePermissionMiddleware("owner_investments.manage"), async (req, res) => {
     try {
       const validatedData = insertOwnerInvestmentSchema.parse({
         ...req.body,
@@ -1237,7 +1239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/owner-investments/:id", requireAuth, async (req, res) => {
+  app.put("/api/owner-investments/:id", requireAuth, requirePermissionMiddleware("owner_investments.manage"), async (req, res) => {
     try {
       const oldInvestment = await storage.getOwnerInvestment(req.params.id);
       const validatedData = insertOwnerInvestmentSchema.partial().parse(req.body);
@@ -1267,7 +1269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/owner-investments/:id", requireAuth, async (req, res) => {
+  app.delete("/api/owner-investments/:id", requireAuth, requirePermissionMiddleware("owner_investments.manage"), async (req, res) => {
     try {
       // Only admin and director can delete owner investments
       const userRole = req.session.user!.role;
@@ -1434,7 +1436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Contractors routes
-  app.get("/api/contractors", requireAuth, async (req, res) => {
+  app.get("/api/contractors", requireAuth, requireAnyPermissionMiddleware("contractors.view", "contractors.manage"), async (req, res) => {
     try {
       const cacheKey = cacheKeys.contractors();
       
@@ -1456,7 +1458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contractors/:id", requireAuth, async (req, res) => {
+  app.get("/api/contractors/:id", requireAuth, requireAnyPermissionMiddleware("contractors.view", "contractors.manage"), async (req, res) => {
     try {
       const contractor = await storage.getContractor(req.params.id);
       if (!contractor) {
@@ -1470,7 +1472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get contractor expenses
-  app.get("/api/contractors/:id/expenses", requireAuth, async (req, res) => {
+  app.get("/api/contractors/:id/expenses", requireAuth, requireAnyPermissionMiddleware("contractors.view", "contractors.manage"), async (req, res) => {
     try {
       const expenses = await storage.getContractorExpenses(req.params.id);
       res.json(expenses);
@@ -1481,7 +1483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get contractor statistics
-  app.get("/api/contractors/:id/stats", requireAuth, async (req, res) => {
+  app.get("/api/contractors/:id/stats", requireAuth, requireAnyPermissionMiddleware("contractors.view", "contractors.manage"), async (req, res) => {
     try {
       const stats = await storage.getContractorStats(req.params.id);
       res.json(stats);
@@ -1540,7 +1542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contractors/:contractorId/projects", requireAuth, async (req, res) => {
+  app.get("/api/contractors/:contractorId/projects", requireAuth, requireAnyPermissionMiddleware("contractors.view", "contractors.manage"), async (req, res) => {
     try {
       const projects = await storage.getContractorProjects(req.params.contractorId);
       res.json(projects);
@@ -1618,7 +1620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Clients routes
-  app.get("/api/clients", requireAuth, async (req, res) => {
+  app.get("/api/clients", requireAuth, requireAnyPermissionMiddleware("clients.view", "clients.manage"), async (req, res) => {
     try {
       const cacheKey = cacheKeys.clients();
       
@@ -1646,6 +1648,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { clientId } = req.params;
       const userId = req.session.user?.id;
       const userRole = req.session.user?.role;
+      
+      // Для не-клиентов гейтим стандартными правами clients.view/manage.
+      // Для роли client — пускаем дальше, далее идёт собственная проверка
+      // принадлежности этому клиенту.
+      if (userRole !== 'client') {
+        const { userHasPermission } = await import("./lib/permissions");
+        const ok =
+          (await userHasPermission(req, "clients.view")) ||
+          (await userHasPermission(req, "clients.manage"));
+        if (!ok) return res.status(403).json({ error: "Forbidden" });
+      }
       
       // For client role, find their client record by user ID
       if (userRole === 'client') {
@@ -1695,7 +1708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get deleted clients
-  app.get("/api/clients/deleted", requireAuth, async (req, res) => {
+  app.get("/api/clients/deleted", requireAuth, requirePermissionMiddleware("clients.manage"), async (req, res) => {
     try {
       const deletedClients = await storage.getDeletedClients();
       res.json(deletedClients);
@@ -1720,7 +1733,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:id", requireAuth, async (req, res) => {
+  app.get("/api/clients/:id", requireAuth, requireAnyPermissionMiddleware("clients.view", "clients.manage"), async (req, res) => {
     try {
       const client = await storage.getClient(req.params.id);
       if (!client) {
@@ -1734,7 +1747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get client statistics
-  app.get("/api/clients/:id/stats", requireAuth, async (req, res) => {
+  app.get("/api/clients/:id/stats", requireAuth, requireAnyPermissionMiddleware("clients.view", "clients.manage"), async (req, res) => {
     try {
       const stats = await storage.getClientStats(req.params.id);
       res.json(stats);
@@ -1745,7 +1758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get client payments
-  app.get("/api/clients/:id/payments", requireAuth, async (req, res) => {
+  app.get("/api/clients/:id/payments", requireAuth, requireAnyPermissionMiddleware("clients.view", "clients.manage"), async (req, res) => {
     try {
       const payments = await storage.getClientPayments(req.params.id);
       res.json(payments);
@@ -1756,7 +1769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client employees endpoints
-  app.get("/api/clients/:id/employees", requireAuth, async (req, res) => {
+  app.get("/api/clients/:id/employees", requireAuth, requireAnyPermissionMiddleware("clients.view", "clients.manage"), async (req, res) => {
     try {
       const employees = await storage.getClientEmployees(req.params.id);
       res.json(employees);
@@ -1800,7 +1813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get client projects
-  app.get("/api/clients/:id/projects", requireAuth, async (req, res) => {
+  app.get("/api/clients/:id/projects", requireAuth, requireAnyPermissionMiddleware("clients.view", "clients.manage"), async (req, res) => {
     try {
       const projects = await storage.getClientProjects(req.params.id);
       res.json(projects);
@@ -2003,7 +2016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tools routes
-  app.get("/api/tools", requireAuth, async (req, res) => {
+  app.get("/api/tools", requireAuth, requireAnyPermissionMiddleware("tools.view", "tools.manage"), async (req, res) => {
     try {
       const tools = await storage.getAllTools();
       res.json(tools);
@@ -2013,7 +2026,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tools/:id", requireAuth, async (req, res) => {
+  app.get("/api/tools/:id", requireAuth, requireAnyPermissionMiddleware("tools.view", "tools.manage"), async (req, res) => {
     try {
       const tool = await storage.getTool(req.params.id);
       if (!tool) {
@@ -2061,7 +2074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tool movements routes
-  app.get("/api/tools/:id/movements", requireAuth, async (req, res) => {
+  app.get("/api/tools/:id/movements", requireAuth, requireAnyPermissionMiddleware("tools.view", "tools.manage"), async (req, res) => {
     try {
       const movements = await storage.getToolMovements(req.params.id);
       res.json(movements);
@@ -2670,7 +2683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Implementation sheets endpoints
   
   // Get all implementation sheets for a project
-  app.get("/api/projects/:projectId/implementation-sheets", requireAuth, async (req, res) => {
+  app.get("/api/projects/:projectId/implementation-sheets", requireAuth, requireAnyPermissionMiddleware("implementation_sheets.view", "implementation_sheets.manage"), async (req, res) => {
     try {
       const user = req.session.user!;
       const { projectId } = req.params;
@@ -2726,7 +2739,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single implementation sheet with items
-  app.get("/api/implementation-sheets/:sheetId", requireAuth, async (req, res) => {
+  app.get("/api/implementation-sheets/:sheetId", requireAuth, requireAnyPermissionMiddleware("implementation_sheets.view", "implementation_sheets.manage"), async (req, res) => {
     try {
       const { sheetId } = req.params;
       
@@ -2960,15 +2973,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create implementation sheet
-  app.post("/api/projects/:projectId/implementation-sheets", requireAuth, async (req, res) => {
+  app.post("/api/projects/:projectId/implementation-sheets", requireAuth, requirePermissionMiddleware("implementation_sheets.manage"), async (req, res) => {
     try {
       const { projectId } = req.params;
-      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
-      
-      if (!isAdminOrDirector) {
-        return res.status(403).json({ error: "Только администраторы и директора могут создавать листы реализации" });
-      }
-      
+      // Гейт прав уже выполнен middleware'ом implementation_sheets.manage.
       const sheet = await storage.createImplementationSheet({
         ...req.body,
         projectId,
@@ -2983,15 +2991,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update implementation sheet
-  app.put("/api/implementation-sheets/:sheetId", requireAuth, async (req, res) => {
+  app.put("/api/implementation-sheets/:sheetId", requireAuth, requirePermissionMiddleware("implementation_sheets.manage"), async (req, res) => {
     try {
       const { sheetId } = req.params;
-      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
-      
-      if (!isAdminOrDirector) {
-        return res.status(403).json({ error: "Только администраторы и директора могут редактировать листы реализации" });
-      }
-      
+      // Гейт прав уже выполнен middleware'ом implementation_sheets.manage.
       const sheet = await storage.updateImplementationSheet(sheetId, req.body);
       res.json(sheet);
     } catch (error) {
@@ -3001,15 +3004,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete implementation sheet
-  app.delete("/api/implementation-sheets/:sheetId", requireAuth, async (req, res) => {
+  app.delete("/api/implementation-sheets/:sheetId", requireAuth, requirePermissionMiddleware("implementation_sheets.manage"), async (req, res) => {
     try {
       const { sheetId } = req.params;
-      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
-      
-      if (!isAdminOrDirector) {
-        return res.status(403).json({ error: "Только администраторы и директора могут удалять листы реализации" });
-      }
-      
+      // Гейт прав уже выполнен middleware'ом implementation_sheets.manage.
       await storage.deleteImplementationSheet(sheetId);
       res.json({ success: true });
     } catch (error) {
@@ -3019,15 +3017,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create implementation item
-  app.post("/api/implementation-sheets/:sheetId/items", requireAuth, async (req, res) => {
+  app.post("/api/implementation-sheets/:sheetId/items", requireAuth, requirePermissionMiddleware("implementation_sheets.manage"), async (req, res) => {
     try {
       const { sheetId } = req.params;
-      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
-      
-      if (!isAdminOrDirector) {
-        return res.status(403).json({ error: "Только администраторы и директора могут добавлять позиции" });
-      }
-      
+      // Гейт прав уже выполнен middleware'ом implementation_sheets.manage.
       const item = await storage.createImplementationItem({
         ...req.body,
         sheetId
@@ -3041,7 +3034,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update implementation item
-  app.put("/api/implementation-items/:itemId", requireAuth, async (req, res) => {
+  app.put("/api/implementation-items/:itemId", requireAuth, requirePermissionMiddleware("implementation_sheets.manage"), async (req, res) => {
     try {
       const { itemId } = req.params;
       
@@ -3094,15 +3087,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete implementation item
-  app.delete("/api/implementation-items/:itemId", requireAuth, async (req, res) => {
+  app.delete("/api/implementation-items/:itemId", requireAuth, requirePermissionMiddleware("implementation_sheets.manage"), async (req, res) => {
     try {
       const { itemId } = req.params;
-      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
-      
-      if (!isAdminOrDirector) {
-        return res.status(403).json({ error: "Только администраторы и директора могут удалять позиции" });
-      }
-      
+      // Гейт прав уже выполнен middleware'ом implementation_sheets.manage.
       await storage.deleteImplementationItem(itemId);
       res.json({ success: true });
     } catch (error) {
@@ -3112,7 +3100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get photos for implementation item
-  app.get("/api/implementation-items/:itemId/photos", requireAuth, async (req, res) => {
+  app.get("/api/implementation-items/:itemId/photos", requireAuth, requireAnyPermissionMiddleware("implementation_sheets.view", "implementation_sheets.manage"), async (req, res) => {
     try {
       const user = req.session.user!;
       const { itemId } = req.params;
@@ -3156,7 +3144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload photo for implementation item
-  app.post("/api/implementation-items/:itemId/photos", requireAuth, async (req, res) => {
+  app.post("/api/implementation-items/:itemId/photos", requireAuth, requirePermissionMiddleware("implementation_photos.upload"), async (req, res) => {
     try {
       const { itemId } = req.params;
       const { photoUrl, thumbnailUrl, caption, visibleToClient } = req.body;
@@ -3199,7 +3187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete photo
-  app.delete("/api/implementation-photos/:photoId", requireAuth, async (req, res) => {
+  app.delete("/api/implementation-photos/:photoId", requireAuth, requireAnyPermissionMiddleware("implementation_photos.delete_own", "implementation_photos.delete_any"), async (req, res) => {
     try {
       const { photoId } = req.params;
       const currentUser = req.session.user!;
@@ -3248,15 +3236,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get change logs for implementation item
-  app.get("/api/implementation-items/:itemId/logs", requireAuth, async (req, res) => {
+  app.get("/api/implementation-items/:itemId/logs", requireAuth, requireAnyPermissionMiddleware("implementation_sheets.view", "implementation_sheets.manage"), async (req, res) => {
     try {
       const { itemId } = req.params;
-      const isAdminOrDirector = req.session.user!.role === 'admin' || req.session.user!.role === 'director';
-      
-      if (!isAdminOrDirector) {
-        return res.status(403).json({ error: "Только администраторы и директора могут просматривать журнал изменений" });
-      }
-      
+      // Гейт прав уже выполнен middleware'ом implementation_sheets.view/manage.
       const logs = await storage.getImplementationChangeLogs(itemId);
       res.json(logs);
     } catch (error) {
@@ -3266,7 +3249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get comments for implementation item
-  app.get("/api/implementation-items/:itemId/comments", requireAuth, async (req, res) => {
+  app.get("/api/implementation-items/:itemId/comments", requireAuth, requireAnyPermissionMiddleware("implementation_sheets.view", "implementation_sheets.manage"), async (req, res) => {
     try {
       const { itemId } = req.params;
       const user = req.session.user!;
@@ -3328,7 +3311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add comment to implementation item
-  app.post("/api/implementation-items/:itemId/comments", requireAuth, async (req, res) => {
+  app.post("/api/implementation-items/:itemId/comments", requireAuth, requireAnyPermissionMiddleware("implementation_sheets.view", "implementation_sheets.manage"), async (req, res) => {
     try {
       const { itemId } = req.params;
       const { text, visibleToClient } = req.body;
@@ -3538,7 +3521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // === NEW FEATURES API ENDPOINTS ===
   
   // 1. AUDIT LOGS (История изменений)
-  app.get("/api/audit-logs/project/:projectId", requireAuth, async (req, res) => {
+  app.get("/api/audit-logs/project/:projectId", requireAuth, requirePermissionMiddleware("system.view_history"), async (req, res) => {
     try {
       const { projectId } = req.params;
       const { entityType, userId, startDate, endDate } = req.query;
@@ -3557,7 +3540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/audit-logs/:entityType/:entityId", requireAuth, async (req, res) => {
+  app.get("/api/audit-logs/:entityType/:entityId", requireAuth, requirePermissionMiddleware("system.view_history"), async (req, res) => {
     try {
       const { entityType, entityId } = req.params;
       const logs = await storage.getEntityAuditLogs(entityType, entityId);
@@ -3987,7 +3970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Назначение / снятие роли «Водитель» (только директор/админ).
   // При снятии роли сначала проверяем, не закреплён ли сотрудник за активным авто.
-  app.patch("/api/personnel/:id/driver-role", requireAuth, async (req: any, res) => {
+  app.patch("/api/personnel/:id/driver-role", requireAuth, requirePermissionMiddleware("personnel.manage"), async (req: any, res) => {
     try {
       const u = req.session?.user;
       if (!u) return res.status(401).json({ error: "Unauthorized" });
@@ -4185,7 +4168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Voice Assistant Routes
-  app.post("/api/voice/parse-expense", requireAuth, async (req, res) => {
+  app.post("/api/voice/parse-expense", requireAuth, requirePermissionMiddleware("expenses.create"), async (req, res) => {
     try {
       const { transcript, projects, currentProjectId } = req.body;
       

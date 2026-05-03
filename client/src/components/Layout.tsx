@@ -159,7 +159,7 @@ export function Layout({ children }: LayoutProps) {
   const canViewExpenses = hasAny('expenses.view_all', 'expenses.view_own');
   const canSeeFinancesTab = canCreateExpense || canViewExpenses || user?.role === 'master';
   const financeItem: NavItem | null =
-    user && (user.role === 'admin' || user.role === 'director') ? {
+    user && hasAny('system.view_analytics', 'finances.view_overview') ? {
       key: 'finance',
       label: 'Финансы',
       icon: TrendingUp,
