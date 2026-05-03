@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -54,6 +55,7 @@ function getRecordWordRu(count: number): 'recordSingular' | 'recordFew' | 'recor
 export default function CategoryExpenses() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
+  const { has } = usePermissions();
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -166,7 +168,15 @@ export default function CategoryExpenses() {
             </h3>
             <div className="flex flex-col gap-2">
               {expenses.map((expense) => {
-                const canEdit = isAdminOrDirector || expense.user.id === user?.id;
+                const isOwn = expense.user.id === user?.id;
+                // Право удалять собственный / чужие расход.
+                const canDeleteOwn = has('expenses.delete_own');
+                const canDeleteAny = has('expenses.delete_any');
+                const canDelete = canDeleteAny || (isOwn && canDeleteOwn);
+                // Меню (Edit / Delete / View receipt) показываем, если есть
+                // право редактировать (для admin/director или владельца расхода)
+                // или удалить.
+                const canEdit = isAdminOrDirector || isOwn || canDelete;
                 return (
                   <div
                     key={expense.id}
@@ -210,7 +220,7 @@ export default function CategoryExpenses() {
                                   <Eye size={14} className="mr-2" /> {t('viewReceiptAction')}
                                 </DropdownMenuItem>
                               )}
-                              {isAdminOrDirector && (
+                              {canDelete && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <AlertDialog>

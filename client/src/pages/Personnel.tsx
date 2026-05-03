@@ -14,6 +14,7 @@ import { differenceInDays, differenceInYears, differenceInMonths } from "date-fn
 import { useLanguage } from "@/components/LanguageProvider";
 import { fmtDate, fmtNumber } from "@/lib/locale";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { PersonnelForm } from "@/components/PersonnelForm";
 import { CorpEmpty } from "@/components/corp-ui";
 
@@ -57,8 +58,14 @@ export function Personnel() {
   const [showForm, setShowForm] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Personnel | null>(null);
 
-  const isAdmin = user?.role === 'admin';
-  const canView = user?.role === 'admin' || user?.role === 'director';
+  const { has, hasAny } = usePermissions();
+  // Источник правды — права. Любая роль с personnel.view/personnel.manage
+  // (через персональный оверрайд) получает доступ к разделу.
+  const canView = hasAny('personnel.view', 'personnel.manage');
+  const canManage = has('personnel.manage');
+  // Сохраняем для совместимости с местами, где раньше был isAdmin —
+  // теперь это «может управлять персоналом».
+  const isAdmin = canManage;
 
   const { data: personnel = [], isLoading } = useQuery<Personnel[]>({
     queryKey: ["/api/personnel"],
